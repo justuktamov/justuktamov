@@ -20,3 +20,11 @@
 
 ## Keyingi qadamlar
 Backend (auth OTP, rasm yuklash, qidiruv/filtr), to'lov (Click/Payme), moderatsiya, push xabarlar; mobil ilova (Flutter yoki React Native).
+
+## Dizayn tizimi (v3)
+- **Shrift:** bitta oila — Inter (Google Fonts), tizim shrifti zaxira. Serif yo'q.
+- **O'lchamlar:** Display 28/34 · Title 22/28 · Headline 17/24 · Body 15/22 · Callout 14/20 · Caption 12/16. Narxlar va raqamlar — tabular raqamlar.
+- **Ranglar:** fon #F4F4F1, kartalar oq, matn #121815 / #4B5550 / #8A928E, brend yashil #1E4D3A, TOP oltin #94650F.
+- **Shakl:** radius 12 (tugma, input) · 16 (karta, guruh) · 24 (sheet); gutter 20px; soyalar faqat suzuvchi elementlarda.
+- **O'zbek imlosi:** oʻ/gʻ uchun U+02BB, tutuq belgisi uchun U+02BC avtomatik qo'yiladi.
+- **Komponentlar:** guruhlangan ro'yxat (iOS uslubi), segment boshqaruv, pastki sheet, pastda qotirilgan CTA.
