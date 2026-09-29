@@ -1,4 +1,4 @@
-# Do'stim — uy hayvonlari bozori (UI/UX konsepti)
+# Do'stim — uy hayvonlari bozori (UI/UX konsepti, kattalar auditoriyasi 20-60 yosh, iPhone 17 Pro Max maketi)
 
 **Model:** e'lon joylash bepul; faqat TOP ga chiqarish pullik (1/3/7 kun). Ro'yxatdan o'tmasdan ko'rish mumkin, e'lon berish/aloqa uchun telefon orqali kirish.
 
