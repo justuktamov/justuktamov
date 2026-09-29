@@ -28,3 +28,13 @@ Backend (auth OTP, rasm yuklash, qidiruv/filtr), to'lov (Click/Payme), moderatsi
 - **Shakl:** radius 12 (tugma, input) · 16 (karta, guruh) · 24 (sheet); gutter 20px; soyalar faqat suzuvchi elementlarda.
 - **O'zbek imlosi:** oʻ/gʻ uchun U+02BB, tutuq belgisi uchun U+02BC avtomatik qo'yiladi.
 - **Komponentlar:** guruhlangan ro'yxat (iOS uslubi), segment boshqaruv, pastki sheet, pastda qotirilgan CTA.
+
+## Prototip imkoniyatlari (v4)
+- **Barcha tugmalar ishlaydi:** hudud, qidiruv, filtr/saralash, kategoriya, saqlash, ulashish, qo'ng'iroq, shikoyat, sotuvchi sahifasi, chat (xabar yuborish), bildirishnomalar.
+- **Kirish:** telefon raqam + SMS kod (prototipda istalgan 4 raqam). Mehmon rejimida ko'rish mumkin; e'lon berish va yozish uchun kirish so'raladi.
+- **E'lon berish:** kamera/galereyadan haqiqiy rasm tanlash, 3 qadam, tekshiruv, tahrirlash.
+- **Mening e'lonlarim:** faol/sotilgan, TOP ga chiqarish, tahrirlash, sotildi deb belgilash, o'chirish.
+- **TOP to'lov:** tarif, to'lov usuli, to'lov jarayoni, to'lovlar tarixi.
+- **Sozlamalar:** tungi rejim (tizim/yorug'/tungi), til (lotin/kirill), bildirishnomalar, yordam markazi (FAQ + qo'llab-quvvatlash chati), profilni tahrirlash, ilova haqida, chiqish.
+- **Scroll:** sichqoncha bilan sudrab aylantirish (ekranlar, kategoriyalar, TOP karusel, rasm galereyasi).
+- **Rasmlar:** Unsplash fotosuratlari brauzerda yuklanadi; yuklanmasa neytral zaxira ko'rinish chiqadi.
