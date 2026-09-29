@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the standalone prototype.
 
-Inlines every photo in prototype/img/ into src/app.html as a data URL so the
+Inlines every photo in prototype/img/ into src/app.html as base64 JPEG bytes so the
 resulting index.html works offline and inside sandboxed viewers that block
 external or blob: images.
 
@@ -18,7 +18,7 @@ src = (ROOT / "src" / "app.html").read_text(encoding="utf-8")
 assert MARK in src, "image placeholder not found in src/app.html"
 
 images = {
-    p.stem: "data:image/jpeg;base64," + base64.b64encode(p.read_bytes()).decode()
+    p.stem: base64.b64encode(p.read_bytes()).decode()
     for p in sorted((ROOT / "img").glob("*.jpg"))
 }
 out = src.replace(MARK, json.dumps(images, separators=(",", ":")))

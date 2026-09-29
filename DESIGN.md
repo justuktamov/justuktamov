@@ -37,7 +37,7 @@ Backend (auth OTP, rasm yuklash, qidiruv/filtr), to'lov (Click/Payme), moderatsi
 - **TOP to'lov:** tarif, to'lov usuli, to'lov jarayoni, to'lovlar tarixi.
 - **Sozlamalar:** tungi rejim (tizim/yorug'/tungi), til (lotin/kirill), bildirishnomalar, yordam markazi (FAQ + qo'llab-quvvatlash chati), profilni tahrirlash, ilova haqida, chiqish.
 - **Scroll:** sichqoncha bilan sudrab aylantirish (ekranlar, kategoriyalar, TOP karusel, rasm galereyasi).
-- **Rasmlar:** namuna fotosuratlar `index.html` ichiga joylangan (internet kerak emas), foydalanuvchi yuklagan rasmlar siqilib data URL sifatida saqlanadi.
+- **Rasmlar:** namuna fotosuratlar `index.html` ichiga joylangan va `<canvas>` ga chiziladi, shuning uchun rasm havolalarini bloklaydigan (CSP) oynalarda ham ko'rinadi. Foydalanuvchi yuklagan rasmlar 1080 px gacha kichraytirilib xotirada saqlanadi.
 - **Maket:** iPhone 17 Pro Max, ingichka ramka (440×956 ekran).
 
 ## Tuzilishi

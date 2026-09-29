@@ -119,7 +119,8 @@ button.cell:active,a.cell:active{background:var(--fill)}
 
 /* photos */
 .photo{position:relative;overflow:hidden;background:linear-gradient(160deg,var(--ph-a),var(--ph-b))}
-.photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;-webkit-user-drag:none;user-select:none}
+.photo canvas{position:absolute;inset:0;width:100%;height:100%;display:block;opacity:0;transition:opacity .2s}
+.photo canvas.painted{opacity:1}
 .photo .ph-fb{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-3)}
 .photo .ph-fb div{display:flex;flex-direction:column;align-items:center;gap:6px;font:var(--t-caption)}
 
@@ -343,11 +344,33 @@ const ic=(n,s=22,o={})=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fil
 const IMG=/*@IMAGES@*/{};
 const SAMPLE={dog:['shepherd'],cat:['kitten','cat_yarn'],bird:['macaw','duckling'],fish:[],rodent:['hedgehog'],reptile:['chameleon'],farm:['sheep','goat','horses','calf']};
 const CAT_LABEL={dog:'It',cat:'Mushuk',bird:'Qush',fish:'Baliq',rodent:'Mayda hayvon',reptile:'Sudraluvchi',farm:'Chorva'};
-const imgSrc=k=>!k?'':/^(data:|blob:|https?:)/.test(k)?k:(IMG[k]||'');
-function photoTag(k,c,cls='',style=''){const src=imgSrc(k);
-  return `<div class="photo ${cls}" style="${style}"><div class="ph-fb"><div>${ic('paw',28)}${CAT_LABEL[c]||''}</div></div>`+
-   (src?`<img alt="" draggable="false" src="${src}" onerror="this.remove()">`:'')+`</div>`;
+/* Photos are painted onto <canvas> instead of <img>: sandboxed previews often block
+   every image URL (external, data: and blob:), but decoding bytes with
+   createImageBitmap and drawing them is not an image load, so it always works. */
+const BMP={};let upSeq=0;
+function b64bytes(b64){const bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u}
+function bitmap(k){
+  if(BMP[k])return BMP[k];
+  if(IMG[k])return BMP[k]=createImageBitmap(new Blob([b64bytes(IMG[k])],{type:'image/jpeg'})).catch(()=>null);
+  return Promise.resolve(null);
 }
+function photoTag(k,c,cls='',style=''){
+  return `<div class="photo ${cls}" style="${style}"><div class="ph-fb"><div>${ic('paw',28)}${CAT_LABEL[c]||''}</div></div>`+
+   (k&&(IMG[k]||BMP[k])?`<canvas data-k="${k}"></canvas>`:'')+`</div>`;
+}
+// paint every visible, not yet painted canvas (object-fit: cover done by hand)
+function paintPhotos(){
+  document.querySelectorAll('.photo canvas:not(.painted)').forEach(cv=>{
+    const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h||cv.dataset.busy)return;cv.dataset.busy=1;
+    bitmap(cv.dataset.k).then(bm=>{delete cv.dataset.busy;if(!bm)return;
+      const d=Math.min(2,devicePixelRatio||1);cv.width=Math.round(w*d);cv.height=Math.round(h*d);
+      const s=Math.max(cv.width/bm.width,cv.height/bm.height),sw=cv.width/s,sh=cv.height/s;
+      const ctx=cv.getContext('2d');ctx.imageSmoothingQuality='high';
+      ctx.drawImage(bm,(bm.width-sw)/2,(bm.height-sh)/2,sw,sh,0,0,cv.width,cv.height);cv.classList.add('painted')});
+  });
+}
+let paintQ=0;const schedulePaint=()=>{if(!paintQ)paintQ=requestAnimationFrame(()=>{paintQ=0;paintPhotos()})};
+addEventListener('scroll',schedulePaint,true);
 
 /* =====================================================================
    DATA / STATE
@@ -419,7 +442,7 @@ function typeset(root){
   root.querySelectorAll('[placeholder]').forEach(e=>{const v=tx(e.placeholder);if(v!==e.placeholder)e.placeholder=v});
 }
 const OBS={childList:true,subtree:true,characterData:true};
-const obs=new MutationObserver(()=>{obs.disconnect();typeset($('#app'));obs.observe($('#app'),OBS)});
+const obs=new MutationObserver(()=>{obs.disconnect();typeset($('#app'));obs.observe($('#app'),OBS);schedulePaint()});
 obs.observe($('#app'),OBS);
 const _toast=toast;
 
@@ -647,10 +670,11 @@ function startPost(edit){requireAuth(()=>{const a=edit?ad(edit):null;
      :{photos:[],c:'dog',n:'',age:'',w:'',sex:'Erkak',d:'',p:'',r:'Toshkent shahri',ph:'90 123 45 67'};
   step=0;nav('post')})}
 // Read picked photos as compressed data URLs (works everywhere, unlike blob: URLs)
-function readPhoto(file){return new Promise(res=>{const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{
-  const k=Math.min(1,1080/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
-  c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.82))};im.onerror=()=>res(fr.result);im.src=fr.result};
-  fr.onerror=()=>res(null);fr.readAsDataURL(file)})}
+// Picked photos: decode, shrink to 1080px and keep as an in-memory bitmap
+async function readPhoto(file){try{
+  const src=await createImageBitmap(file),k=Math.min(1,1080/Math.max(src.width,src.height));
+  const bm=k<1?await createImageBitmap(src,{resizeWidth:Math.round(src.width*k),resizeHeight:Math.round(src.height*k),resizeQuality:'high'}):src;
+  const key='u'+(++upSeq);BMP[key]=Promise.resolve(bm);return key}catch(e){toast("Bu rasmni o'qib bo'lmadi");return null}}
 $('#file').addEventListener('change',async e=>{const files=[...e.target.files].slice(0,5-D.photos.length);e.target.value='';if(!files.length)return;
   toast('Rasm yuklanmoqda…');for(const f of files){const u=await readPhoto(f);if(u)D.photos.push(u)}refresh()});
 function addPhoto(){if(D.photos.length>=5)return toast('Ko\'pi bilan 5 ta rasm');openSheet(`<h2 class="t-title" style="margin-bottom:16px">Rasm qo'shish</h2><div class="group">
