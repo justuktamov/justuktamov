@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Do'stim — uy hayvonlari bozori (prototip)</title>
+<style>
+:root{
+  --mint:#b8e6d0; --mint-d:#5cc39a; --mint-dd:#2f9c74; --mint-bg:#e6f4ec;
+  --ink:#16201c; --sub:#6b7772; --line:#e7eeea; --card:#fff; --bg:#f6faf8;
+  --gold:#ffb938; --gold-bg:#fff4d9; --danger:#e5484d;
+  --r:20px; --shadow:0 6px 18px rgba(47,156,116,.10);
+}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#dfeee6;color:var(--ink);display:flex;justify-content:center;min-height:100vh}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input,textarea,select{font:inherit;color:inherit}
+.phone{width:100%;max-width:420px;height:100vh;max-height:880px;margin:auto;background:var(--bg);position:relative;overflow:hidden;display:flex;flex-direction:column}
+@media(min-width:460px){.phone{border-radius:36px;box-shadow:0 30px 70px rgba(30,80,60,.25);height:860px}}
+.screen{flex:1;overflow-y:auto;padding:0 18px 100px;display:none;animation:in .25s ease}
+.screen.on{display:block}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.screen::-webkit-scrollbar{display:none}
+
+/* type & shared */
+h1{font-size:26px;line-height:1.15;letter-spacing:-.02em}
+h2{font-size:18px;letter-spacing:-.01em}
+.sub{color:var(--sub);font-size:13px}
+.row{display:flex;align-items:center;gap:10px}
+.between{justify-content:space-between}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:54px;border-radius:18px;background:var(--mint);font-weight:700;font-size:16px;box-shadow:var(--shadow);transition:transform .1s}
+.btn:active{transform:scale(.97)}
+.btn.dark{background:var(--ink);color:#fff}
+.btn.gold{background:var(--gold)}
+.btn.ghost{background:#fff;border:1.5px solid var(--line);box-shadow:none}
+.icon-btn{width:42px;height:42px;border-radius:50%;background:#fff;box-shadow:var(--shadow);display:grid;place-items:center;font-size:18px;flex:none}
+.chip{padding:10px 16px;border-radius:99px;background:#fff;font-size:14px;font-weight:600;white-space:nowrap;box-shadow:var(--shadow);border:1.5px solid transparent}
+.chip.on{background:var(--mint);border-color:var(--mint-d)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 18px 12px;margin:0 -18px}
+.chips::-webkit-scrollbar{display:none}
+.topbar{display:flex;align-items:center;gap:12px;padding:16px 0 10px;position:sticky;top:0;background:var(--bg);z-index:5}
+.topbar h2{flex:1}
+.paw{width:36px;height:36px;border-radius:12px;background:var(--mint);display:grid;place-items:center;font-size:20px}
+
+/* onboarding */
+#s-welcome{padding:0;background:linear-gradient(#e2f5ec,#fff 60%)}
+.hero{height:52%;display:grid;place-items:end center;font-size:120px;padding-bottom:10px;background:radial-gradient(circle at 50% 70%,var(--mint) 0 38%,transparent 39%)}
+.welcome-body{padding:0 26px;text-align:center}
+.welcome-body h1{margin:10px 0}
+.steps{display:flex;gap:8px;justify-content:center;margin:18px 0}
+.steps i{width:8px;height:8px;border-radius:9px;background:var(--line)}.steps i.on{width:26px;background:var(--mint-d)}
+
+/* home */
+.hello{padding:14px 0 6px}
+.loc{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:15px;padding:8px 12px;background:#fff;border-radius:99px;box-shadow:var(--shadow)}
+.search{display:flex;align-items:center;gap:10px;background:#fff;border-radius:18px;padding:0 14px;height:52px;box-shadow:var(--shadow);margin:12px 0}
+.search input{flex:1;border:0;outline:0;background:none;font-size:15px}
+.cats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:8px 0 6px}
+.cat{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;font-weight:600}
+.cat span{width:100%;aspect-ratio:1;border-radius:20px;background:#fff;box-shadow:var(--shadow);display:grid;place-items:center;font-size:30px}
+.cat.on span{background:var(--mint);outline:2px solid var(--mint-d)}
+.sec{display:flex;justify-content:space-between;align-items:baseline;margin:20px 0 10px}
+.sec a{font-size:13px;color:var(--mint-dd);font-weight:700;cursor:pointer}
+.hscroll{display:flex;gap:12px;overflow-x:auto;margin:0 -18px;padding:4px 18px 14px}
+.hscroll::-webkit-scrollbar{display:none}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;position:relative;cursor:pointer;transition:transform .12s}
+.card:active{transform:scale(.97)}
+.card .pic{aspect-ratio:1/.9;display:grid;place-items:center;font-size:64px;position:relative}
+.card .info{padding:10px 12px 14px}
+.card .name{font-weight:700;font-size:15px}
+.card .meta{font-size:12px;color:var(--sub);margin:2px 0 6px}
+.card .price{font-weight:800;font-size:15px}
+.hscroll .card{width:170px;flex:none}
+.heart{position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.9);display:grid;place-items:center;font-size:15px}
+.heart.on{color:var(--danger)}
+.top-badge{position:absolute;top:8px;left:8px;background:var(--gold);font-size:11px;font-weight:800;padding:4px 9px;border-radius:99px}
+.banner{background:linear-gradient(120deg,var(--mint),#d9f3e6);border-radius:var(--r);padding:16px;display:flex;gap:12px;align-items:center;cursor:pointer}
+.banner b{display:block;font-size:16px;margin-bottom:2px}
+
+/* detail */
+#s-detail{padding:0 0 110px}
+.gallery{height:340px;display:grid;place-items:center;font-size:150px;position:relative}
+.gallery .icon-btn{position:absolute;top:16px}
+.sheet{background:#fff;border-radius:32px 32px 0 0;margin-top:-30px;position:relative;padding:22px 18px}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+.fact{background:var(--bg);border-radius:16px;padding:10px;text-align:center}
+.fact b{display:block;font-size:15px}.fact span{font-size:11px;color:var(--sub)}
+.seller{display:flex;gap:12px;align-items:center;background:var(--bg);border-radius:18px;padding:12px;margin:14px 0}
+.avatar{width:46px;height:46px;border-radius:50%;background:var(--mint);display:grid;place-items:center;font-size:22px}
+.cta{position:absolute;left:0;right:0;bottom:0;padding:12px 18px 18px;background:linear-gradient(transparent,#fff 30%);display:flex;gap:10px;z-index:6}
+.cta .btn{flex:1}
+
+/* form */
+.progress{display:flex;gap:6px;margin:4px 0 18px}
+.progress i{flex:1;height:5px;border-radius:9px;background:var(--line)}.progress i.on{background:var(--mint-d)}
+.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.ph{aspect-ratio:1;border-radius:18px;border:2px dashed var(--mint-d);background:var(--mint-bg);display:grid;place-items:center;font-size:26px;color:var(--mint-dd);cursor:pointer;text-align:center;font-size:12px;font-weight:700}
+.ph b{font-size:28px;display:block}
+.ph.filled{border-style:solid;background:#fff;font-size:44px}
+.field{margin:14px 0}
+.field label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
+.inp{width:100%;height:52px;border-radius:16px;border:1.5px solid var(--line);background:#fff;padding:0 14px;outline:0}
+.inp:focus{border-color:var(--mint-d)}
+textarea.inp{height:100px;padding:12px;resize:none}
+.seg{display:flex;background:var(--mint-bg);border-radius:14px;padding:4px}
+.seg button{flex:1;height:42px;border-radius:11px;font-weight:600}
+.seg button.on{background:#fff;box-shadow:var(--shadow)}
+.free{background:var(--mint-bg);border-radius:16px;padding:12px 14px;font-size:13px;display:flex;gap:10px;align-items:center}
+
+/* promote */
+.plan{background:#fff;border-radius:20px;padding:16px;border:2px solid var(--line);display:flex;gap:12px;align-items:center;margin-bottom:12px;cursor:pointer}
+.plan.on{border-color:var(--gold);background:var(--gold-bg)}
+.plan .radio{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);flex:none}
+.plan.on .radio{border:7px solid var(--gold);background:#fff}
+.plan b{font-size:16px}.plan .p{margin-left:auto;font-weight:800;text-align:right}
+.plan small{display:block;color:var(--sub);font-weight:500}
+
+/* lists / profile */
+.list-item{display:flex;gap:12px;background:#fff;border-radius:18px;padding:10px;box-shadow:var(--shadow);margin-bottom:10px;align-items:center}
+.list-item .th{width:72px;height:72px;border-radius:14px;display:grid;place-items:center;font-size:36px;flex:none}
+.status{font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;background:var(--mint-bg);color:var(--mint-dd)}
+.status.top{background:var(--gold-bg);color:#a86b00}
+.menu{background:#fff;border-radius:20px;box-shadow:var(--shadow);overflow:hidden;margin:14px 0}
+.menu button{display:flex;width:100%;padding:16px;gap:12px;border-bottom:1px solid var(--line);text-align:left;font-weight:600}
+.menu button:last-child{border:0}
+.msg{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.msg .txt{flex:1;min-width:0}.msg p{font-size:13px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--mint-d);align-self:center}
+
+/* sheet modal */
+.modal{position:absolute;inset:0;background:rgba(15,30,24,.4);z-index:20;display:none;align-items:flex-end}
+.modal.on{display:flex}
+.modal .box{background:#fff;width:100%;border-radius:28px 28px 0 0;padding:18px;max-height:80%;overflow:auto;animation:in .25s}
+.opt{display:flex;justify-content:space-between;padding:14px 4px;border-bottom:1px solid var(--line);font-weight:600;cursor:pointer}
+.opt.on{color:var(--mint-dd)}
+.opt.on::after{content:"✓"}
+
+/* tab bar */
+.tabbar{position:absolute;left:14px;right:14px;bottom:14px;height:66px;border-radius:26px;background:rgba(255,255,255,.92);backdrop-filter:blur(14px);box-shadow:0 8px 30px rgba(30,80,60,.18);display:flex;align-items:center;justify-content:space-around;z-index:10}
+.tabbar.hide{display:none}
+.tab{display:flex;flex-direction:column;align-items:center;font-size:10px;font-weight:600;color:var(--sub);gap:2px;width:56px}
+.tab i{font-style:normal;font-size:22px;filter:grayscale(1);opacity:.6}
+.tab.on{color:var(--mint-dd)}.tab.on i{filter:none;opacity:1}
+.tab.add i{width:52px;height:52px;border-radius:50%;background:var(--mint);display:grid;place-items:center;font-size:28px;filter:none;opacity:1;margin-top:-22px;box-shadow:0 8px 18px rgba(92,195,154,.5);color:var(--ink)}
+.toast{position:absolute;top:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:99px;font-size:13px;font-weight:600;z-index:30;opacity:0;pointer-events:none;transition:.3s}
+.toast.on{opacity:1}
+.success{text-align:center;padding-top:80px}
+.success .big{font-size:90px}
+</style>
+</head>
+<body>
+<div class="phone" id="app">
+  <div class="toast" id="toast"></div>
+
+  <!-- 1. Welcome -->
+  <section class="screen on" id="s-welcome">
+    <div class="hero">🐱🐶</div>
+    <div class="welcome-body">
+      <h1>Uy hayvoningizni<br>yaqin atrofdan toping</h1>
+      <p class="sub">E'lon joylash — mutlaqo bepul. Sotish va xarid qilish hamma uchun oson.</p>
+      <div class="steps"><i class="on"></i><i></i><i></i></div>
+      <button class="btn" onclick="go('home')">🐾 Boshlash</button>
+      <p class="sub" style="margin-top:14px">Ro'yxatdan o'tmasdan ko'rib chiqishingiz mumkin</p>
+    </div>
+  </section>
+
+  <!-- 2. Home -->
+  <section class="screen" id="s-home">
+    <div class="hello row between">
+      <button class="loc" onclick="openRegion()">📍 <span id="regionLabel">Butun O'zbekiston</span> ▾</button>
+      <button class="icon-btn" onclick="go('messages')">🔔</button>
+    </div>
+    <h1 style="margin-top:6px">Sevimli do'stingizni<br>toping 🐾</h1>
+    <div class="search"><span>🔍</span><input id="q" placeholder="Nima izlayapsiz? (masalan: mushuk)" oninput="renderHome()"><button onclick="openFilter()">⚙️</button></div>
+    <div class="cats" id="cats"></div>
+    <div id="homeBody"></div>
+  </section>
+
+  <!-- 3. Detail -->
+  <section class="screen" id="s-detail"></section>
+
+  <!-- 4. Favorites -->
+  <section class="screen" id="s-fav">
+    <div class="topbar"><h2>❤️ Sevimlilar</h2></div>
+    <div id="favBody"></div>
+  </section>
+
+  <!-- 5. Post wizard -->
+  <section class="screen" id="s-post">
+    <div class="topbar"><button class="icon-btn" onclick="postBack()">‹</button><h2 id="postTitle">Yangi e'lon</h2></div>
+    <div class="progress" id="prog"></div>
+    <div id="postBody"></div>
+  </section>
+
+  <!-- 6. Promote -->
+  <section class="screen" id="s-promote"></section>
+
+  <!-- 7. Messages -->
+  <section class="screen" id="s-messages">
+    <div class="topbar"><h2>💬 Xabarlar</h2></div>
+    <div id="msgBody"></div>
+  </section>
+
+  <!-- 8. Profile -->
+  <section class="screen" id="s-profile">
+    <div class="topbar"><h2>Profil</h2><button class="icon-btn">⚙️</button></div>
+    <div class="row" style="margin:6px 0 14px"><div class="avatar" style="width:64px;height:64px;font-size:30px">🙂</div><div><b style="font-size:18px">Uchqun U.</b><div class="sub">+998 90 123 45 67</div></div></div>
+    <div class="grid" style="margin-bottom:10px">
+      <div class="fact"><b>4</b><span>Faol e'lonlar</span></div>
+      <div class="fact"><b>128</b><span>Ko'rishlar</span></div>
+    </div>
+    <h2 style="margin:14px 0 10px">Mening e'lonlarim</h2>
+    <div id="myAds"></div>
+    <div class="menu">
+      <button onclick="toast('Tez orada')">💳 To'lovlar tarixi</button>
+      <button onclick="toast('Tez orada')">🌐 Til: O'zbekcha</button>
+      <button onclick="toast('Tez orada')">🛟 Yordam</button>
+    </div>
+  </section>
+
+  <!-- tab bar -->
+  <nav class="tabbar hide" id="tabbar">
+    <button class="tab on" data-t="home" onclick="go('home')"><i>🏠</i>Bosh</button>
+    <button class="tab" data-t="fav" onclick="go('fav')"><i>❤️</i>Sevimli</button>
+    <button class="tab add" onclick="startPost()"><i>＋</i></button>
+    <button class="tab" data-t="messages" onclick="go('messages')"><i>💬</i>Xabar</button>
+    <button class="tab" data-t="profile" onclick="go('profile')"><i>👤</i>Profil</button>
+  </nav>
+
+  <div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
+</div>
+
+<script>
+const CATS=[
+ {id:'all',n:'Hammasi',e:'🐾'},{id:'dog',n:'Itlar',e:'🐶'},{id:'cat',n:'Mushuklar',e:'🐱'},{id:'bird',n:'Qushlar',e:'🦜'},
+ {id:'fish',n:'Baliqlar',e:'🐠'},{id:'rodent',n:'Kemiruvchi',e:'🐹'},{id:'reptile',n:'Sudralib',e:'🦎'},{id:'farm',n:'Fermer',e:'🐴'}];
+const REGIONS=["Butun O'zbekiston","Toshkent shahri","Toshkent viloyati","Samarqand","Buxoro","Farg'ona","Andijon","Namangan","Qashqadaryo","Surxondaryo","Xorazm","Navoiy","Jizzax","Sirdaryo","Qoraqalpog'iston"];
+const COL={dog:'#f6e3cf',cat:'#e8e4f6',bird:'#dcf1f7',fish:'#dbeeff',rodent:'#fbe7ec',reptile:'#e2f3d6',farm:'#f3ead6'};
+let ADS=[
+ {id:1,n:'Pomeraniyan',c:'dog',e:'🐕',age:'1.5 yosh',sex:'Erkak',w:'2.5 kg',p:1200000,r:'Toshkent shahri',top:true,fav:false,d:'Juda do\'stona, emlangan, hujjatlari bor. Bolalar bilan yaxshi chiqishadi.'},
+ {id:2,n:'Britan mushugi',c:'cat',e:'🐈',age:'8 oy',sex:'Urg\'ochi',w:'3 kg',p:800000,r:'Samarqand',top:true,fav:true,d:'Toza, lotokka o\'rgangan. Vaksinasi qilingan.'},
+ {id:3,n:'Labrador kuchuk',c:'dog',e:'🦮',age:'3 oy',sex:'Erkak',w:'6 kg',p:1500000,r:'Toshkent viloyati',top:false,fav:false,d:'Ota-onasi hujjatli. Faol va aqlli.'},
+ {id:4,n:'To\'tiqush (Korella)',c:'bird',e:'🦜',age:'1 yosh',sex:'Erkak',w:'90 g',p:150000,r:'Farg\'ona',top:false,fav:false,d:'Gapirishga o\'rgatilgan, qafas bilan beriladi.'},
+ {id:5,n:'Shotland mushuk',c:'cat',e:'🐱',age:'4 oy',sex:'Erkak',w:'1.8 kg',p:600000,r:'Buxoro',top:false,fav:false,d:'Quloqlari egilgan, juda erkatoy.'},
+ {id:6,n:'Akvarium baliqlari',c:'fish',e:'🐠',age:'6 oy',sex:'Aralash',w:'—',p:20000,r:'Andijon',top:false,fav:false,d:'10 dona, guppi va skalyariya.'},
+ {id:7,n:'Xomyak juftligi',c:'rodent',e:'🐹',age:'2 oy',sex:'Juft',w:'—',p:50000,r:'Namangan',top:false,fav:false,d:'Katak bilan birga.'},
+ {id:8,n:'Arab oti',c:'farm',e:'🐎',age:'3 yosh',sex:'Erkak',w:'450 kg',p:35000000,r:'Qashqadaryo',top:true,fav:false,d:'Sof qonli, minishga o\'rgatilgan.'},
+];
+const fmt=n=>n.toLocaleString('ru').replace(/,/g,' ')+" so'm";
+let cat='all', region=REGIONS[0], cur=null, tab='home', draft={}, step=0, plan=1;
+
+const $=s=>document.querySelector(s);
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1800)}
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  $('#s-'+id).classList.add('on'); $('#s-'+id).scrollTop=0;
+  const main=['home','fav','messages','profile'];
+  $('#tabbar').classList.toggle('hide',!main.includes(id));
+  if(main.includes(id)){tab=id;document.querySelectorAll('.tab[data-t]').forEach(t=>t.classList.toggle('on',t.dataset.t===id))}
+  ({home:renderHome,fav:renderFav,messages:renderMsgs,profile:renderProfile})[id]?.();
+}
+function card(a){
+  return `<div class="card" onclick="openAd(${a.id})">
+   <div class="pic" style="background:${COL[a.c]}">${a.e}${a.top?'<span class="top-badge">⭐ TOP</span>':''}
+   <span class="heart ${a.fav?'on':''}" onclick="event.stopPropagation();fav(${a.id})">${a.fav?'♥':'♡'}</span></div>
+   <div class="info"><div class="name">${a.n}</div><div class="meta">📍 ${a.r} · ${a.age}</div><div class="price">${fmt(a.p)}</div></div></div>`;
+}
+function filtered(){
+  const q=$('#q')?.value.toLowerCase()||'';
+  return ADS.filter(a=>(cat==='all'||a.c===cat)&&(region===REGIONS[0]||a.r===region)&&(!q||a.n.toLowerCase().includes(q)));
+}
+function renderHome(){
+  $('#cats').innerHTML=CATS.map(c=>`<button class="cat ${cat===c.id?'on':''}" onclick="cat='${c.id}';renderHome()"><span>${c.e}</span>${c.n}</button>`).join('');
+  $('#regionLabel').textContent=region;
+  const list=filtered(), tops=list.filter(a=>a.top), rest=list.filter(a=>!a.top);
+  $('#homeBody').innerHTML=(list.length?'':`<div class="sub" style="text-align:center;padding:40px 0">😿 Hech narsa topilmadi.<br>Boshqa hudud yoki kategoriyani tanlang.</div>`)+
+   (tops.length?`<div class="sec"><h2>⭐ TOP e'lonlar</h2></div><div class="hscroll">${tops.map(card).join('')}</div>`:'')+
+   `<div class="banner" onclick="startPost()"><span style="font-size:38px">📸</span><div><b>Hayvoningizni soting</b><span class="sub">Rasmga oling — e'lon bepul!</span></div></div>`+
+   (rest.length?`<div class="sec"><h2>Yangi e'lonlar</h2><a onclick="openFilter()">Saralash</a></div><div class="grid">${rest.map(card).join('')}</div>`:'');
+}
+function fav(id){const a=ADS.find(x=>x.id===id);a.fav=!a.fav;go(tab==='fav'?'fav':$('#s-detail').classList.contains('on')?'detail':'home');if($('#s-detail').classList.contains('on'))openAd(id);}
+function renderFav(){const l=ADS.filter(a=>a.fav);$('#favBody').innerHTML=l.length?`<div class="grid">${l.map(card).join('')}</div>`:`<div class="sub" style="text-align:center;padding:60px 0"><div style="font-size:60px">💚</div>Hali sevimli e'lonlar yo'q.<br>Yurakcha ♡ ni bosing.</div>`}
+
+function openAd(id){
+  const a=ADS.find(x=>x.id===id);cur=a;
+  $('#s-detail').innerHTML=`
+   <div class="gallery" style="background:${COL[a.c]}">${a.e}
+     <button class="icon-btn" style="left:16px" onclick="go(tab)">‹</button>
+     <button class="icon-btn" style="right:16px" onclick="fav(${a.id})">${a.fav?'❤️':'🤍'}</button></div>
+   <div class="sheet">
+     <div class="row between"><h1 style="font-size:22px">${a.n}</h1><b style="font-size:20px">${fmt(a.p)}</b></div>
+     <div class="sub" style="margin-top:4px">📍 ${a.r} · Bugun joylandi</div>
+     <div class="facts"><div class="fact"><b>${a.age}</b><span>Yoshi</span></div><div class="fact"><b>${a.sex}</b><span>Jinsi</span></div><div class="fact"><b>${a.w}</b><span>Vazni</span></div></div>
+     <h2>Tavsif</h2><p style="margin-top:6px;line-height:1.5;color:#3a4741">${a.d}</p>
+     <div class="seller"><div class="avatar">🧑</div><div style="flex:1"><b>Aziz</b><div class="sub">Sotuvchi · 2 yildan beri</div></div><button class="icon-btn" onclick="toast('Shikoyat yuborildi')">🚩</button></div>
+     <div class="free">🛡️ <span>Xavfsizlik: pulni hayvonni ko'rmasdan oldin o'tkazmang.</span></div>
+   </div>
+   <div class="cta"><button class="btn ghost" style="flex:.4" onclick="go('messages')">💬</button><button class="btn" onclick="toast('📞 Qo\\'ng\\'iroq qilinmoqda…')">📞 Qo'ng'iroq qilish</button></div>`;
+  go('detail');
+}
+
+/* region / filter modals */
+function openModal(html){$('#modalBox').innerHTML=html;$('#modal').classList.add('on')}
+function closeModal(){$('#modal').classList.remove('on')}
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
+function openRegion(){openModal(`<h2 style="margin-bottom:6px">Hududni tanlang</h2>`+REGIONS.map(r=>`<div class="opt ${r===region?'on':''}" onclick="region='${r.replace(/'/g,"\\'")}';closeModal();renderHome()">${r}</div>`).join(''))}
+function openFilter(){openModal(`<h2 style="margin-bottom:12px">Saralash va filtr</h2>
+  <div class="field"><label>Saralash</label><div class="seg"><button class="on">Yangi</button><button>Arzon</button><button>Qimmat</button></div></div>
+  <div class="field"><label>Narx (so'm)</label><div class="row"><input class="inp" placeholder="dan"><input class="inp" placeholder="gacha"></div></div>
+  <div class="field"><label>Jinsi</label><div class="seg"><button class="on">Hammasi</button><button>Erkak</button><button>Urg'ochi</button></div></div>
+  <button class="btn" onclick="closeModal();toast('Filtr qo\\'llandi')">Ko'rsatish</button>`)}
+
+/* post wizard */
+const STEPS=['Rasmlar','Ma\'lumot','Narx va joy','Tayyor'];
+function startPost(){draft={photos:0,c:'dog'};step=0;renderPost();go('post');$('#tabbar').classList.add('hide')}
+function postBack(){step>0&&step<3?(step--,renderPost()):go('home')}
+function renderPost(){
+  $('#prog').innerHTML=[0,1,2].map(i=>`<i class="${i<=step?'on':''}"></i>`).join('');
+  $('#postTitle').textContent=step<3?`${step+1}/3 · ${STEPS[step]}`:'Tayyor!';
+  const b=$('#postBody');
+  if(step===0)b.innerHTML=`<p class="sub" style="margin-bottom:12px">Kamida 1 ta rasm qo'shing. Yorug'lik yaxshi joyda oling.</p>
+    <div class="photos">${[0,1,2,3,4,5].map(i=>i<draft.photos?`<div class="ph filled">${CATS.find(c=>c.id===draft.c).e}</div>`:`<div class="ph" onclick="draft.photos++;renderPost()"><div><b>${i===draft.photos?'📷':'＋'}</b>${i===0&&!draft.photos?'Asosiy':''}</div></div>`).join('')}</div>
+    <div class="free" style="margin:18px 0">💚 <span><b>E'lon joylash bepul.</b> Faqat TOP ga chiqarish pullik.</span></div>
+    <button class="btn" onclick="draft.photos?(step=1,renderPost()):toast('Avval rasm qo\\'shing')">Davom etish</button>`;
+  if(step===1)b.innerHTML=`<div class="field"><label>Kategoriya</label><div class="chips" style="padding-left:0;margin-left:0">${CATS.slice(1).map(c=>`<button class="chip ${draft.c===c.id?'on':''}" onclick="draft.c='${c.id}';renderPost()">${c.e} ${c.n}</button>`).join('')}</div></div>
+    <div class="field"><label>Nomi / zoti</label><input class="inp" id="f-n" placeholder="Masalan: Britan mushugi" value="${draft.n||''}"></div>
+    <div class="row"><div class="field" style="flex:1"><label>Yoshi</label><input class="inp" placeholder="8 oy"></div><div class="field" style="flex:1"><label>Vazni</label><input class="inp" placeholder="3 kg"></div></div>
+    <div class="field"><label>Jinsi</label><div class="seg"><button class="on">Erkak</button><button>Urg'ochi</button></div></div>
+    <div class="field"><label>Tavsif</label><textarea class="inp" placeholder="Xarakteri, vaksinasi, hujjatlari…"></textarea></div>
+    <button class="btn" onclick="draft.n=$('#f-n').value||'Yangi e\\'lon';step=2;renderPost()">Davom etish</button>`;
+  if(step===2)b.innerHTML=`<div class="field"><label>Narx (so'm)</label><input class="inp" id="f-p" inputmode="numeric" placeholder="800 000"></div>
+    <div class="field"><label>Hudud</label><select class="inp" id="f-r">${REGIONS.slice(1).map(r=>`<option>${r}</option>`).join('')}</select></div>
+    <div class="field"><label>Telefon raqam</label><input class="inp" value="+998 90 123 45 67"></div>
+    <button class="btn" onclick="publish()">✅ Bepul joylash</button>`;
+  if(step===3)b.innerHTML=`<div class="success"><div class="big">🎉</div><h1 style="margin:10px 0">E'lon joylandi!</h1>
+    <p class="sub">Endi uni ko'proq odamlar ko'rishi uchun<br>TOP ga chiqarishingiz mumkin.</p>
+    <div style="height:24px"></div>
+    <button class="btn gold" onclick="openPromote()">⭐ TOP ga chiqarish</button>
+    <div style="height:10px"></div><button class="btn ghost" onclick="go('home')">Keyinroq</button></div>`;
+}
+function publish(){
+  ADS.unshift({id:Date.now(),n:draft.n,c:draft.c,e:CATS.find(c=>c.id===draft.c).e,age:'—',sex:'—',w:'—',p:parseInt(($('#f-p').value||'0').replace(/\D/g,''))||0,r:$('#f-r').value,top:false,fav:false,d:''});
+  step=3;renderPost();
+}
+
+/* promote */
+const PLANS=[{d:1,p:15000,t:'1 kun'},{d:3,p:35000,t:'3 kun',hot:1},{d:7,p:70000,t:'7 kun'}];
+function openPromote(){
+  $('#s-promote').innerHTML=`<div class="topbar"><button class="icon-btn" onclick="go('home')">‹</button><h2>TOP ga chiqarish</h2></div>
+   <div class="banner" style="background:linear-gradient(120deg,#ffe3a3,#fff4d9);cursor:default"><span style="font-size:38px">🚀</span><div><b>3× ko'proq ko'rishlar</b><span class="sub">TOP e'lonlar bosh sahifa va qidiruvning eng tepasida chiqadi.</span></div></div>
+   <div style="height:16px"></div>
+   ${PLANS.map((p,i)=>`<div class="plan ${plan===i?'on':''}" onclick="plan=${i};openPromote()"><div class="radio"></div><div><b>${p.t}</b>${p.hot?'<small>🔥 Eng ommabop</small>':''}</div><div class="p">${fmt(p.p)}<small>${Math.round(p.p/p.d).toLocaleString('ru')} / kun</small></div></div>`).join('')}
+   <div class="field"><label>To'lov usuli</label><div class="chips" style="padding-left:0;margin-left:0"><button class="chip on">Click</button><button class="chip">Payme</button><button class="chip">Uzcard/Humo</button></div></div>
+   <button class="btn gold" onclick="toast('✅ E\\'lon TOP ga chiqdi!');go('home')">${fmt(PLANS[plan].p)} to'lash</button>`;
+  go('promote');$('#tabbar').classList.add('hide');
+}
+
+function renderMsgs(){
+  $('#msgBody').innerHTML=[['Aziz','Salom, mushuk hali bormi?',1,'🧑'],['Malika','Ertaga ko\'rgani kelsam bo\'ladimi?',1,'👩'],['Jasur','Rahmat!',0,'👨']].map(m=>`<div class="msg"><div class="avatar">${m[3]}</div><div class="txt"><b>${m[0]}</b><p>${m[1]}</p></div>${m[2]?'<span class="dot"></span>':''}</div>`).join('');
+}
+function renderProfile(){
+  $('#myAds').innerHTML=ADS.slice(0,3).map(a=>`<div class="list-item"><div class="th" style="background:${COL[a.c]}">${a.e}</div><div style="flex:1"><b>${a.n}</b><div class="sub">${fmt(a.p)}</div><span class="status ${a.top?'top':''}">${a.top?'⭐ TOP':'Faol'}</span></div>${a.top?'':`<button class="chip" style="background:var(--gold-bg)" onclick="openPromote()">⭐ TOP</button>`}</div>`).join('');
+}
+renderHome();
+</script>
+</body>
+</html>
