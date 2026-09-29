@@ -262,7 +262,6 @@
 "Qo'llab-quvvatlashga yozish": "Написать в поддержку",
 "Qo'ng'iroq qilish": "Позвонить",
 "Qo'ng'iroq qilinmoqda…": "Звоним…",
-"Qo'ng'iroqda «Do'st» ilovasidan ekanligingizni ayting": "Скажите при звонке, что вы из приложения «Do'st»",
 "Qo'ng'iroqlar": "Звонки",
 "Qo'y": "Овца",
 "Qorabayir": "Карабаир",
@@ -529,11 +528,13 @@
 "Siam": "Сиамская",
 "Meyn-kun": "Мейн-кун",
 "Sfinks": "Сфинкс",
-"«Do'st» yordam": "Поддержка «Do'st»",
-"Do'st yordam": "Поддержка Do'st",
 "Egasi": "Хозяин",
 "Topgan odam": "Нашедший",
 "Rasm yuklanmoqda...": "Загружаем фото…",
 "Filtr qo'llandi": "Фильтр применён",
-"bepul": "бесплатно"
+"bepul": "бесплатно",
+"Qo'ng'iroqda «Jonivor» ilovasidan ekanligingizni ayting": "Скажите при звонке, что вы из приложения «Jonivor»",
+"«Jonivor» yordam": "Поддержка «Jonivor»",
+"Jonivor yordam": "Поддержка Jonivor",
+"Uy hayvonlari bozori": "Рынок домашних животных"
 }

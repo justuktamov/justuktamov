@@ -1,0 +1,173 @@
+<title>JONIVOR brendi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: one reading column; the mark leads, then the system in the order a designer needs it (logo → colour → type → rules → screens). */
+:root{
+  --bg:#F7F4EE; --surface:#FFFFFF; --ink:#132019; --ink-2:#4B5550; --ink-3:#848C88; --line:#E4E0D8;
+  --green:#1E4D3A; --green-2:#2A6A4F; --green-deep:#132F24; --apricot:#F08A4B; --gold:#94650F; --cream:#FBF7F0;
+  --display:"Unbounded","Inter",system-ui,sans-serif; --body:"Inter",-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1512; --surface:#171E1A; --ink:#EEF1EF; --ink-2:#B3BBB7; --ink-3:#7D8682; --line:#2A322E; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0F1512; --surface:#171E1A; --ink:#EEF1EF; --ink-2:#B3BBB7; --ink-3:#7D8682; --line:#2A322E; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.55 var(--body);-webkit-font-smoothing:antialiased;padding-inline:20px;padding-block:0 64px}
+main{max-width:920px;margin:0 auto}
+h1,h2,h3{text-wrap:balance;margin:0}
+h2{font:700 22px/1.2 var(--display);letter-spacing:.01em;margin-bottom:6px}
+.lead{color:var(--ink-2);max-width:62ch;margin:0 0 24px}
+.eyebrow{font:600 12px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px}
+section{padding-block:48px;border-top:1px solid var(--line)}
+.hero{background:radial-gradient(120% 90% at 50% 20%,var(--green-2),var(--green-deep) 72%);color:var(--cream);border-radius:0 0 28px 28px;margin-inline:-20px;padding:72px 20px 56px;text-align:center}
+.hero .icon{width:128px;height:128px;margin:0 auto 26px;border-radius:29px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.hero .word{height:34px;margin:0 auto;display:block;color:var(--cream)}
+.hero p{color:rgba(251,247,240,.75);margin:16px auto 0;max-width:46ch}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.tile .stage{height:130px;display:grid;place-items:center;border-radius:12px}
+.tile .cap{font:500 13px/1.4 var(--body);color:var(--ink-2)}
+.tile b{color:var(--ink);font-weight:600}
+.on-light{background:var(--cream)} .on-green{background:var(--green)} .on-dark{background:#0E1311}
+.idea{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:28px;align-items:center}
+@media (max-width:640px){.idea{grid-template-columns:1fr}}
+.idea .big{background:var(--surface);border:1px solid var(--line);border-radius:22px;aspect-ratio:1;max-width:100%;display:grid;place-items:center}
+.idea ol{margin:0;padding-left:20px;color:var(--ink-2)} .idea li{margin-bottom:10px} .idea li b{color:var(--ink)}
+.sizes{display:flex;align-items:flex-end;gap:22px;flex-wrap:wrap}
+.sizes figure{margin:0;text-align:center;font:500 12px/1 var(--body);color:var(--ink-3)}
+.sizes img,.sizes svg{display:block;margin:0 auto 10px}
+.swatches{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+.sw{border-radius:16px;overflow:hidden;border:1px solid var(--line);background:var(--surface)}
+.sw .chip{height:92px}
+.sw .meta{padding:12px 14px;font:500 13px/1.45 var(--body)}
+.sw .meta b{display:block;font-weight:600;font-size:14px}
+.sw .meta code{font:500 12px/1 ui-monospace,Menlo,monospace;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.type{display:grid;gap:12px}
+.type .row{display:grid;grid-template-columns:130px minmax(0,1fr);gap:16px;align-items:baseline;padding:14px 0;border-bottom:1px solid var(--line)}
+.type .row span{font:500 12px/1.3 var(--body);color:var(--ink-3)}
+.rules{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.rule{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px}
+.rule .stage{height:110px;border-radius:12px;display:grid;place-items:center;margin-bottom:12px;background:var(--cream);position:relative;overflow:hidden}
+.rule.no .stage::after{content:"";position:absolute;inset:0;background:linear-gradient(to top right,transparent calc(50% - 1.5px),#C2372C calc(50% - 1.5px),#C2372C calc(50% + 1.5px),transparent calc(50% + 1.5px))}
+.rule h3{font:600 15px/1.3 var(--body);display:flex;gap:8px;align-items:center}
+.rule p{margin:6px 0 0;color:var(--ink-2);font-size:14px}
+.ok{color:#238A55}.no h3{color:#C2372C}
+.shots{display:flex;gap:16px;overflow-x:auto;padding-bottom:8px}
+.shots img{height:420px;max-width:none;border-radius:18px;flex:none}
+.voice{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.voice div{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;font-size:14px;color:var(--ink-2)}
+.voice b{display:block;color:var(--ink);margin-bottom:4px}
+.clear{position:relative;display:inline-block;padding:26px;border:1.5px dashed var(--apricot);border-radius:8px}
+footer{color:var(--ink-3);font-size:13px;padding-top:32px}
+</style>
+
+<header class="hero">
+  <svg class="icon" viewBox="0 0 1024 1024" aria-hidden="true">@@ICON_INNER@@</svg>
+  <svg class="word" viewBox="@@WVB@@" role="img" aria-label="JONIVOR"><path d="@@WD@@" fill="currentColor"/></svg>
+  <p>Uy hayvonlari va chorva bozori. Brend qo'llanmasi, 1.0-versiya</p>
+</header>
+
+<main>
+<section style="border-top:0">
+  <div class="eyebrow">G'oya</div>
+  <div class="idea">
+    <div class="big"><svg width="62%" viewBox="0 0 64 64" aria-label="JONIVOR belgisi"><g fill="#1E4D3A">@@TOES@@</g><path d="@@HEART@@" fill="#F08A4B"/></svg></div>
+    <div>
+      <h2>Panja va yurak</h2>
+      <p class="lead">«Jonivor» — tirik jon, hayvon. Belgi shu ikki ma'noni birlashtiradi.</p>
+      <ol>
+        <li><b>To'rt barmoq</b> — har qanday uy hayvoni va chorvani taniydigan oddiy belgi.</li>
+        <li><b>Yurak shaklidagi yostiqcha</b> — «jon», g'amxo'rlik va halol savdo.</li>
+        <li><b>O'rik rangi</b> — iliqlik; <b>chuqur yashil</b> — ishonch, tabiat, qishloq.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">Logotip</div>
+  <h2>Variantlar</h2>
+  <p class="lead">Asosiy variant — belgi va yozuv yonma-yon. Joy tor bo'lsa, faqat belgi yoki ilova ikonkasi ishlatiladi.</p>
+  <div class="grid">
+    <div class="tile"><div class="stage on-light"><svg style="width:86%;height:auto" viewBox="@@LVB@@" aria-label="JONIVOR">@@LOCKUP_LIGHT@@</svg></div><div class="cap"><b>Asosiy</b> · och fonda</div></div>
+    <div class="tile"><div class="stage on-green"><svg style="width:86%;height:auto" viewBox="@@LVB@@" aria-label="JONIVOR">@@LOCKUP_DARK@@</svg></div><div class="cap"><b>Teskari</b> · yashil yoki to'q fonda</div></div>
+    <div class="tile"><div class="stage on-light"><svg height="84" viewBox="0 0 64 64" aria-hidden="true"><g fill="#1E4D3A">@@TOES@@</g><path d="@@HEART@@" fill="#F08A4B"/></svg></div><div class="cap"><b>Belgi</b> · ikonka, muhr, avatar</div></div>
+    <div class="tile"><div class="stage on-dark"><svg height="84" viewBox="0 0 64 64" aria-hidden="true"><g fill="#FBF7F0">@@TOES@@</g><path d="@@HEART@@" fill="#FBF7F0"/></svg></div><div class="cap"><b>Bir rangli</b> · muhr, qadoq, bosma</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">Ilova ikonkasi</div>
+  <h2>App Store va Google Play</h2>
+  <p class="lead">Yashil gradient, krem rangli barmoqlar, o'rik rangli yurak. Kichik o'lchamda ham aniq o'qiladi.</p>
+  <div class="sizes">
+    <figure><svg width="160" height="160" viewBox="0 0 1024 1024">@@ICON_INNER@@</svg>1024 px</figure>
+    <figure><svg width="90" height="90" viewBox="0 0 1024 1024">@@ICON_INNER@@</svg>180 px</figure>
+    <figure><svg width="60" height="60" viewBox="0 0 1024 1024">@@ICON_INNER@@</svg>120 px</figure>
+    <figure><svg width="40" height="40" viewBox="0 0 1024 1024">@@ICON_INNER@@</svg>80 px</figure>
+    <figure><svg width="29" height="29" viewBox="0 0 1024 1024">@@ICON_INNER@@</svg>58 px</figure>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">Rang</div>
+  <h2>Ranglar palitrasi</h2>
+  <p class="lead">Yashil — asosiy tugmalar va brend yuzalari. O'rik — faqat logotip va kichik urg'ular uchun, har ekranda bir-ikki joyda. Oltin rang faqat TOP va VIP xizmatlariga tegishli.</p>
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:#1E4D3A"></div><div class="meta"><b>Jonivor yashil</b><code>#1E4D3A</code><br>Tugmalar, sarlavha yuzalari</div></div>
+    <div class="sw"><div class="chip" style="background:#132F24"></div><div class="meta"><b>Chuqur yashil</b><code>#132F24</code><br>Splash, gradient oxiri</div></div>
+    <div class="sw"><div class="chip" style="background:#F08A4B"></div><div class="meta"><b>O'rik</b><code>#F08A4B</code><br>Yurak, urg'ular</div></div>
+    <div class="sw"><div class="chip" style="background:#FBF7F0;border-bottom:1px solid var(--line)"></div><div class="meta"><b>Krem</b><code>#FBF7F0</code><br>To'q fondagi belgi</div></div>
+    <div class="sw"><div class="chip" style="background:#94650F"></div><div class="meta"><b>Oltin</b><code>#94650F</code><br>TOP va VIP</div></div>
+    <div class="sw"><div class="chip" style="background:#121815"></div><div class="meta"><b>Siyoh</b><code>#121815</code><br>Asosiy matn</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">Tipografiya</div>
+  <h2>Shriftlar</h2>
+  <p class="lead">Unbounded — faqat logotip yozuvi va katta reklama sarlavhalari uchun. Ilova interfeysi to'liq Inter shriftida: o'zbek lotin va kirill harflari, oʻ va gʻ belgilari to'g'ri chiqadi.</p>
+  <div class="type">
+    <div class="row"><span>Unbounded 700<br>logotip, reklama</span><div style="font:700 34px/1.1 var(--display);letter-spacing:.04em">JONIVOR</div></div>
+    <div class="row"><span>Inter 700 · 28/34<br>ekran sarlavhasi</span><div style="font:700 28px/34px var(--body);letter-spacing:-.02em">Uy hayvonlarini sotish va sotib olish</div></div>
+    <div class="row"><span>Inter 600 · 17/24<br>bo'lim sarlavhasi</span><div style="font:600 17px/24px var(--body)">So'nggi e'lonlar</div></div>
+    <div class="row"><span>Inter 400 · 15/22<br>asosiy matn</span><div style="font:400 15px/22px var(--body);color:var(--ink-2)">Zotli, hujjatlari va veterinar pasporti bor. Barcha emlashlar qilingan.</div></div>
+    <div class="row"><span>Inter 700 · 17/22<br>narx, raqamlar</span><div style="font:700 17px/22px var(--body);font-variant-numeric:tabular-nums">4 500 000 so'm</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">Qoidalar</div>
+  <h2>Logotipdan foydalanish</h2>
+  <p class="lead">Atrofida kamida belgi yuragining kengligicha bo'sh joy qoldiring. Eng kichik o'lcham: belgi 16 px, yozuvli variant 80 px eni.</p>
+  <div class="rules">
+    <div class="rule"><div class="stage"><span class="clear"><svg height="40" viewBox="@@LVB@@">@@LOCKUP_LIGHT@@</svg></span></div><h3 class="ok">✓ Bo'sh joy saqlansin</h3><p>Chegaradan va boshqa elementlardan uzoqroq.</p></div>
+    <div class="rule no"><div class="stage"><svg height="40" viewBox="@@LVB@@" style="transform:scaleX(1.4)">@@LOCKUP_LIGHT@@</svg></div><h3>✕ Cho'zmang</h3><p>Nisbatlarni o'zgartirmang.</p></div>
+    <div class="rule no"><div class="stage" style="background:#F08A4B"><svg height="40" viewBox="@@LVB@@">@@LOCKUP_LIGHT@@</svg></div><h3>✕ O'rik fonga qo'ymang</h3><p>Yurak ko'rinmay qoladi. Faqat krem, oq yoki yashil fon.</p></div>
+    <div class="rule no"><div class="stage"><svg height="40" viewBox="@@LVB@@" style="filter:hue-rotate(160deg)">@@LOCKUP_LIGHT@@</svg></div><h3>✕ Rangini o'zgartirmang</h3><p>Faqat palitradagi ranglar.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">Ohang</div>
+  <h2>Qanday gapiramiz</h2>
+  <p class="lead">Auditoriya — 20–60 yoshdagi kattalar. Hurmat bilan, aniq va qisqa.</p>
+  <div class="voice">
+    <div><b>Aniq harakat</b>«Bepul joylash», «Qo'ng'iroq qilish» — tugma nima qilishini aytadi.</div>
+    <div><b>Xavfsizlik birinchi</b>«Hayvonni ko'rmasdan oldindan to'lov qilmang.»</div>
+    <div><b>Bolalarcha emas</b>Emoji va hazil o'rniga sokin, ishonchli til.</div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">Ilovada</div>
+  <h2>Ekranlar</h2>
+  <p class="lead">Ochilish ekrani, bosh sahifa, e'lon sahifasi va tungi rejim.</p>
+  <div class="shots">
+    <img src="@@S1@@" alt="Ochilish ekrani"><img src="@@S2@@" alt="Bosh sahifa"><img src="@@S3@@" alt="E'lon sahifasi"><img src="@@S4@@" alt="Tungi rejim">
+  </div>
+</section>
+
+<footer>JONIVOR · brend qo'llanmasi · 2026. Yozuv shrifti: Unbounded (SIL OFL). Interfeys shrifti: Inter (SIL OFL).</footer>
+</main>

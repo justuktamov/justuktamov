@@ -77,3 +77,12 @@ Backend (auth OTP, rasm yuklash, qidiruv/filtr), to'lov (Click/Payme), moderatsi
 - Rus tili (to'liq interfeys; foydalanuvchi matnlari tarjima qilinmaydi).
 - Yo'qolgan va topilgan hayvonlar bo'limi (bepul, mukofot ko'rsatish mumkin).
 - Chatda rasm, joylashuv yuborish va tayyor javoblar.
+
+## v1.2 — JONIVOR brendi
+- **Belgi:** panja izi, katta yostiqchasi yurak shaklida («jon» — tirik jon, g'amxo'rlik).
+- **Yozuv:** «JONIVOR», Unbounded Bold, vektor shaklga o'tkazilgan (shriftga bog'liq emas).
+- **Ranglar:** Jonivor yashil #1E4D3A, chuqur yashil #132F24, o'rik #F08A4B (urg'u), krem #FBF7F0, oltin #94650F (faqat TOP/VIP).
+- **Shriftlar:** Unbounded — faqat logotip va reklama sarlavhalari; interfeys — Inter.
+- **Fayllar:** `brand/` — `jonivor-mark.svg`, `jonivor-wordmark.svg`, `jonivor-lockup.svg`, `jonivor-app-icon.svg` va PNG (1024/180/120).
+- **Brend qo'llanmasi:** `brand/brand.html` (`python3 brand/build_brand.py` bilan yig'iladi).
+- **Ilovada:** ochilish ekrani (splash), bosh sahifa sarlavhasida logotip, kirish ekrani va «Ilova haqida».
