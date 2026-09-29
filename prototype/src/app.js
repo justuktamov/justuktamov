@@ -1,5 +1,5 @@
 /* =====================================================================
-   JONIVOR — pet marketplace prototype
+   Do'st — pet marketplace prototype
    Single-page app rendered into an iPhone 17 Pro Max frame.
    ===================================================================== */
 
@@ -62,18 +62,6 @@ const P={
  alert:'<path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.5h.01"/>'
 };
 const ic=(n,s=22,o={})=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${o.fill?'currentColor':'none'}" stroke="${o.fill?'none':'currentColor'}" stroke-width="${o.w||1.75}" stroke-linecap="round" stroke-linejoin="round"${o.c?` style="color:${o.c}"`:''}>${P[n]}</svg>`;
-
-
-/* =====================================================================
-   BRAND — JONIVOR. Mark: a paw whose main pad is a heart ("jon" = soul, life).
-   Wordmark: "JONIVOR" in Unbounded Bold, converted to outlines.
-   ===================================================================== */
-const LOGO_TOES='<ellipse cx="15.5" cy="27" rx="5.6" ry="7" transform="rotate(-24 15.5 27)"/><ellipse cx="25.6" cy="15.6" rx="5.8" ry="7.4" transform="rotate(-8 25.6 15.6)"/><ellipse cx="38.4" cy="15.6" rx="5.8" ry="7.4" transform="rotate(8 38.4 15.6)"/><ellipse cx="48.5" cy="27" rx="5.6" ry="7" transform="rotate(24 48.5 27)"/>';
-const LOGO_HEART='M32 57C22.5 51 16 45.2 16 38.4 16 33.4 19.8 29.6 24.6 29.6 27.9 29.6 30.6 31.4 32 34.2 33.4 31.4 36.1 29.6 39.4 29.6 44.2 29.6 48 33.4 48 38.4 48 45.2 41.5 51 32 57Z';
-const WORD_D='M18 381H221V406Q221 494 257.5 540.5Q294 587 379 587Q462 587 500.0 543.5Q538 500 538 422V0H745V433Q745 537 699.0 612.0Q653 687 571.0 726.5Q489 766 379 766Q271 766 189.5 725.0Q108 684 63.5 606.5Q19 529 19 422Z M1348 766Q1215 766 1114.5 717.0Q1014 668 958.5 580.0Q903 492 903 375Q903 258 958.5 170.0Q1014 82 1114.5 33.0Q1215 -16 1348 -16Q1482 -16 1582.0 33.0Q1682 82 1738.0 170.0Q1794 258 1794 375Q1794 492 1738.0 580.0Q1682 668 1582.0 717.0Q1482 766 1348 766ZM1348 581Q1421 581 1474.0 556.0Q1527 531 1555.5 485.0Q1584 439 1584 375Q1584 311 1555.5 265.0Q1527 219 1474.0 194.0Q1421 169 1348 169Q1276 169 1223.0 194.0Q1170 219 1141.0 265.0Q1112 311 1112 375Q1112 439 1141.0 485.0Q1170 531 1223.0 556.0Q1276 581 1348 581Z M2656 605 2592 618V0H2793V750H2532L2099 133L2162 120V750H1961V0H2229Z M2993 0H3200V750H2993Z M3844 657H3756L4045 0H4264L3915 750H3680L3331 0H3553Z M4807 766Q4674 766 4573.5 717.0Q4473 668 4417.5 580.0Q4362 492 4362 375Q4362 258 4417.5 170.0Q4473 82 4573.5 33.0Q4674 -16 4807 -16Q4941 -16 5041.0 33.0Q5141 82 5197.0 170.0Q5253 258 5253 375Q5253 492 5197.0 580.0Q5141 668 5041.0 717.0Q4941 766 4807 766ZM4807 581Q4880 581 4933.0 556.0Q4986 531 5014.5 485.0Q5043 439 5043 375Q5043 311 5014.5 265.0Q4986 219 4933.0 194.0Q4880 169 4807 169Q4735 169 4682.0 194.0Q4629 219 4600.0 265.0Q4571 311 4571 375Q4571 439 4600.0 485.0Q4629 531 4682.0 556.0Q4735 581 4807 581Z M5563 328H5836Q5886 328 5914.0 305.0Q5942 282 5942 241Q5942 199 5914.0 176.5Q5886 154 5836 154H5534L5627 55V750H5420V0H5865Q5951 0 6015.0 30.5Q6079 61 6115.0 114.5Q6151 168 6151 241Q6151 312 6115.0 366.0Q6079 420 6015.0 450.0Q5951 480 5865 480H5563ZM5675 399H5908L6177 750H5937Z';
-const logoMark=(size,toes='currentColor',heart='var(--accent)')=>`<svg width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><g fill="${toes}">${LOGO_TOES}</g><path d="${LOGO_HEART}" fill="${heart}"/></svg>`;
-const wordmark=(h,color='currentColor')=>`<svg class="wordmark" height="${h}" viewBox="0 0 6200 750" role="img" aria-label="JONIVOR"><path d="${WORD_D}" fill="${color}"/></svg>`;
-const appIcon=size=>`<span class="appicon" style="width:${size}px;height:${size}px;border-radius:${Math.round(size*.2237)}px">${logoMark(Math.round(size*.7),'#FBF7F0','#F08A4B')}</span>`;
 
 /* =====================================================================
    PHOTOS — painted onto <canvas>. Sandboxed previews often block every image
@@ -151,7 +139,7 @@ const SELLERS={
  s2:{n:'Malika Yusupova',i:'MY',since:'2023',ph:'+998 91 222 33 44',verified:1},
  s3:{n:'Jasur Rahimov',i:'JR',since:'2025',ph:'+998 93 777 88 99',verified:0},
  me:{n:'Uchqun Uktamov',i:'UU',since:'2026',ph:'+998 90 123 45 67'},
- support:{n:"Jonivor yordam",i:'D',since:'2026',ph:'+998 71 200 00 00',verified:1}
+ support:{n:"Do'st yordam",i:'D',since:'2026',ph:'+998 71 200 00 00',verified:1}
 };
 let REVIEWS=[
  {s:'s1',who:'Malika Y.',st:5,x:"Kuchuk sog'lom, hujjatlari joyida. Sotuvchi hamma savollarga javob berdi.",date:'12-sentabr'},
@@ -257,7 +245,7 @@ const RU_RX=[
  [/^(\d+) ta e'lon$/,(m,n)=>n+' объявл.'],
  [/^(\d+) ta e'lon topildi$/,(m,n)=>'Найдено объявлений: '+n],
  [/^(\d+)-yildan beri$/,(m,n)=>'с '+n+' года'],
- [/^(\d+)-yildan beri «Jonivor»da$/,(m,n)=>'На «Jonivor» с '+n+' года'],
+ [/^(\d+)-yildan beri «Do'st»da$/,(m,n)=>'На «Do\'st» с '+n+' года'],
  [/^Bugun, (\d\d:\d\d)$/,(m,t)=>'Сегодня, '+t],
  [/^Kecha, (\d\d:\d\d)$/,(m,t)=>'Вчера, '+t],
  [/^(\d+)-sentabr(.*)$/,(m,d,r)=>d+' сентября'+r],
@@ -325,7 +313,7 @@ function show(entry){
   $('#tabbar').classList.toggle('hide',!TABS.includes(id));
   document.querySelectorAll('.tab[data-t]').forEach(t=>t.classList.toggle('on',t.dataset.t===id));
   $('#cta').classList.toggle('on',id==='detail'||id==='lostDetail'||id==='service');
-  $('#sb').className='statusbar'+(id==='welcome'||id==='splash'?' dark':(id==='detail'||id==='lostDetail'||id==='seller')&&!(entry.y>330)?' clear':'');
+  $('#sb').className='statusbar'+(id==='welcome'?' dark':(id==='detail'||id==='lostDetail'||id==='seller')&&!(entry.y>330)?' clear':'');
   closeSheet();
 }
 const curY=()=>{const t=stack[stack.length-1],el=t&&$('#s-'+t.id);return el?el.scrollTop:0};
@@ -380,13 +368,8 @@ function copyText(txt,msg){try{navigator.clipboard.writeText(txt).then(()=>toast
    ===================================================================== */
 const R={};
 
-/* ---------- splash ---------- */
-R.splash=el=>{el.innerHTML=`<div class="splash" onclick="leaveSplash()">${appIcon(112)}<div class="sp-word">${wordmark(26,'#FBF7F0')}</div><div class="sp-tag">Uy hayvonlari bozori</div></div>`;
-  clearTimeout(R.splash.t);R.splash.t=setTimeout(leaveSplash,1600)};
-function leaveSplash(){clearTimeout(R.splash.t);if(stack[stack.length-1]?.id==='splash'){stack=[{id:S.logged?'home':'welcome'}];show(stack[0])}}
-
 /* ---------- welcome & login ---------- */
-R.welcome=el=>{el.innerHTML=`<div class="w-hero">${photoTag('kitten','cat')}<div class="w-logo">${appIcon(36)}<span style="color:#fff">${wordmark(15)}</span></div></div>
+R.welcome=el=>{el.innerHTML=`<div class="w-hero">${photoTag('kitten','cat')}<div class="w-logo"><i>${ic('paw',18,{fill:1})}</i><span class="notr">Do'st</span></div></div>
   <div class="w-body">
    <h1 class="t-display">Uy hayvonlarini sotish va sotib olish</h1>
    <div class="w-list">
@@ -417,9 +400,11 @@ const searchActive=()=>S.cat!=='all'||S.region!==REGIONS[0]||S.q.trim()||filterA
 const placeLabel=()=>S.region===REGIONS[0]?S.region:S.dist?S.dist:S.region;
 R.home=el=>{
   el.innerHTML=`
-   <div class="brandbar"><span class="bb-mark">${logoMark(30,'var(--brand-fg)')}</span><span class="bb-word">${wordmark(15)}</span>
-    <button class="icon-btn" style="margin-left:auto" aria-label="Bildirishnomalar" onclick="nav('notifs')">${ic('bell',20)}${NOTIFS.some(n=>n.u)?'<span class="dot"></span>':''}</button></div>
-   <button class="loc" onclick="openRegion()">${ic('pin',18)}<span class="l1">${S.dist?S.region+' ·':'Hudud:'}</span><span class="l2">${placeLabel()}</span>${ic('chev',16)}</button>
+   <div class="row between">
+    <button class="loc" onclick="openRegion()"><span class="icon-btn" style="background:var(--brand-50);box-shadow:none;color:var(--brand-fg)">${ic('pin',20)}</span>
+     <span><div class="l1">${S.dist?S.region:'Hudud'}</div><div class="l2">${placeLabel()}${ic('chev',18)}</div></span></button>
+    <button class="icon-btn" aria-label="Bildirishnomalar" onclick="nav('notifs')">${ic('bell',20)}${NOTIFS.some(n=>n.u)?'<span class="dot"></span>':''}</button>
+   </div>
    <label class="search">${ic('search',20)}<input id="q" placeholder="Zot yoki hayvon nomi bo'yicha qidirish" value="${esc(S.q)}" oninput="S.q=this.value;rList();$('#qx').style.display=S.q?'':'none'">
     <button id="qx" style="color:var(--ink-3);display:${S.q?'':'none'}" onclick="S.q='';$('#q').value='';this.style.display='none';rList()" aria-label="Tozalash">${ic('x',18)}</button>
     <button class="f" aria-label="Filtr" onclick="openFilter()">${ic('sliders',20)}${filterActive()?'<span class="dot"></span>':''}</button></label>
@@ -522,7 +507,7 @@ function openCall(s,name,ph){const sl=SELLERS[s]||{n:name,i:initials(name||'?'),
   <div class="t-headline">${esc(sl.n)}</div><div class="t-title num notr" style="margin:8px 0 20px;user-select:all">${sl.ph}</div></div>
   <a class="btn" href="tel:${sl.ph.replace(/\s/g,'')}">${ic('phone',20)}Qo'ng'iroq qilish</a>
   <button class="btn secondary" style="margin-top:10px" onclick="closeSheet();copyText('${sl.ph}','Raqam nusxalandi')">Raqamni nusxalash</button>
-  <p class="t-caption faint center" style="margin-top:14px;font-weight:400">Qo'ng'iroqda «Jonivor» ilovasidan ekanligingizni ayting</p>`)}
+  <p class="t-caption faint center" style="margin-top:14px;font-weight:400">Qo'ng'iroqda «Do'st» ilovasidan ekanligingizni ayting</p>`)}
 function openReport(){openSheet(`<h2 class="t-title" style="margin-bottom:6px">Shikoyat sababi</h2><p class="muted" style="margin-bottom:16px">Moderatorlar 24 soat ichida ko'rib chiqadi.</p><div class="group">`+
   ['Firibgarlik yoki oldindan to\'lov so\'rash','Hayvon kasal yoki yomon holatda',"Noto'g'ri kategoriya yoki narx",'Hayvon allaqachon sotilgan','Boshqa sabab'].map(r=>`<button class="cell" onclick="closeSheet();toast('Shikoyatingiz yuborildi. Rahmat!')">${r}<span class="val">${ic('right',18)}</span></button>`).join('')+'</div>')}
 
@@ -535,7 +520,7 @@ R.seller=(el,s)=>{const sl=SELLERS[s],l=ADS.filter(a=>a.s===s&&!a.sold),nm=s==='
     <p class="muted ugc t-callout center" style="font-weight:400;margin-top:10px">${esc(biz.about)}</p><div class="t-caption faint center" style="margin-top:4px;font-weight:400">${ic('clock',12).replace('<svg','<svg style="display:inline;vertical-align:-2px"')} ${esc(biz.hours)}</div></div>`
    :navBar('Sotuvchi')+`<div class="center" style="margin:8px 0 20px"><div class="avatar" style="width:80px;height:80px;font-size:26px;margin:0 auto 12px">${initials(nm)}</div>
    <div class="t-title" style="display:flex;align-items:center;gap:6px;justify-content:center"><span class="ugc">${esc(nm)}</span>${verBadge(s,20)}</div>
-   <div class="muted t-callout" style="font-weight:400;margin-top:4px">${sl.since}-yildan beri «Jonivor»da</div>
+   <div class="muted t-callout" style="font-weight:400;margin-top:4px">${sl.since}-yildan beri «Do'st»da</div>
    ${sl.verified?`<div class="t-caption" style="color:var(--blue);margin-top:6px">Shaxsi tasdiqlangan</div>`:`<div class="t-caption faint" style="margin-top:6px">Shaxsi tasdiqlanmagan</div>`}</div>`)+
    `<div class="${biz?'pad':''}"><div class="group stats"><div><b>${l.length}</b><span>E'lonlar</span></div><div><b>${rt.n?rt.avg.toFixed(1):'—'}</b><span>Reyting</span></div><div><b>${rt.n}</b><span>Sharhlar</span></div></div>
    <div class="section"><h2 class="t-headline">Sharhlar</h2>${s==='me'?'':`<a onclick="requireAuth(()=>openReview('${s}'))">Sharh yozish</a>`}</div>
@@ -886,8 +871,8 @@ function settingsGroup(){return `<div class="group">
    <button class="cell" onclick="openTheme()"><span class="ic">${ic('moon',20)}</span>Tungi rejim<span class="val">${themeName()} ${ic('right',18)}</span></button>
    <button class="cell" onclick="openLang()"><span class="ic">${ic('globe',20)}</span>Til<span class="val"><span class="notr">${uz(langName())}</span> ${ic('right',18)}</span></button>
    <button class="cell" onclick="nav('help')"><span class="ic">${ic('help',20)}</span>Yordam markazi<span class="val">${ic('right',18)}</span></button></div>`}
-R.settings=el=>{el.innerHTML=navBar('Sozlamalar')+settingsGroup()+`<div class="group" style="margin-top:16px"><button class="cell" onclick="nav('about')"><span class="ic">${ic('info',20)}</span>Ilova haqida<span class="val">1.2 ${ic('right',18)}</span></button></div>`};
-R.about=el=>{el.innerHTML=navBar('Ilova haqida')+`<div class="center" style="margin:20px 0 28px"><div style="display:flex;justify-content:center;margin-bottom:14px">${appIcon(88)}</div><div style="color:var(--brand-fg);display:flex;justify-content:center">${wordmark(20)}</div><div class="muted t-callout" style="font-weight:400;margin-top:6px">Uy hayvonlari bozori</div><div class="muted num">Versiya 1.2 (prototip)</div></div>
+R.settings=el=>{el.innerHTML=navBar('Sozlamalar')+settingsGroup()+`<div class="group" style="margin-top:16px"><button class="cell" onclick="nav('about')"><span class="ic">${ic('info',20)}</span>Ilova haqida<span class="val">1.1 ${ic('right',18)}</span></button></div>`};
+R.about=el=>{el.innerHTML=navBar('Ilova haqida')+`<div class="center" style="margin:20px 0 28px"><div class="avatar" style="width:72px;height:72px;border-radius:20px;background:var(--brand);color:#fff;margin:0 auto 12px">${ic('paw',34,{fill:1})}</div><div class="t-title notr">Do'st</div><div class="muted num">Versiya 1.1 (prototip)</div></div>
   <div class="group"><button class="cell" onclick="nav('doc','terms')">Foydalanish shartlari<span class="val">${ic('right',18)}</span></button><button class="cell" onclick="nav('doc','privacy')">Maxfiylik siyosati<span class="val">${ic('right',18)}</span></button></div>
   <p class="t-caption faint center" style="margin-top:20px;font-weight:400">Namuna fotosuratlar: GCompris loyihasi (GPL-3)</p>`};
 R.doc=(el,k)=>{const d={terms:['Foydalanish shartlari',["E'lon joylash bepul. Har bir e'lon moderatsiyadan o'tadi.","Faqat qonuniy sotilishi mumkin bo'lgan hayvonlar haqida e'lon beriladi.","Yolg'on ma'lumot beruvchi e'lonlar o'chiriladi, takroriy holatda hisob bloklanadi.","Reklama xizmatlari uchun to'langan mablag' xizmat ko'rsatilgandan so'ng qaytarilmaydi."]],
@@ -962,5 +947,5 @@ document.addEventListener('scroll',e=>{const id=e.target.id;if(id==='s-detail'||
 /* ---------- fit device to window ---------- */
 function fit(){const s=Math.min(1,(innerHeight-24)/978,(innerWidth-16)/462);$('#stage').style.transform=`scale(${s})`;$('#stage').style.margin=`${(978*s-978)/2}px ${(462*s-462)/2}px`}
 addEventListener('resize',fit);fit();
-try{renderTabbar();stack=[{id:'splash'}];show(stack[0])}
+try{renderTabbar();stack=[{id:S.logged?'home':'welcome'}];show(stack[0])}
 catch(e){$('#screens').innerHTML=`<section class="screen on"><h2 class="t-headline">Ilovani ochib bo'lmadi</h2><p class="muted" style="margin-top:8px">${esc(e.message)}</p></section>`}
