@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Do'st — uy hayvonlari bozori (prototip)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" rel="stylesheet">
+<style>
+/* ================= DESIGN TOKENS ================= */
+:root{
+  --bg:#f4f4f1; --surface:#fff; --fill:#e9e9e4; --bar:rgba(255,255,255,.94);
+  --ink:#121815; --ink-2:#4b5550; --ink-3:#8a928e; --line:#e5e5e0; --line-2:#efefeb;
+  --brand:#1e4d3a; --brand-600:#276049; --brand-50:#ebf2ee; --brand-fg:#1e4d3a;
+  --gold:#94650f; --gold-50:#fbf3e1; --gold-200:#ecd7a5; --gold-bg:#fffcf5;
+  --red:#c2372c; --ph-a:#eeece6; --ph-b:#e0ddd4; --scrim:rgba(10,18,14,.45);
+  --shadow-float:0 8px 24px rgba(18,24,21,.10);
+  --font:"Inter",-apple-system,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+  --t-display:700 28px/34px var(--font); --t-title:700 22px/28px var(--font);
+  --t-headline:600 17px/24px var(--font); --t-body:400 15px/22px var(--font);
+  --t-callout:500 14px/20px var(--font); --t-caption:500 12px/16px var(--font);
+  --r-md:12px; --r-lg:16px; --r-xl:24px; --gutter:20px;
+}
+.phone[data-theme="dark"]{
+  --bg:#0e1311; --surface:#171d1a; --fill:#252c29; --bar:rgba(23,29,26,.94);
+  --ink:#eef1ef; --ink-2:#b3bbb7; --ink-3:#7d8682; --line:#29302d; --line-2:#222926;
+  --brand:#2f7d5d; --brand-600:#389069; --brand-50:#18271f; --brand-fg:#79cca5;
+  --gold:#d3a444; --gold-50:#2b2415; --gold-200:#5a4822; --gold-bg:#1f1b12;
+  --red:#ef6b61; --ph-a:#1d2421; --ph-b:#252d29; --scrim:rgba(0,0,0,.6);
+  --shadow-float:0 8px 24px rgba(0,0,0,.4);
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:radial-gradient(circle at 30% 20%,#2a332f,#0e1311 70%);font:var(--t-body);display:grid;place-items:center;overflow:hidden;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;text-align:inherit}
+input,textarea,select{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+svg{display:block;flex:none}
+.num{font-variant-numeric:tabular-nums}
+
+/* ================= DEVICE: iPhone 17 Pro Max (440×956pt) ================= */
+#stage{width:462px;height:978px;transform-origin:center;flex:none}
+.device{position:relative;width:462px;height:978px;border-radius:67px;padding:4px;
+  background:linear-gradient(135deg,#e9e7e3 0%,#a9a6a0 22%,#d8d6d1 50%,#9c9993 78%,#e2e0dc 100%);
+  box-shadow:0 0 0 1px #6f6c67,0 30px 80px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.5)}
+.device>i{position:absolute;width:3px;border-radius:2px;background:linear-gradient(90deg,#8d8a84,#c9c6c0)}
+.device>.b-act{left:-3px;top:150px;height:30px}.device .b-vu{left:-3px;top:210px;height:56px}.device .b-vd{left:-3px;top:278px;height:56px}
+.device .b-pw{right:-3px;top:236px;height:88px;background:linear-gradient(270deg,#8d8a84,#c9c6c0)}
+.device .b-cc{right:-2px;top:560px;height:52px;width:2px;background:#8f8c86}
+.bezel{width:100%;height:100%;border-radius:63px;background:#050505;padding:7px}
+.phone{position:relative;width:100%;height:100%;border-radius:56px;overflow:hidden;background:var(--bg);color:var(--ink);font:var(--t-body);font-feature-settings:"cv11"}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;border-radius:20px;background:#000;z-index:120}
+.statusbar{position:absolute;top:0;left:0;right:0;height:54px;padding:19px 34px 0 44px;display:flex;justify-content:space-between;font:600 16px/20px var(--font);z-index:110;pointer-events:none;background:var(--bg);color:var(--ink);transition:background .2s}
+.statusbar.clear{background:none}.statusbar.dark{background:none;color:#fff}
+.statusbar .r{display:flex;gap:6px;align-items:center}
+.home-ind{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:140px;height:5px;border-radius:3px;background:var(--ink);z-index:120;pointer-events:none}
+
+/* ================= LAYOUT ================= */
+.screen{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain;padding:62px var(--gutter) 120px;display:none;background:var(--bg);scrollbar-width:none}
+.screen.on{display:block;animation:fade .18s ease}
+.screen.notab{padding-bottom:48px}
+.screen::-webkit-scrollbar{display:none}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.stack{display:flex;flex-direction:column;gap:16px}
+.row{display:flex;align-items:center;gap:12px}
+.between{justify-content:space-between}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.t-display{font:var(--t-display);letter-spacing:-.022em}
+.t-title{font:var(--t-title);letter-spacing:-.018em}
+.t-headline{font:var(--t-headline);letter-spacing:-.01em}
+.t-callout{font:var(--t-callout)}
+.t-caption{font:var(--t-caption)}
+.muted{color:var(--ink-2)}.faint{color:var(--ink-3)}.center{text-align:center}
+.dragging,.dragging *{cursor:grabbing!important;user-select:none}
+
+/* ================= COMPONENTS ================= */
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:52px;border-radius:var(--r-md);background:var(--brand);color:#fff;font:600 16px/20px var(--font);transition:background .15s,transform .1s,opacity .15s;text-align:center}
+.btn:active{transform:scale(.985);background:var(--brand-600)}
+.btn:disabled{opacity:.45;pointer-events:none}
+.btn.secondary{background:var(--surface);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.btn.gold{background:var(--gold);color:#fff}
+.phone[data-theme="dark"] .btn.gold{color:#1a1408}
+.btn.danger{background:var(--red);color:#fff}
+.btn.text{background:none;color:var(--brand-fg);height:44px}
+.icon-btn{width:40px;height:40px;border-radius:50%;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);display:grid;place-items:center;flex:none;color:var(--ink);position:relative}
+.icon-btn.float{box-shadow:var(--shadow-float)}
+.icon-btn .dot{position:absolute;top:8px;right:9px;width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 0 2px var(--surface)}
+.nav{display:flex;align-items:center;gap:12px;min-height:44px;margin-bottom:16px}
+.nav .t-headline{flex:1;text-align:center}
+.nav .sp{width:40px}
+.large-title{font:var(--t-display);letter-spacing:-.022em;margin:4px 0 16px}
+.section{display:flex;justify-content:space-between;align-items:center;margin:28px 0 12px}
+.section a,.link{font:var(--t-callout);color:var(--brand-fg);font-weight:600;cursor:pointer}
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 calc(-1 * var(--gutter));padding:0 var(--gutter);scrollbar-width:none;cursor:grab}
+.chips::-webkit-scrollbar{display:none}
+.chip{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:99px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);font:var(--t-callout);white-space:nowrap;color:var(--ink);flex:none}
+.chip.on{background:var(--ink);color:var(--bg);box-shadow:none}
+.badge{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:6px;font:700 11px/1 var(--font);letter-spacing:.04em;background:var(--brand-50);color:var(--brand-fg);flex:none}
+.badge.top{background:var(--gold-50);color:var(--gold)}
+.badge.gray{background:var(--fill);color:var(--ink-2);letter-spacing:0}
+.group{background:var(--surface);border-radius:var(--r-lg);box-shadow:inset 0 0 0 1px var(--line);overflow:hidden}
+.cell{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:0 16px;font:var(--t-body);position:relative;color:var(--ink)}
+.cell+.cell::before,details+details::before{content:"";position:absolute;top:0;left:16px;right:0;height:1px;background:var(--line-2)}
+button.cell:active,a.cell:active{background:var(--fill)}
+.cell .ic{color:var(--ink-2);display:flex}
+.cell .val{margin-left:auto;color:var(--ink-3);display:flex;align-items:center;gap:6px}
+.cell .lbl{color:var(--ink-2)}
+.cell .rt{margin-left:auto;font-weight:500}
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--brand-50);color:var(--brand-fg);display:grid;place-items:center;font:600 15px/1 var(--font);flex:none}
+.callout{display:flex;gap:12px;align-items:flex-start;background:var(--brand-50);color:var(--brand-fg);border-radius:var(--r-md);padding:12px 14px;font:var(--t-callout)}
+.callout b{font-weight:600}
+.empty{text-align:center;padding:64px 12px}
+.empty .ei{width:64px;height:64px;border-radius:50%;margin:0 auto 16px;display:grid;place-items:center;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-3)}
+.switch{margin-left:auto;width:51px;height:31px;border-radius:16px;background:var(--fill);position:relative;transition:background .2s;flex:none}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.2);transition:transform .2s}
+.switch.on{background:#34a36f}.switch.on::after{transform:translateX(20px)}
+
+/* photos */
+.photo{position:relative;overflow:hidden;background:linear-gradient(160deg,var(--ph-a),var(--ph-b))}
+.photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;-webkit-user-drag:none;user-select:none}
+.photo .ph-fb{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-3)}
+.photo .ph-fb div{display:flex;flex-direction:column;align-items:center;gap:6px;font:var(--t-caption)}
+
+/* listing card + row */
+.card{background:var(--surface);border-radius:var(--r-lg);box-shadow:inset 0 0 0 1px var(--line);overflow:hidden;cursor:pointer;position:relative}
+.card>.photo{height:160px}
+.card .body{padding:12px 14px 14px}
+.price{font:700 17px/22px var(--font);font-variant-numeric:tabular-nums;white-space:nowrap}
+.title{font:var(--t-body);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font:var(--t-caption);color:var(--ink-3);display:flex;align-items:center;gap:4px;margin-top:4px}
+.save{position:absolute;top:8px;right:8px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.94);color:#121815;display:grid;place-items:center;z-index:2}
+.card>.badge{position:absolute;top:10px;left:10px;z-index:2}
+.hscroll{display:flex;gap:12px;overflow-x:auto;margin:0 calc(-1 * var(--gutter));padding:0 var(--gutter) 2px;scrollbar-width:none;cursor:grab}
+.hscroll::-webkit-scrollbar{display:none}
+.hscroll .card{width:230px;flex:none}
+.lrow{display:flex;gap:14px;padding:14px 0;cursor:pointer;position:relative}
+.lrow+.lrow{border-top:1px solid var(--line)}
+.lrow>.photo{width:112px;height:112px;border-radius:var(--r-md);flex:none}
+.lrow .b{flex:1;min-width:0;display:flex;flex-direction:column}
+.lrow .save{position:static;background:none;color:var(--ink);width:32px;height:32px;margin:-6px -6px 0 0}
+.lrow .meta:last-child{margin-top:auto}
+
+/* ================= SCREENS ================= */
+#s-welcome{padding:0;background:var(--surface)}
+.w-hero{height:520px;position:relative;overflow:hidden}
+.w-hero>.photo{position:absolute;inset:0;background:#1e4d3a}
+.w-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.4),transparent 30%,transparent 65%,rgba(0,0,0,.2));pointer-events:none}
+.w-logo{position:absolute;top:70px;left:24px;display:flex;align-items:center;gap:8px;color:#fff;font:700 18px/1 var(--font);z-index:2}
+.w-logo i{width:30px;height:30px;border-radius:9px;background:#fff;color:#1e4d3a;display:grid;place-items:center}
+.w-body{padding:28px 24px 0}
+.w-list{margin:20px 0 28px;display:flex;flex-direction:column;gap:14px}
+.w-list div{display:flex;gap:12px;align-items:center;font:var(--t-callout);color:var(--ink-2)}
+.w-list i{width:32px;height:32px;border-radius:10px;background:var(--brand-50);color:var(--brand-fg);display:grid;place-items:center;flex:none}
+
+.loc{display:flex;align-items:center;gap:10px}
+.loc .l1{font:var(--t-caption);color:var(--ink-3)}
+.loc .l2{font:var(--t-headline);display:flex;align-items:center;gap:4px}
+.search{display:flex;align-items:center;gap:10px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);border-radius:var(--r-md);padding:0 6px 0 14px;height:48px;margin:16px 0 14px;color:var(--ink-3)}
+.search input{flex:1;min-width:0;border:0;outline:0;background:none;font:var(--t-body);color:var(--ink)}
+.search input::placeholder{color:var(--ink-3)}
+.search .f{width:36px;height:36px;border-radius:9px;background:var(--bg);display:grid;place-items:center;color:var(--ink);position:relative}
+.search .f .dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--red)}
+.promo{display:flex;gap:14px;align-items:center;background:var(--brand);color:#fff;border-radius:var(--r-lg);padding:16px;margin-top:24px;cursor:pointer;width:100%}
+.promo i{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.14);display:grid;place-items:center;flex:none}
+.promo .sub{color:rgba(255,255,255,.75);font:400 13px/18px var(--font)}
+
+/* detail */
+#s-detail{padding:0 0 150px}
+.gal{height:400px;position:relative}
+.gal::before{content:"";position:absolute;top:0;left:0;right:0;height:130px;background:linear-gradient(color-mix(in srgb,var(--bg) 75%,transparent),transparent);z-index:2;pointer-events:none}
+.gal-track{display:flex;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;cursor:grab}
+.gal-track::-webkit-scrollbar{display:none}
+.gal-track>.photo{flex:0 0 100%;height:100%;scroll-snap-align:start}
+.gal .icon-btn{position:absolute;top:60px;z-index:3}
+.gal .acts{position:absolute;right:20px;top:60px;display:flex;gap:10px;z-index:3}
+.gal .acts .icon-btn{position:static}
+.pager{position:absolute;right:16px;bottom:40px;background:rgba(18,24,21,.6);color:#fff;font:var(--t-caption);padding:4px 10px;border-radius:99px;z-index:3}
+.dsheet{background:var(--bg);border-radius:var(--r-xl) var(--r-xl) 0 0;margin-top:-24px;position:relative;padding:24px var(--gutter) 0;z-index:2}
+.cta{display:none;position:absolute;left:0;right:0;bottom:0;padding:12px var(--gutter) 34px;background:var(--bar);backdrop-filter:blur(20px);box-shadow:0 -1px 0 var(--line);gap:10px;z-index:60}
+.cta.on{display:flex}
+.cta .btn.secondary{width:auto;padding:0 18px}
+
+/* post */
+.steps{display:flex;gap:6px;margin-bottom:24px}
+.steps i{flex:1;height:4px;border-radius:4px;background:var(--line)}.steps i.on{background:var(--brand)}
+.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.ph{aspect-ratio:1;border-radius:var(--r-md);border:1.5px dashed var(--ink-3);background:var(--surface);display:grid;place-items:center;color:var(--ink-2);cursor:pointer;font:var(--t-caption);text-align:center;position:relative;overflow:hidden}
+.ph .in{display:flex;flex-direction:column;align-items:center;gap:6px}
+.ph.filled{border:0}
+.ph.main{grid-column:span 2;grid-row:span 2}
+.ph .x{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:grid;place-items:center;z-index:2}
+.ph .mainlbl{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.55);color:#fff;border-radius:6px;padding:3px 7px;font:var(--t-caption);z-index:2}
+.field label{display:block;font:var(--t-callout);font-weight:600;color:var(--ink);margin-bottom:8px}
+.field .hint{font:400 12px/16px var(--font);color:var(--ink-3);margin-top:6px}
+.field .err{font:500 12px/16px var(--font);color:var(--red);margin-top:6px;display:none}
+.field.invalid .err{display:block}.field.invalid .inp{box-shadow:inset 0 0 0 1.5px var(--red)}
+.inp{width:100%;height:50px;border-radius:var(--r-md);border:0;box-shadow:inset 0 0 0 1px var(--line);background:var(--surface);padding:0 14px;outline:0;font:var(--t-body);color:var(--ink);appearance:none}
+.inp::placeholder{color:var(--ink-3)}
+.inp:focus{box-shadow:inset 0 0 0 2px var(--brand)}
+.inp:disabled{color:var(--ink-3)}
+textarea.inp{height:110px;padding:13px 14px;resize:none}
+.suffix{position:relative}.suffix>span{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--ink-3);pointer-events:none}
+.prefix{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-weight:500}
+.seg{display:flex;background:var(--fill);border-radius:var(--r-md);padding:3px}
+.seg button{flex:1;height:40px;border-radius:9px;font:var(--t-callout);color:var(--ink-2);text-align:center}
+.seg button.on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.ok{width:72px;height:72px;border-radius:50%;background:var(--brand-50);color:var(--brand-fg);display:grid;place-items:center;margin:0 auto 20px}
+.otp{letter-spacing:.9em;text-align:center;font:600 26px/1 var(--font);height:64px;padding-left:.9em}
+
+/* promote */
+.plan{display:flex;gap:14px;align-items:center;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);border-radius:var(--r-lg);padding:16px;cursor:pointer;width:100%}
+.plan.on{box-shadow:inset 0 0 0 2px var(--gold);background:var(--gold-bg)}
+.radio{width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--ink-3);flex:none}
+.plan.on .radio{box-shadow:inset 0 0 0 7px var(--gold)}
+.plan .pr{margin-left:auto;text-align:right}
+.benefit{display:flex;gap:12px;align-items:center;color:var(--ink-2)}
+.benefit svg{color:var(--brand-fg)}
+.spinner{width:22px;height:22px;border-radius:50%;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.mini{display:flex;gap:10px;align-items:center;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);border-radius:var(--r-md);padding:8px;width:100%}
+.mini>.photo{width:44px;height:44px;border-radius:8px;flex:none}
+
+/* profile & messages */
+.stats{display:grid;grid-template-columns:repeat(3,1fr)}
+.stats div{padding:14px 8px;text-align:center}
+.stats div+div{box-shadow:inset 1px 0 0 var(--line-2)}
+.stats b{display:block;font:700 22px/28px var(--font);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stats span{font:400 12px/16px var(--font);color:var(--ink-3)}
+.msg{display:flex;gap:12px;padding:14px 0;align-items:center;width:100%;cursor:pointer}
+.msg+.msg{border-top:1px solid var(--line)}
+.msg .t{flex:1;min-width:0}
+.msg p{font:400 14px/20px var(--font);color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.msg time{font:400 12px/16px var(--font);color:var(--ink-3)}
+.unread{min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--brand);color:#fff;font:600 11px/20px var(--font);text-align:center;margin-top:4px;flex:none}
+#s-chat{padding:0}
+.chat-head{position:absolute;top:0;left:0;right:0;padding:58px 16px 10px;background:var(--bar);backdrop-filter:blur(20px);box-shadow:0 1px 0 var(--line);z-index:5;display:flex;align-items:center;gap:10px}
+.chat-body{position:absolute;top:112px;bottom:88px;left:0;right:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:6px;scrollbar-width:none}
+.chat-body::-webkit-scrollbar{display:none}
+.bubble{max-width:78%;padding:9px 13px;border-radius:18px;font:400 15px/21px var(--font);background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);align-self:flex-start}
+.bubble.me{align-self:flex-end;background:var(--brand);color:#fff;box-shadow:none}
+.bubble small{display:block;font:400 11px/14px var(--font);opacity:.6;margin-top:2px;text-align:right}
+.chat-in{position:absolute;left:0;right:0;bottom:0;padding:10px 12px 34px;background:var(--bar);backdrop-filter:blur(20px);box-shadow:0 -1px 0 var(--line);display:flex;gap:8px;align-items:center}
+.chat-in input{flex:1;height:42px;border-radius:21px;border:0;box-shadow:inset 0 0 0 1px var(--line);background:var(--surface);padding:0 16px;outline:0;color:var(--ink)}
+.chat-in .send{width:42px;height:42px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center}
+details{position:relative}
+summary{list-style:none;display:flex;align-items:center;gap:12px;padding:16px;cursor:pointer;font-weight:500}
+summary::-webkit-details-marker{display:none}
+summary svg{margin-left:auto;color:var(--ink-3);transition:transform .2s}
+details[open] summary svg{transform:rotate(180deg)}
+details p{padding:0 16px 16px;color:var(--ink-2)}
+
+/* tab bar */
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:88px;padding:8px 8px 0;background:var(--bar);backdrop-filter:blur(20px);box-shadow:0 -1px 0 var(--line);display:flex;justify-content:space-around;align-items:flex-start;z-index:60}
+.tabbar.hide{display:none}
+.tab{display:flex;flex-direction:column;align-items:center;gap:4px;font:500 11px/13px var(--font);color:var(--ink-3);width:76px;padding-top:2px;white-space:nowrap;position:relative}
+.tab.on{color:var(--brand-fg)}
+.tab .cnt{position:absolute;top:-2px;left:42px;min-width:18px;height:18px;border-radius:9px;background:var(--red);color:#fff;font:600 10px/18px var(--font);padding:0 5px}
+.tab.add .pl{width:44px;height:32px;border-radius:10px;background:var(--brand);color:#fff;display:grid;place-items:center;margin-bottom:-2px}
+.tab.add{color:var(--ink-2);font-weight:600}
+
+/* sheet + dialog + toast */
+.modal{position:absolute;inset:0;background:var(--scrim);z-index:100;display:none;align-items:flex-end}
+.modal.on{display:flex}
+.modal.center{align-items:center;justify-content:center;padding:32px}
+.sheet{background:var(--bg);width:100%;border-radius:var(--r-xl) var(--r-xl) 0 0;padding:10px var(--gutter) 40px;max-height:82%;overflow:auto;animation:up .22s ease;scrollbar-width:none}
+.sheet::-webkit-scrollbar{display:none}
+.modal.center .sheet{border-radius:20px;padding:24px 20px 16px;animation:pop .18s ease}
+@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@keyframes pop{from{transform:scale(.95);opacity:0}to{transform:none;opacity:1}}
+.grab{width:36px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 18px}
+.toast{position:absolute;bottom:112px;left:50%;transform:translate(-50%,8px);background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:var(--r-md);font:var(--t-callout);z-index:130;opacity:0;pointer-events:none;transition:.22s;white-space:nowrap}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div id="stage">
+ <div class="device"><i class="b-act"></i><i class="b-vu"></i><i class="b-vd"></i><i class="b-pw"></i><i class="b-cc"></i><div class="bezel"><div class="phone" id="app">
+  <div class="island"></div>
+  <div class="statusbar" id="sb"><span class="num">9:41</span><span class="r">
+    <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+    <svg width="17" height="12" viewBox="0 0 17 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1.5 4.2a10 10 0 0 1 14 0M4 7a6.5 6.5 0 0 1 9 0"/><circle cx="8.5" cy="10" r="1" fill="currentColor"/></svg>
+    <svg width="27" height="13" viewBox="0 0 27 13" fill="none"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="20" height="9" rx="2.2" fill="currentColor"/><path d="M25 4.5v4c.8-.3 1.5-1.2 1.5-2s-.7-1.7-1.5-2z" fill="currentColor" opacity=".45"/></svg>
+  </span></div>
+  <div class="toast" id="toast"></div>
+  <div id="screens"></div>
+  <nav class="tabbar hide" id="tabbar"></nav>
+  <div class="cta" id="cta"></div>
+  <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+  <input type="file" id="file" accept="image/*" multiple hidden>
+  <div class="home-ind"></div>
+ </div></div></div>
+</div>
+
+<script>
+/* =====================================================================
+   ICONS
+   ===================================================================== */
+const P={
+ home:'<path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z"/>',
+ heart:'<path d="M12 19.5s-7.2-4.4-8.8-8.8C2 7.4 4 4.5 7 4.5c2 0 3.4 1.1 5 2.8 1.6-1.7 3-2.8 5-2.8 3 0 5 2.9 3.8 6.2-1.6 4.4-8.8 8.8-8.8 8.8z"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ chat:'<path d="M20 11.5a7.5 7.5 0 0 1-11 6.6L4.5 19.5l1.3-4A7.5 7.5 0 1 1 20 11.5z"/>',
+ user:'<circle cx="12" cy="8" r="3.6"/><path d="M5 20c.9-3.6 3.6-5.5 7-5.5s6.1 1.9 7 5.5"/>',
+ search:'<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
+ pin:'<path d="M12 21s6.5-5.7 6.5-11a6.5 6.5 0 0 0-13 0c0 5.3 6.5 11 6.5 11z"/><circle cx="12" cy="10" r="2.3"/>',
+ chev:'<path d="m7 10 5 5 5-5"/>', right:'<path d="m10 6 6 6-6 6"/>', back:'<path d="m15 5-7 7 7 7"/>', x:'<path d="M6 6l12 12M18 6 6 18"/>',
+ sliders:'<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+ bell:'<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 21h4"/>',
+ star:'<path d="m12 3.5 2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/>',
+ phone:'<path d="M6 4h3l1.5 4.5-2 1.2a10.5 10.5 0 0 0 5.8 5.8l1.2-2L20 15v3a2 2 0 0 1-2 2A15 15 0 0 1 4 6a2 2 0 0 1 2-2z"/>',
+ shield:'<path d="M12 3.5 19 6v5.5c0 4.6-3 7.6-7 9-4-1.4-7-4.4-7-9V6z"/><path d="m9 12 2 2 4-4"/>',
+ flag:'<path d="M5.5 21V4.5M5.5 4.5h11l-2 4 2 4h-11"/>',
+ check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+ camera:'<path d="M4 8.5h3.2L9 6h6l1.8 2.5H20V19H4z"/><circle cx="12" cy="13.5" r="3.2"/>',
+ gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.5-2.4 1a7.5 7.5 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.5 7.5 0 0 0 7 6.5l-2.4-1-2 3.5 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.5 2.4-1a7.5 7.5 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.6-1.5l2.4 1 2-3.5z"/>',
+ card:'<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h3"/>',
+ globe:'<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.8 2.6 2.8 14.4 0 17M12 3.5c-2.8 2.6-2.8 14.4 0 17"/>',
+ help:'<circle cx="12" cy="12" r="8.5"/><path d="M9.7 9.5a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.5M12 16.5h.01"/>',
+ trend:'<path d="m4 16 5-5 3.5 3.5L20 7"/><path d="M15 7h5v5"/>',
+ gift:'<rect x="4" y="9" width="16" height="4" rx="1"/><path d="M5.5 13v7h13v-7M12 9v11M12 9S9.5 9 8.6 7.3C7.8 5.8 9.8 4.3 12 7c2.2-2.7 4.2-1.2 3.4.3C14.5 9 12 9 12 9z"/>',
+ logout:'<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10"/>',
+ paw:'<circle cx="7" cy="10" r="1.8"/><circle cx="17" cy="10" r="1.8"/><circle cx="10" cy="6" r="1.8"/><circle cx="14" cy="6" r="1.8"/><path d="M12 12c-2.5 0-5 3-5 5.2 0 1.5 1.2 2.3 2.6 2.3 1 0 1.6-.5 2.4-.5s1.4.5 2.4.5c1.4 0 2.6-.8 2.6-2.3C17 15 14.5 12 12 12z"/>',
+ moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+ share:'<path d="M12 15V4M8 8l4-4 4 4M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7"/>',
+ send:'<path d="M5 12h13M13 6l6 6-6 6"/>',
+ edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
+ trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+ archive:'<rect x="3.5" y="4.5" width="17" height="4" rx="1"/><path d="M5 8.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8.5M10 12h4"/>',
+ eye:'<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+ more:'<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
+ image:'<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="m20.5 16-5-5-9 8.5"/>',
+ info:'<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.5h.01"/>',
+ clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'
+};
+const ic=(n,s=22,o={})=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${o.fill?'currentColor':'none'}" stroke="${o.fill?'none':'currentColor'}" stroke-width="${o.w||1.75}" stroke-linecap="round" stroke-linejoin="round"${o.c?` style="color:${o.c}"`:''}>${P[n]}</svg>`;
+
+/* =====================================================================
+   PHOTOS — sample photos are embedded in this file (no network needed);
+   user photos are stored as data URLs. Missing images fall back to a placeholder.
+   ===================================================================== */
+const IMG=/*@IMAGES@*/{};
+const SAMPLE={dog:['shepherd'],cat:['kitten','cat_yarn'],bird:['macaw','duckling'],fish:[],rodent:['hedgehog'],reptile:['chameleon'],farm:['sheep','goat','horses','calf']};
+const CAT_LABEL={dog:'It',cat:'Mushuk',bird:'Qush',fish:'Baliq',rodent:'Mayda hayvon',reptile:'Sudraluvchi',farm:'Chorva'};
+const imgSrc=k=>!k?'':/^(data:|blob:|https?:)/.test(k)?k:(IMG[k]||'');
+function photoTag(k,c,cls='',style=''){const src=imgSrc(k);
+  return `<div class="photo ${cls}" style="${style}"><div class="ph-fb"><div>${ic('paw',28)}${CAT_LABEL[c]||''}</div></div>`+
+   (src?`<img alt="" draggable="false" src="${src}" onerror="this.remove()">`:'')+`</div>`;
+}
+
+/* =====================================================================
+   DATA / STATE
+   ===================================================================== */
+const CATS=[{id:'all',n:'Hammasi'},{id:'dog',n:'Itlar'},{id:'cat',n:'Mushuklar'},{id:'bird',n:'Qushlar'},{id:'fish',n:'Baliqlar'},{id:'rodent',n:'Mayda hayvonlar'},{id:'reptile',n:'Sudralib yuruvchilar'},{id:'farm',n:"Qishloq xo'jaligi"}];
+const REGIONS=["Butun O'zbekiston","Toshkent shahri","Toshkent viloyati","Andijon","Buxoro","Farg'ona","Jizzax","Xorazm","Namangan","Navoiy","Qashqadaryo","Qoraqalpog'iston","Samarqand","Sirdaryo","Surxondaryo"];
+const SELLERS={
+ s1:{n:'Aziz Karimov',i:'AK',since:'2024',ph:'+998 90 555 12 34'},
+ s2:{n:'Malika Yusupova',i:'MY',since:'2023',ph:'+998 91 222 33 44'},
+ s3:{n:'Jasur Rahimov',i:'JR',since:'2025',ph:'+998 93 777 88 99'},
+ me:{n:'Uchqun Uktamov',i:'UU',since:'2026',ph:'+998 90 123 45 67'},
+ support:{n:"Do'st yordam",i:'D',since:'2026',ph:'+998 71 200 00 00'}
+};
+let ADS=[
+ {id:1,n:'Nemis ovcharkasi',c:'dog',age:'2 yosh',sex:'Erkak',w:'34 kg',p:4500000,r:'Toshkent shahri',top:1,t:'Bugun, 10:24',ts:12,s:'s1',views:212,img:['shepherd'],d:"Zotli, hujjatlari va veterinar pasporti bor. Barcha emlashlar qilingan. Qo'riqchilikka o'rgatilgan, bolalar bilan yaxshi chiqishadi."},
+ {id:2,n:'Mushukcha, 2 oylik',c:'cat',age:'2 oy',sex:"Urg'ochi",w:'0,8 kg',p:250000,r:'Samarqand',top:1,t:'Bugun, 09:02',ts:11,s:'s2',views:148,img:['kitten'],d:"Lotokka o'rgangan, o'zi ovqatlanadi. Juda o'yinqaroq va mehribon."},
+ {id:3,n:'Otlar, 2 bosh',c:'farm',age:'4 yosh',sex:'Aralash',w:'450 kg',p:48000000,r:'Qashqadaryo',top:1,t:'Bugun, 08:40',ts:10,s:'s3',views:96,img:['horses'],d:"Sog'lom, minishga o'rgatilgan. Birga yoki alohida sotiladi."},
+ {id:4,n:'Ara to\'tiqushi',c:'bird',age:'1 yosh',sex:'Erkak',w:'1 kg',p:9500000,r:"Farg'ona",top:0,t:'Kecha, 18:15',ts:9,s:'s2',views:77,img:['macaw'],d:"Qo'lga o'rgatilgan, bir necha so'z gapiradi. Katta qafas bilan birga beriladi."},
+ {id:5,n:'Uy mushugi',c:'cat',age:'1 yosh',sex:'Erkak',w:'4 kg',p:300000,r:'Buxoro',top:0,t:'27-sentabr',ts:8,s:'s3',views:61,img:['cat_yarn'],d:"Tinch, xonadonga o'rgangan. Bichilgan, emlangan."},
+ {id:6,n:"Hisori qo'y",c:'farm',age:'1,5 yosh',sex:"Urg'ochi",w:'70 kg',p:3200000,r:'Jizzax',top:0,t:'27-sentabr',ts:7,s:'s1',views:54,img:['sheep'],d:"Semiz, sog'lom. Veterinar ko'rigidan o'tgan."},
+ {id:7,n:'Sut echkisi',c:'farm',age:'3 yosh',sex:"Urg'ochi",w:'45 kg',p:2100000,r:'Namangan',top:0,t:'26-sentabr',ts:6,s:'s3',views:33,img:['goat'],d:"Kuniga 2-3 litr sut beradi. Tinch xarakterli."},
+ {id:8,n:'Tovuqlar, 10 ta',c:'farm',age:'8 oy',sex:"Urg'ochi",w:'—',p:900000,r:'Andijon',top:0,t:'26-sentabr',ts:5,s:'s2',views:41,img:['chickens'],d:"Tuxum qo'yayotgan mahalliy zot. Donasi 90 000 so'm."},
+ {id:9,n:'Xameleon',c:'reptile',age:'1 yosh',sex:'Erkak',w:'—',p:1800000,r:'Toshkent shahri',top:0,t:'25-sentabr',ts:4,s:'s1',views:28,img:['chameleon'],d:"Terrarium, lampa va isitgich bilan birga beriladi."},
+ {id:10,n:'Afrika kirpisi',c:'rodent',age:'6 oy',sex:'Erkak',w:'0,4 kg',p:700000,r:'Samarqand',top:0,t:'25-sentabr',ts:3,s:'s2',views:25,img:['hedgehog'],d:"Qo'lga o'rgangan, katak bilan beriladi."},
+ {id:11,n:'Buzoq',c:'farm',age:'4 oy',sex:'Erkak',w:'110 kg',p:6500000,r:'Surxondaryo',top:0,t:'24-sentabr',ts:2,s:'s3',views:19,img:['calf','cow'],d:"Golshtin zoti. Onasi kuniga 20 litr sut beradi."},
+ {id:12,n:'Poni',c:'farm',age:'5 yosh',sex:"Urg'ochi",w:'180 kg',p:12000000,r:'Toshkent shahri',top:0,t:'24-sentabr',ts:1,s:'me',mine:1,views:128,img:['pony'],d:"Bolalar uchun, juda yuvosh. Egar bilan birga."},
+ {id:13,n:"O'rdak jo'jalari, 5 ta",c:'bird',age:'1 oy',sex:'Aralash',w:'—',p:150000,r:'Toshkent shahri',top:0,t:'20-sentabr',ts:0,s:'me',mine:1,sold:1,views:90,img:['duckling','duck'],d:"Sog'lom, o'zi ovqatlanadi."}
+];
+let THREADS=[
+ {id:'t1',who:'s1',ad:1,unread:2,msgs:[{me:1,x:"Assalomu alaykum, ovcharka hali sotuvdami?",t:'10:20'},{me:0,x:"Va alaykum assalom, ha sotuvda.",t:'10:22'},{me:0,x:"Qachon ko'rgani kelasiz?",t:'10:24'}]},
+ {id:'t2',who:'s2',ad:2,unread:1,msgs:[{me:1,x:"Mushukcha hali bormi?",t:'09:05'},{me:0,x:"Ha, bor. Ertaga soat 11 da ko'rgani kelsangiz bo'ladi.",t:'09:10'}]},
+ {id:'t3',who:'s3',ad:3,unread:0,msgs:[{me:1,x:"Narxida kelishsa bo'ladimi?",t:'Kecha'},{me:0,x:"Rahmat, kelishdik.",t:'Kecha'}]},
+];
+let PAYMENTS=[{t:'TOP · 3 kun',ad:'Poni',sum:35000,date:'24-sentabr, 14:10',m:'Click'},{t:'TOP · 1 kun',ad:"O'rdak jo'jalari, 5 ta",sum:15000,date:'20-sentabr, 11:32',m:'Payme'}];
+let NOTIFS=[
+ {i:'check',t:"E'loningiz moderatsiyadan o'tdi",d:"«Poni» endi barcha foydalanuvchilarga ko'rinadi.",time:'1 soat oldin',u:1,go:()=>nav('detail',12)},
+ {i:'chat',t:'Yangi xabar',d:"Aziz Karimov: Qachon ko'rgani kelasiz?",time:'2 soat oldin',u:1,go:()=>requireAuth(()=>nav('chat','t1'))},
+ {i:'clock',t:'TOP muddati tugadi',d:"«Poni» e'lonini qayta TOP ga chiqarishingiz mumkin.",time:'Kecha',u:0,go:()=>requireAuth(()=>nav('promote',12))},
+];
+const store={get(k,d){try{const v=localStorage.getItem('dost.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('dost.'+k,JSON.stringify(v))}catch(e){}}};
+let S={cat:'all',region:REGIONS[0],q:'',sort:'new',pmin:'',pmax:'',sex:'all',
+  favs:store.get('favs',[2]),theme:store.get('theme','system'),lang:store.get('lang','lat'),
+  logged:store.get('logged',false),name:store.get('name','Uchqun Uktamov'),
+  notif:store.get('notif',{msg:true,ads:true,top:true,promo:false}),plan:1,pay:'Click'};
+const fmt=n=>(+n).toLocaleString('ru-RU').replace(/\s/g,' ')+" so'm";
+const $=s=>document.querySelector(s);
+const ad=id=>ADS.find(a=>a.id===+id);
+const isFav=id=>S.favs.includes(+id);
+const initials=n=>n.split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>e.classList.remove('on'),1900)};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const now=()=>new Date().toTimeString().slice(0,5);
+
+/* =====================================================================
+   TYPOGRAPHY: oʻ gʻ (U+02BB), tutuq ʼ (U+02BC); Cyrillic script option
+   ===================================================================== */
+const uz=s=>s.replace(/([oOgG])['‘’`]/g,'$1ʻ').replace(/(\p{L})['’](\p{L})/gu,'$1ʼ$2');
+const CYR=[["Oʻ","Ў"],["oʻ","ў"],["Gʻ","Ғ"],["gʻ","ғ"],["SH","Ш"],["Sh","Ш"],["sh","ш"],["CH","Ч"],["Ch","Ч"],["ch","ч"],["Yo","Ё"],["yo","ё"],["Ya","Я"],["ya","я"],["Yu","Ю"],["yu","ю"],["Ye","Е"],["ye","е"],["ʼ","ъ"]];
+const CYR1={a:'а',b:'б',d:'д',e:'е',f:'ф',g:'г',h:'ҳ',i:'и',j:'ж',k:'к',l:'л',m:'м',n:'н',o:'о',p:'п',q:'қ',r:'р',s:'с',t:'т',u:'у',v:'в',x:'х',y:'й',z:'з',c:'с',w:'в'};
+function toCyr(s){
+  for(const[a,b]of CYR)s=s.split(a).join(b);
+  s=s.replace(/(^|[^\p{L}])([eE])/gu,(m,p,e)=>p+(e==='e'?'э':'Э'));
+  return s.replace(/[A-Za-z]/g,ch=>{const l=CYR1[ch.toLowerCase()];return l?(ch===ch.toLowerCase()?l:l.toUpperCase()):ch});
+}
+const tx=s=>{s=uz(s);return S.lang==='cyr'?toCyr(s):s};
+function typeset(root){
+  const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement.closest('.notr,script,style,textarea')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+  let n;while(n=w.nextNode()){const v=tx(n.nodeValue);if(v!==n.nodeValue)n.nodeValue=v}
+  root.querySelectorAll('[placeholder]').forEach(e=>{const v=tx(e.placeholder);if(v!==e.placeholder)e.placeholder=v});
+}
+const OBS={childList:true,subtree:true,characterData:true};
+const obs=new MutationObserver(()=>{obs.disconnect();typeset($('#app'));obs.observe($('#app'),OBS)});
+obs.observe($('#app'),OBS);
+const _toast=toast;
+
+/* =====================================================================
+   THEME
+   ===================================================================== */
+const mq=matchMedia('(prefers-color-scheme: dark)');
+function applyTheme(){$('#app').dataset.theme=S.theme==='system'?(mq.matches?'dark':'light'):S.theme}
+mq.addEventListener?.('change',applyTheme);applyTheme();
+
+/* =====================================================================
+   NAVIGATION (stack with scroll restore)
+   ===================================================================== */
+const TABS=['home','fav','messages','profile'];
+let stack=[],afterLogin=null;
+function screenEl(id){let el=$('#s-'+id);if(!el){el=document.createElement('section');el.className='screen';el.id='s-'+id;$('#screens').appendChild(el)}return el}
+function show(entry){
+  const {id,arg}=entry;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  const el=screenEl(id);R[id](el,arg);el.classList.add('on');el.classList.toggle('notab',!TABS.includes(id));
+  el.scrollTop=entry.y||0;
+  $('#tabbar').classList.toggle('hide',!TABS.includes(id));
+  document.querySelectorAll('.tab[data-t]').forEach(t=>t.classList.toggle('on',t.dataset.t===id));
+  $('#cta').classList.toggle('on',id==='detail');
+  $('#sb').className='statusbar'+(id==='welcome'?' dark':id==='detail'&&!(entry.y>330)?' clear':'');
+  closeSheet();
+}
+const curY=()=>{const t=stack[stack.length-1],el=t&&$('#s-'+t.id);return el?el.scrollTop:0};
+function nav(id,arg){if(stack.length)stack[stack.length-1].y=curY();
+  if(id==='detail'){const a=ad(arg);if(a)a.views++}
+  stack.push({id,arg});show(stack[stack.length-1])}
+function tabTo(id){stack=[{id}];show(stack[0])}
+function back(){if(stack.length>1){stack.pop();show(stack[stack.length-1])}else tabTo('home')}
+function refresh(){const e=stack[stack.length-1];e.y=curY();show(e)}
+const navBar=(title,right='')=>`<div class="nav"><button class="icon-btn" onclick="back()" aria-label="Orqaga">${ic('back',20)}</button><span class="t-headline">${title}</span>${right||'<span class="sp"></span>'}</div>`;
+function requireAuth(then){if(S.logged)return then();afterLogin=then;nav('login');toast('Davom etish uchun tizimga kiring')}
+function goLogin(then){afterLogin=then;nav('login')}
+
+function renderTabbar(){
+  const unread=THREADS.reduce((s,t)=>s+t.unread,0);
+  $('#tabbar').innerHTML=`
+ <button class="tab" data-t="home" onclick="tabTo('home')">${ic('home',24)}Asosiy</button>
+ <button class="tab" data-t="fav" onclick="tabTo('fav')">${ic('heart',24)}Saqlangan</button>
+ <button class="tab add" onclick="startPost()"><span class="pl">${ic('plus',22,{w:2.2})}</span>E'lon berish</button>
+ <button class="tab" data-t="messages" onclick="tabTo('messages')">${ic('chat',24)}Xabarlar${unread&&S.logged?`<span class="cnt num">${unread}</span>`:''}</button>
+ <button class="tab" data-t="profile" onclick="tabTo('profile')">${ic('user',24)}Profil</button>`;
+  const cur=stack[stack.length-1];if(cur)document.querySelectorAll('.tab[data-t]').forEach(t=>t.classList.toggle('on',t.dataset.t===cur.id));
+}
+
+/* =====================================================================
+   SHARED PIECES
+   ===================================================================== */
+const saveBtn=a=>`<button class="save" aria-label="Saqlash" onclick="event.stopPropagation();toggleFav(${a.id})">${ic('heart',18,isFav(a.id)?{fill:1,c:'#c2372c'}:{})}</button>`;
+const topBadge=`<span class="badge top notr">${ic('star',11,{fill:1})}TOP</span>`;
+const card=a=>`<div class="card" onclick="nav('detail',${a.id})">${photoTag(a.img[0],a.c)}${a.top?topBadge:''}${saveBtn(a)}
+ <div class="body"><div class="price">${fmt(a.p)}</div><div class="title">${esc(a.n)}</div><div class="meta">${ic('pin',13)}${a.r}</div></div></div>`;
+const lrow=a=>`<div class="lrow" onclick="nav('detail',${a.id})">${photoTag(a.img[0],a.c)}
+ <div class="b"><div class="row between" style="align-items:flex-start"><div class="price">${fmt(a.p)}</div>${saveBtn(a)}</div>
+ <div class="title" style="margin-top:2px">${esc(a.n)}</div><div class="meta">${a.age} · ${a.sex}</div>
+ <div class="meta">${ic('pin',13)}${a.r} · ${a.t}</div></div></div>`;
+const mini=a=>`${photoTag(a.img[0],a.c)}<div style="flex:1;min-width:0;text-align:left"><div class="title" style="font-size:14px">${esc(a.n)}</div><div class="t-caption num" style="font-weight:600">${fmt(a.p)}</div></div>`;
+const emptyState=(i,t,d,btn='')=>`<div class="empty"><div class="ei">${ic(i,28)}</div><div class="t-headline">${t}</div>${d?`<div class="muted" style="margin-top:4px">${d}</div>`:''}${btn}</div>`;
+function toggleFav(id){S.favs=isFav(id)?S.favs.filter(x=>x!==id):[...S.favs,id];store.set('favs',S.favs);toast(isFav(id)?"Saqlanganlarga qo'shildi":'Saqlanganlardan olib tashlandi');refresh()}
+
+/* =====================================================================
+   SCREENS
+   ===================================================================== */
+const R={};
+
+R.welcome=el=>{el.innerHTML=`<div class="w-hero">${photoTag('kitten','cat')}<div class="w-logo"><i>${ic('paw',18,{fill:1})}</i>Do'st</div></div>
+  <div class="w-body">
+   <h1 class="t-display">Uy hayvonlarini sotish va sotib olish</h1>
+   <div class="w-list">
+    <div><i>${ic('gift',18)}</i>E'lon joylash mutlaqo bepul</div>
+    <div><i>${ic('pin',18)}</i>Viloyatingiz bo'yicha qidiruv</div>
+    <div><i>${ic('shield',18)}</i>Barcha e'lonlar moderatsiyadan o'tadi</div>
+   </div>
+   <button class="btn" onclick="tabTo('home')">E'lonlarni ko'rish</button>
+   <button class="btn text" style="margin-top:4px" onclick="goLogin(()=>tabTo('home'))">Telefon raqam orqali kirish</button>
+  </div>`};
+
+const fmtPhone=v=>{const d=v.replace(/\D/g,'').slice(0,9);return[d.slice(0,2),d.slice(2,5),d.slice(5,7),d.slice(7,9)].filter(Boolean).join(' ')};
+R.login=el=>{el.innerHTML=navBar('')+`<h1 class="t-display" style="margin-bottom:8px">Tizimga kirish</h1>
+  <p class="muted" style="margin-bottom:24px">Telefon raqamingizga SMS orqali tasdiqlash kodi yuboramiz.</p>
+  <div class="field"><label>Telefon raqam</label><div style="position:relative"><span class="prefix num">+998</span>
+   <input class="inp num" id="ph" inputmode="tel" style="padding-left:62px" placeholder="90 123 45 67" oninput="this.value=fmtPhone(this.value);$('#getc').disabled=this.value.replace(/\\D/g,'').length<9"></div></div>
+  <button class="btn" id="getc" style="margin-top:20px" disabled onclick="nav('otp',$('#ph').value)">Kod olish</button>
+  <p class="t-caption faint center" style="margin-top:16px;font-weight:400">Davom etish orqali foydalanish shartlariga rozilik bildirasiz</p>`;setTimeout(()=>$('#ph')?.focus(),50)};
+R.otp=(el,ph)=>{el.innerHTML=navBar('')+`<h1 class="t-display" style="margin-bottom:8px">Kodni kiriting</h1>
+  <p class="muted" style="margin-bottom:24px"><span class="num notr">+998 ${esc(ph)}</span> raqamiga 4 xonali kod yuborildi. <span class="faint">Prototipda istalgan 4 ta raqam ishlaydi.</span></p>
+  <input class="inp otp num" id="otp" inputmode="numeric" maxlength="4" placeholder="····" oninput="this.value=this.value.replace(/\\D/g,'');$('#vok').disabled=this.value.length<4;if(this.value.length===4)login()">
+  <button class="btn" id="vok" style="margin-top:20px" disabled onclick="login()">Tasdiqlash</button>
+  <button class="btn text" style="margin-top:6px" onclick="toast('Kod qayta yuborildi')">Kodni qayta yuborish</button>`;setTimeout(()=>$('#otp')?.focus(),50)};
+function login(){S.logged=true;store.set('logged',true);renderTabbar();toast('Xush kelibsiz!');const f=afterLogin||(()=>tabTo('home'));afterLogin=null;stack=[{id:'home'}];f()}
+
+R.home=el=>{
+  el.innerHTML=`
+   <div class="row between">
+    <button class="loc" onclick="openRegion()"><span class="icon-btn" style="background:var(--brand-50);box-shadow:none;color:var(--brand-fg)">${ic('pin',20)}</span>
+     <span><div class="l1">Hudud</div><div class="l2">${S.region}${ic('chev',18)}</div></span></button>
+    <button class="icon-btn" aria-label="Bildirishnomalar" onclick="nav('notifs')">${ic('bell',20)}${NOTIFS.some(n=>n.u)?'<span class="dot"></span>':''}</button>
+   </div>
+   <label class="search">${ic('search',20)}<input id="q" placeholder="Zot yoki hayvon nomi bo'yicha qidirish" value="${esc(S.q)}" oninput="S.q=this.value;rList();$('#qx').style.display=S.q?'':'none'">
+    <button id="qx" style="color:var(--ink-3);display:${S.q?'':'none'}" onclick="S.q='';$('#q').value='';this.style.display='none';rList()" aria-label="Tozalash">${ic('x',18)}</button>
+    <button class="f" aria-label="Filtr" onclick="openFilter()">${ic('sliders',20)}${filterActive()?'<span class="dot"></span>':''}</button></label>
+   <div class="chips" id="cats"></div><div id="homeBody"></div>`;
+  rList();
+};
+const filterActive=()=>S.sort!=='new'||S.pmin||S.pmax||S.sex!=='all';
+function filtered(){
+  const q=S.q.trim().toLowerCase().replace(/[ʻʼ‘’`]/g,"'");
+  const l=ADS.filter(a=>!a.sold&&(S.cat==='all'||a.c===S.cat)&&(S.region===REGIONS[0]||a.r===S.region)
+    &&(!q||a.n.toLowerCase().includes(q)||CATS.find(c=>c.id===a.c).n.toLowerCase().includes(q))
+    &&(!S.pmin||a.p>=+S.pmin)&&(!S.pmax||a.p<=+S.pmax)&&(S.sex==='all'||a.sex===S.sex));
+  return l.sort({new:(a,b)=>b.ts-a.ts,cheap:(a,b)=>a.p-b.p,exp:(a,b)=>b.p-a.p}[S.sort]);
+}
+function rList(){
+  if(!$('#cats'))return;
+  const cl=$('#cats').scrollLeft;
+  $('#cats').innerHTML=CATS.map(c=>`<button class="chip ${S.cat===c.id?'on':''}" onclick="S.cat='${c.id}';rList()">${c.n}</button>`).join('');
+  $('#cats').scrollLeft=cl;
+  const l=filtered(),tops=l.filter(a=>a.top),rest=l.filter(a=>!a.top);
+  $('#homeBody').innerHTML=(l.length?'':emptyState('search','Hech narsa topilmadi','Boshqa hudud, kategoriya yoki filtrni tanlang',`<button class="btn secondary" style="margin-top:20px" onclick="resetFilters()">Filtrlarni tozalash</button>`))+
+   (tops.length?`<div class="section"><h2 class="t-title" style="font-size:20px">TOP e'lonlar</h2><span class="t-caption faint">Reklama</span></div><div class="hscroll">${tops.map(card).join('')}</div>`:'')+
+   `<button class="promo" onclick="startPost()"><i>${ic('camera',22)}</i><div style="flex:1;text-align:left"><div class="t-headline">Hayvoningizni soting</div><div class="sub">E'lon joylash bepul — 2 daqiqa vaqt oladi</div></div>${ic('right',20)}</button>`+
+   (rest.length?`<div class="section"><h2 class="t-title" style="font-size:20px">So'nggi e'lonlar</h2><a onclick="openFilter()">Saralash</a></div>${rest.map(lrow).join('')}`:'');
+}
+function resetFilters(){Object.assign(S,{cat:'all',region:REGIONS[0],q:'',sort:'new',pmin:'',pmax:'',sex:'all'});refresh()}
+
+R.fav=el=>{const l=ADS.filter(a=>isFav(a.id));el.innerHTML=`<h1 class="large-title">Saqlangan</h1>`+(l.length?l.map(lrow).join(''):
+  emptyState('heart',"Saqlangan e'lonlar yo'q","Yoqqan e'londagi yurakcha belgisini bosing",`<button class="btn secondary" style="margin-top:20px" onclick="tabTo('home')">E'lonlarni ko'rish</button>`))};
+
+R.detail=(el,id)=>{
+  const a=ad(id);if(!a){el.innerHTML=navBar('')+emptyState('info',"E'lon topilmadi",'');$('#cta').innerHTML='';return}
+  const sl=SELLERS[a.s];
+  el.innerHTML=`
+   <div class="gal"><div class="gal-track" id="gal" onscroll="$('#pg').textContent=Math.round(this.scrollLeft/this.clientWidth)+1+' / ${a.img.length}'">${a.img.map(src=>photoTag(src,a.c)).join('')}</div>
+    <button class="icon-btn float" style="left:20px" onclick="back()" aria-label="Orqaga">${ic('back',20)}</button>
+    <div class="acts"><button class="icon-btn float" onclick="share(${a.id})" aria-label="Ulashish">${ic('share',20)}</button>
+     <button class="icon-btn float" onclick="toggleFav(${a.id})" aria-label="Saqlash">${ic('heart',20,isFav(a.id)?{fill:1,c:'#c2372c'}:{})}</button></div>
+    <span class="pager num" id="pg">1 / ${a.img.length}</span></div>
+   <div class="dsheet">
+    ${a.top||a.sold?`<div style="margin-bottom:10px">${a.sold?'<span class="badge gray">Sotilgan</span>':topBadge}</div>`:''}
+    <div class="t-display num" style="font-size:26px;letter-spacing:0">${fmt(a.p)}</div>
+    <div class="t-headline" style="font-weight:500;margin-top:4px">${esc(a.n)}</div>
+    <div class="meta" style="font-size:13px;margin-top:8px">${ic('pin',14)}${a.r} · ${a.t} · ${ic('eye',14)}<span class="num">${a.views}</span></div>
+    <div class="section" style="margin-top:24px"><h3 class="t-headline">Xususiyatlari</h3></div>
+    <div class="group">
+     <div class="cell"><span class="lbl">Kategoriya</span><span class="rt">${CATS.find(c=>c.id===a.c).n}</span></div>
+     <div class="cell"><span class="lbl">Yoshi</span><span class="rt">${esc(a.age)}</span></div>
+     <div class="cell"><span class="lbl">Jinsi</span><span class="rt">${a.sex}</span></div>
+     <div class="cell"><span class="lbl">Vazni</span><span class="rt">${esc(a.w)}</span></div>
+    </div>
+    <div class="section"><h3 class="t-headline">Tavsif</h3></div>
+    <p class="muted">${esc(a.d||'Tavsif kiritilmagan.')}</p>
+    <div class="section"><h3 class="t-headline">Sotuvchi</h3></div>
+    <div class="group"><button class="cell" style="min-height:72px" onclick="nav('seller','${a.s}')"><div class="avatar">${a.s==='me'?initials(S.name):sl.i}</div>
+      <div style="flex:1;text-align:left"><div style="font-weight:600">${a.s==='me'?esc(S.name)+' (siz)':sl.n}</div><div class="t-caption faint" style="font-weight:400">${sl.since}-yildan beri · ${ADS.filter(x=>x.s===a.s&&!x.sold).length} ta e'lon</div></div>
+      <span class="val">${ic('right',18)}</span></button></div>
+    <div class="callout" style="margin-top:16px">${ic('shield',20)}<span><b>Xavfsizlik:</b> hayvonni shaxsan ko'rmasdan oldindan to'lov qilmang.</span></div>
+    ${a.s==='me'?'':`<button class="btn text" style="margin-top:8px;color:var(--ink-3);font-weight:500;font-size:14px" onclick="openReport()">${ic('flag',16)}E'lon ustidan shikoyat qilish</button>`}
+   </div>`;
+  $('#cta').innerHTML=a.s==='me'
+   ?`<button class="btn secondary" onclick="adActions(${a.id})">${ic('more',20)}Boshqarish</button>${a.sold?'':`<button class="btn gold" onclick="nav('promote',${a.id})">${ic('star',18,{fill:1})}TOP ga chiqarish</button>`}`
+   :`<button class="btn secondary" onclick="requireAuth(()=>openChat(${a.id}))">${ic('chat',20)}Yozish</button><button class="btn" onclick="openCall('${a.s}')">${ic('phone',20)}Qo'ng'iroq qilish</button>`;
+};
+function share(id){const a=ad(id),txt=`${a.n} — ${fmt(a.p)}`;if(navigator.share)navigator.share({title:a.n,text:txt}).catch(()=>{});else{navigator.clipboard?.writeText(txt).catch(()=>{});toast('Havola nusxalandi')}}
+function openCall(s){const sl=SELLERS[s];openSheet(`<div class="center"><div class="avatar" style="width:64px;height:64px;font-size:20px;margin:0 auto 12px">${sl.i}</div>
+  <div class="t-headline">${sl.n}</div><div class="t-title num notr" style="margin:8px 0 20px">${sl.ph}</div></div>
+  <a class="btn" href="tel:${sl.ph.replace(/\s/g,'')}" onclick="closeSheet()">${ic('phone',20)}Qo'ng'iroq qilish</a>
+  <button class="btn secondary" style="margin-top:10px" onclick="navigator.clipboard?.writeText('${sl.ph}').catch(()=>{});closeSheet();toast('Raqam nusxalandi')">Raqamni nusxalash</button>
+  <p class="t-caption faint center" style="margin-top:14px;font-weight:400">Qo'ng'iroqda «Do'st» ilovasidan ekanligingizni ayting</p>`)}
+function openReport(){openSheet(`<h2 class="t-title" style="margin-bottom:6px">Shikoyat sababi</h2><p class="muted" style="margin-bottom:16px">Moderatorlar 24 soat ichida ko'rib chiqadi.</p><div class="group">`+
+  ['Firibgarlik','Hayvon kasal yoki yomon holatda',"Noto'g'ri kategoriya yoki narx",'Hayvon allaqachon sotilgan','Boshqa sabab'].map(r=>`<button class="cell" onclick="closeSheet();toast('Shikoyatingiz yuborildi. Rahmat!')">${r}<span class="val">${ic('right',18)}</span></button>`).join('')+'</div>')}
+
+R.seller=(el,s)=>{const sl=SELLERS[s],l=ADS.filter(a=>a.s===s&&!a.sold),nm=s==='me'?S.name:sl.n;
+  el.innerHTML=navBar('Sotuvchi')+`<div class="center" style="margin:8px 0 20px"><div class="avatar" style="width:80px;height:80px;font-size:26px;margin:0 auto 12px">${initials(nm)}</div>
+   <div class="t-title">${esc(nm)}</div><div class="muted t-callout" style="font-weight:400;margin-top:4px">${sl.since}-yildan beri «Do'st»da</div></div>
+   <div class="group stats"><div><b>${l.length}</b><span>E'lonlar</span></div><div><b>4,9</b><span>Reyting</span></div><div><b>15 daq</b><span>Javob vaqti</span></div></div>
+   <div class="section"><h2 class="t-headline">E'lonlari</h2></div>${l.map(lrow).join('')||emptyState('paw',"E'lonlar yo'q",'')}`};
+
+/* ---------- messages & chat ---------- */
+R.messages=el=>{el.innerHTML=`<h1 class="large-title">Xabarlar</h1>`+(!S.logged?emptyState('chat',"Xabarlarni ko'rish uchun kiring","Sotuvchilar bilan yozishmalar shu yerda bo'ladi",`<button class="btn" style="margin-top:20px" onclick="goLogin(()=>tabTo('messages'))">Kirish</button>`):
+  THREADS.length?THREADS.map(t=>{const sl=SELLERS[t.who],m=t.msgs[t.msgs.length-1]||{x:'',t:''};return `<button class="msg" onclick="nav('chat','${t.id}')"><div class="avatar">${sl.i}</div><div class="t"><div class="row between"><b style="font-weight:600">${sl.n}</b><time class="num">${m.t}</time></div>
+   <div class="row between" style="align-items:flex-start"><p>${m.me?'Siz: ':''}${esc(m.x)}</p>${t.unread?`<span class="unread num">${t.unread}</span>`:''}</div></div></button>`}).join(''):emptyState('chat',"Xabarlar yo'q",''))};
+function openChat(adId){const a=ad(adId);let t=THREADS.find(t=>t.ad===a.id);if(!t){t={id:'t'+Date.now(),who:a.s,ad:a.id,unread:0,msgs:[]};THREADS.unshift(t)}nav('chat',t.id)}
+R.chat=(el,tid)=>{const t=THREADS.find(x=>x.id===tid),sl=SELLERS[t.who],a=t.ad?ad(t.ad):null;t.unread=0;renderTabbar();
+  el.innerHTML=`<div class="chat-head"><button class="icon-btn" onclick="back()">${ic('back',20)}</button><div class="avatar" style="width:38px;height:38px;font-size:13px">${sl.i}</div>
+   <div style="flex:1"><div style="font-weight:600">${sl.n}</div><div class="t-caption" style="color:#34a36f;font-weight:400">Onlayn</div></div>
+   <button class="icon-btn" onclick="openCall('${t.who}')">${ic('phone',20)}</button></div>
+   <div class="chat-body" id="cb">${a?`<button class="mini" style="margin-bottom:12px" onclick="nav('detail',${a.id})">${mini(a)}${ic('right',18,{c:'var(--ink-3)'})}</button>`:''}
+    ${t.msgs.length?'':'<p class="faint center t-callout" style="font-weight:400;margin-top:40px">Sotuvchiga birinchi xabaringizni yozing</p>'}
+    ${t.msgs.map(m=>`<div class="bubble ${m.me?'me':''}">${esc(m.x)}<small class="num">${m.t}</small></div>`).join('')}</div>
+   <form class="chat-in" onsubmit="event.preventDefault();sendMsg('${t.id}')"><input id="ci" placeholder="Xabar yozing…" autocomplete="off"><button class="send" aria-label="Yuborish">${ic('send',20)}</button></form>`;
+  setTimeout(()=>{const b=$('#cb');if(b)b.scrollTop=b.scrollHeight},0)};
+function sendMsg(tid){const v=$('#ci').value.trim();if(!v)return;const t=THREADS.find(x=>x.id===tid);t.msgs.push({me:1,x:v,t:now()});refresh();$('#ci').focus();
+  setTimeout(()=>{t.msgs.push({me:0,x:t.who==='support'?'Rahmat, murojaatingiz qabul qilindi. Tez orada javob beramiz.':'Rahmat, xabaringizni oldim. Tez orada javob beraman.',t:now()});
+    const c=stack[stack.length-1];if(c.id==='chat'&&c.arg===tid){refresh();$('#ci').focus()}},1400)}
+
+/* ---------- notifications ---------- */
+R.notifs=el=>{el.innerHTML=navBar('Bildirishnomalar',NOTIFS.some(n=>n.u)?`<button class="link" style="width:auto" onclick="NOTIFS.forEach(n=>n.u=0);refresh()">Barchasi o'qildi</button>`:'')+(NOTIFS.length?`<div class="group">`+NOTIFS.map((n,i)=>`<button class="cell" style="align-items:flex-start;padding:14px 16px" onclick="NOTIFS[${i}].u=0;NOTIFS[${i}].go()"><span class="avatar" style="width:36px;height:36px">${ic(n.i,18)}</span>
+  <div style="flex:1;text-align:left"><div style="font-weight:600">${n.t}</div><div class="muted t-callout" style="font-weight:400;margin-top:2px">${n.d}</div><div class="t-caption faint" style="margin-top:6px;font-weight:400">${n.time}</div></div>${n.u?'<span class="unread" style="min-width:8px;width:8px;height:8px;padding:0;margin-top:8px"></span>':''}</button>`).join('')+'</div>'
+  :emptyState('bell',"Bildirishnomalar yo'q",''))};
+
+/* ---------- sheets ---------- */
+function openSheet(h,center){$('#modal').classList.toggle('center',!!center);$('#sheet').innerHTML=(center?'':'<div class="grab"></div>')+h;$('#modal').classList.add('on');$('#sheet').scrollTop=0}
+function closeSheet(){$('#modal').classList.remove('on')}
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeSheet()});
+function openRegion(){openSheet(`<h2 class="t-title" style="margin-bottom:16px">Hududni tanlang</h2><div class="group">`+
+  REGIONS.map((r,i)=>`<button class="cell" onclick="S.region=REGIONS[${i}];closeSheet();refresh()" style="${r===S.region?'font-weight:600':''}">${r}<span class="val">${r===S.region?ic('check',20,{c:'var(--brand-fg)'}):''}</span></button>`).join('')+'</div>')}
+let F={};
+const seg=(key,opts)=>`<div class="seg">${opts.map(([v,l])=>`<button type="button" class="${F[key]===v?'on':''}" onclick="F.${key}=${JSON.stringify(v).replace(/"/g,'&quot;')};$('#fbody').innerHTML=filterBody()">${l}</button>`).join('')}</div>`;
+function openFilter(){F={sort:S.sort,sex:S.sex,pmin:S.pmin,pmax:S.pmax};openSheet(`<div class="row between" style="margin-bottom:20px"><h2 class="t-title">Saralash va filtr</h2><button class="link" style="width:auto" onclick="F={sort:'new',sex:'all',pmin:'',pmax:''};$('#fbody').innerHTML=filterBody()">Tozalash</button></div><div class="stack" id="fbody">${filterBody()}</div>`)}
+function filterBody(){return `
+ <div class="field"><label>Saralash</label>${seg('sort',[['new','Yangilari'],['cheap','Arzonroq'],['exp','Qimmatroq']])}</div>
+ <div class="field"><label>Narx, so'm</label><div class="grid2"><input class="inp num" inputmode="numeric" placeholder="dan" value="${F.pmin}" oninput="F.pmin=this.value.replace(/\\D/g,'')"><input class="inp num" inputmode="numeric" placeholder="gacha" value="${F.pmax}" oninput="F.pmax=this.value.replace(/\\D/g,'')"></div></div>
+ <div class="field"><label>Jinsi</label>${seg('sex',[['all','Hammasi'],['Erkak','Erkak'],["Urg'ochi","Urg'ochi"]])}</div>
+ <button class="btn" style="margin-top:8px" onclick="applyFilter()">Natijalarni ko'rsatish</button>`}
+function applyFilter(){Object.assign(S,F);closeSheet();refresh();toast(`${filtered().length} ta e'lon topildi`)}
+
+/* ---------- post wizard ---------- */
+let D={},step=0;
+function startPost(edit){requireAuth(()=>{const a=edit?ad(edit):null;
+  D=a?{edit:a.id,photos:[...a.img],c:a.c,n:a.n,age:a.age==='—'?'':a.age,w:a.w==='—'?'':a.w.replace(/\s*kg$/,''),sex:a.sex,d:a.d,p:a.p.toLocaleString('ru-RU'),r:a.r,ph:'90 123 45 67'}
+     :{photos:[],c:'dog',n:'',age:'',w:'',sex:'Erkak',d:'',p:'',r:'Toshkent shahri',ph:'90 123 45 67'};
+  step=0;nav('post')})}
+// Read picked photos as compressed data URLs (works everywhere, unlike blob: URLs)
+function readPhoto(file){return new Promise(res=>{const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{
+  const k=Math.min(1,1080/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+  c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.82))};im.onerror=()=>res(fr.result);im.src=fr.result};
+  fr.onerror=()=>res(null);fr.readAsDataURL(file)})}
+$('#file').addEventListener('change',async e=>{const files=[...e.target.files].slice(0,5-D.photos.length);e.target.value='';if(!files.length)return;
+  toast('Rasm yuklanmoqda…');for(const f of files){const u=await readPhoto(f);if(u)D.photos.push(u)}refresh()});
+function addPhoto(){if(D.photos.length>=5)return toast('Ko\'pi bilan 5 ta rasm');openSheet(`<h2 class="t-title" style="margin-bottom:16px">Rasm qo'shish</h2><div class="group">
+  <button class="cell" onclick="closeSheet();$('#file').setAttribute('capture','environment');$('#file').click()"><span class="ic">${ic('camera',20)}</span>Kamera orqali suratga olish</button>
+  <button class="cell" onclick="closeSheet();$('#file').removeAttribute('capture');$('#file').click()"><span class="ic">${ic('image',20)}</span>Galereyadan tanlash</button>
+  <button class="cell" onclick="closeSheet();const l=SAMPLE[D.c].length?SAMPLE[D.c]:SAMPLE.dog;D.photos.push(l[D.photos.length%l.length]);refresh()"><span class="ic">${ic('paw',20)}</span>Namuna rasm qo'shish</button></div>`)}
+const STEPS=['Rasmlar',"Ma'lumotlar",'Narx va aloqa'];
+function saveStep(){document.querySelectorAll('#s-post [data-k]').forEach(i=>D[i.dataset.k]=i.value)}
+function nextStep(){saveStep();
+  if(step===0&&!D.photos.length)return toast("Kamida 1 ta rasm qo'shing");
+  if(step===1&&!D.n.trim()){$('#f-n').closest('.field').classList.add('invalid');$('#f-n').focus();return}
+  if(step===2){if(!+D.p.replace(/\D/g,'')){$('#f-p').closest('.field').classList.add('invalid');$('#f-p').focus();return}return publish()}
+  step++;refresh()}
+function prevStep(){saveStep();if(step>0&&step<3){step--;refresh()}else back()}
+R.post=el=>{
+  const head=step<3?`<div class="nav"><button class="icon-btn" onclick="prevStep()" aria-label="Orqaga">${ic(step?'back':'x',20)}</button><span class="t-headline">${D.edit?"E'lonni tahrirlash":"Yangi e'lon"}</span><span class="t-callout faint num" style="width:40px;text-align:right">${step+1}/3</span></div>
+   <div class="steps">${[0,1,2].map(i=>`<i class="${i<=step?'on':''}"></i>`).join('')}</div><h1 class="t-title" style="margin-bottom:6px">${STEPS[step]}</h1>`:'';
+  let b='';
+  if(step===0)b=`<p class="muted" style="margin-bottom:20px">5 tagacha rasm. Hayvon yorug' joyda, to'liq ko'rinsin. Birinchi rasm asosiy bo'ladi.</p>
+   <div class="photos">${[0,1,2,3,4].map(i=>i<D.photos.length?`<div class="ph filled ${i===0?'main':''}">${photoTag(D.photos[i],D.c,'','position:absolute;inset:0')}<button class="x" aria-label="O'chirish" onclick="D.photos.splice(${i},1);refresh()">${ic('x',14,{w:2.2})}</button>${i===0?'<span class="mainlbl">Asosiy</span>':''}</div>`:
+     `<button class="ph ${i===0?'main':''}" onclick="addPhoto()"><div class="in">${ic(i===D.photos.length?'camera':'plus',i===0?30:22)}${i===0?"<span>Rasm qo'shish</span>":''}</div></button>`).join('')}</div>
+   <div class="callout" style="margin:24px 0">${ic('gift',20)}<span><b>E'lon joylash bepul.</b> Faqat TOP ga chiqarish pullik.</span></div>
+   <button class="btn" onclick="nextStep()">Davom etish</button>`;
+  if(step===1)b=`<div class="stack" style="margin-top:14px">
+   <div class="field"><label>Kategoriya</label><div class="chips">${CATS.slice(1).map(c=>`<button class="chip ${D.c===c.id?'on':''}" onclick="saveStep();D.c='${c.id}';refresh()">${c.n}</button>`).join('')}</div></div>
+   <div class="field"><label>Sarlavha</label><input class="inp" id="f-n" data-k="n" maxlength="60" placeholder="Masalan: Britaniya mushugi" value="${esc(D.n)}" oninput="this.closest('.field').classList.remove('invalid')"><div class="hint">Zoti va asosiy xususiyatini yozing</div><div class="err">Sarlavhani kiriting</div></div>
+   <div class="grid2"><div class="field"><label>Yoshi</label><input class="inp" data-k="age" placeholder="8 oy" value="${esc(D.age)}"></div><div class="field"><label>Vazni</label><div class="suffix"><input class="inp num" data-k="w" inputmode="decimal" placeholder="3" value="${esc(D.w)}"><span>kg</span></div></div></div>
+   <div class="field"><label>Jinsi</label><div class="seg">${['Erkak',"Urg'ochi",'Juft'].map((v,i)=>`<button type="button" class="${D.sex===v?'on':''}" onclick="saveStep();D.sex=['Erkak','Urg\\'ochi','Juft'][${i}];refresh()">${v}</button>`).join('')}</div></div>
+   <div class="field"><label>Tavsif</label><textarea class="inp" data-k="d" maxlength="600" placeholder="Xarakteri, emlanganligi, hujjatlari…">${esc(D.d)}</textarea></div>
+   <button class="btn" style="margin-top:8px" onclick="nextStep()">Davom etish</button></div>`;
+  if(step===2)b=`<div class="stack" style="margin-top:14px">
+   <div class="field"><label>Narx</label><div class="suffix"><input class="inp num" id="f-p" data-k="p" inputmode="numeric" placeholder="800 000" value="${esc(D.p)}" oninput="const d=this.value.replace(/\\D/g,'').slice(0,11);this.value=d?(+d).toLocaleString('ru-RU'):'';this.closest('.field').classList.remove('invalid')"><span>so'm</span></div><div class="err">Narxni kiriting</div></div>
+   <div class="field"><label>Hudud</label><div class="suffix"><select class="inp" data-k="r">${REGIONS.slice(1).map(r=>`<option value="${esc(r)}" ${r===D.r?'selected':''}>${r}</option>`).join('')}</select><span>${ic('chev',18)}</span></div></div>
+   <div class="field"><label>Telefon raqam</label><div style="position:relative"><span class="prefix num">+998</span><input class="inp num" data-k="ph" style="padding-left:62px" value="${esc(D.ph)}" oninput="this.value=fmtPhone(this.value)"></div><div class="hint">Raqamingiz faqat e'lon sahifasida ko'rinadi</div></div>
+   <div class="callout">${ic('check',20)}<span>E'lon moderatsiyadan so'ng, odatda 15 daqiqa ichida chiqadi.</span></div>
+   <button class="btn" style="margin-top:8px" onclick="nextStep()">${D.edit?'Saqlash':'Bepul joylash'}</button></div>`;
+  if(step===3)b=`<div class="center" style="padding-top:120px"><div class="ok">${ic('check',34,{w:2.2})}</div><h1 class="t-display" style="margin-bottom:8px">${D.edit?"O'zgarishlar saqlandi":"E'lon joylandi"}</h1>
+   <p class="muted">Ko'proq xaridor ko'rishi uchun<br>uni TOP ga chiqarishingiz mumkin.</p><div style="height:32px"></div>
+   <button class="btn gold" onclick="stack=[{id:'profile'}];nav('promote',${D.id})">${ic('star',18,{fill:1})}TOP ga chiqarish</button>
+   <button class="btn secondary" style="margin-top:10px" onclick="stack=[{id:'profile'}];nav('detail',${D.id})">E'lonni ko'rish</button>
+   <button class="btn text" style="margin-top:6px" onclick="tabTo('home')">Bosh sahifaga</button></div>`;
+  el.innerHTML=head+b;
+};
+function publish(){
+  const w=D.w.trim(),data={n:D.n.trim(),c:D.c,age:D.age.trim()||'—',sex:D.sex,w:w?w+' kg':'—',p:+D.p.replace(/\D/g,''),r:D.r,img:[...D.photos],d:D.d.trim()};
+  if(D.edit){Object.assign(ad(D.edit),data);D.id=D.edit}
+  else{D.id=Date.now();ADS.unshift({id:D.id,...data,top:0,t:'Hozirgina',ts:99,s:'me',mine:1,views:0})}
+  step=3;refresh();
+}
+
+/* ---------- promote & payments ---------- */
+const PLANS=[{d:1,p:15000,t:'1 kun'},{d:3,p:35000,t:'3 kun',hot:1},{d:7,p:70000,t:'7 kun'}];
+R.promote=(el,id)=>{const a=ad(id);
+  el.innerHTML=navBar('')+`<h1 class="t-display" style="margin-bottom:8px">TOP ga chiqarish</h1><p class="muted" style="margin-bottom:16px">E'loningiz bosh sahifa va qidiruv natijalarida eng tepada ko'rinadi.</p>
+  <div class="mini" style="margin-bottom:20px">${mini(a)}${a.top?topBadge:''}</div>
+  <div class="stack" style="gap:12px;margin-bottom:24px">
+   <div class="benefit">${ic('trend',22)}O'rtacha 3 barobar ko'proq ko'rishlar</div>
+   <div class="benefit">${ic('star',22)}«TOP» belgisi bilan ajralib turadi</div></div>
+  <div class="stack" style="gap:10px">${PLANS.map((p,i)=>`<button class="plan ${S.plan===i?'on':''}" onclick="S.plan=${i};refresh()"><span class="radio"></span>
+   <div style="text-align:left"><div class="t-headline">${p.t}</div>${p.hot?"<div class=\"t-caption\" style=\"color:var(--gold)\">Eng ko'p tanlanadi</div>":''}</div>
+   <div class="pr"><div class="price" style="font-size:16px">${fmt(p.p)}</div><div class="t-caption faint num" style="font-weight:400">${Math.round(p.p/p.d).toLocaleString('ru-RU')} so'm / kun</div></div></button>`).join('')}</div>
+  <div class="field" style="margin:24px 0"><label>To'lov usuli</label><div class="chips notr">${['Click','Payme','Uzcard','Humo'].map(m=>`<button class="chip ${S.pay===m?'on':''}" onclick="S.pay='${m}';refresh()">${m}</button>`).join('')}</div></div>
+  <button class="btn gold" id="paybtn" onclick="pay(${a.id})">To'lash · ${fmt(PLANS[S.plan].p)}</button>`};
+function pay(id){const b=$('#paybtn');b.disabled=true;b.innerHTML='<span class="spinner"></span>';
+  setTimeout(()=>{const a=ad(id),p=PLANS[S.plan];a.top=1;PAYMENTS.unshift({t:'TOP · '+p.t,ad:a.n,sum:p.p,date:'Bugun, '+now(),m:S.pay});
+    openSheet(`<div class="ok">${ic('check',34,{w:2.2})}</div><h2 class="t-title center">To'lov qabul qilindi</h2><p class="muted center" style="margin:8px 0 20px">«${esc(a.n)}» ${p.t} davomida TOP da turadi.</p>
+     <button class="btn" onclick="closeSheet();back()">Tayyor</button>`,true)},1200)}
+R.payments=el=>{el.innerHTML=navBar("To'lovlar tarixi")+(PAYMENTS.length?`<div class="group">`+PAYMENTS.map(p=>`<div class="cell" style="padding:14px 16px;align-items:flex-start"><span class="avatar" style="width:36px;height:36px;background:var(--gold-50);color:var(--gold)">${ic('star',16,{fill:1})}</span>
+  <div style="flex:1;min-width:0"><div style="font-weight:600">${p.t}</div><div class="muted t-callout title" style="font-weight:400">${esc(p.ad)}</div><div class="t-caption faint" style="font-weight:400;margin-top:4px">${p.date} · <span class="notr">${p.m}</span></div></div>
+  <div class="price" style="font-size:15px">−${fmt(p.sum)}</div></div>`).join('')+'</div>':emptyState('card',"To'lovlar yo'q",''))};
+
+/* ---------- profile, my ads, settings ---------- */
+const myAds=()=>ADS.filter(a=>a.mine);
+R.profile=el=>{
+  if(!S.logged){el.innerHTML=`<h1 class="large-title">Profil</h1>`+emptyState('user','Tizimga kiring',"E'lon joylash va sotuvchilarga yozish uchun",`<button class="btn" style="margin-top:20px" onclick="goLogin(()=>tabTo('profile'))">Kirish</button>`)+
+    `<div class="section"><h2 class="t-headline">Sozlamalar</h2></div>${settingsGroup()}`;return}
+  const act=myAds().filter(a=>!a.sold);
+  el.innerHTML=`<div class="row between"><h1 class="large-title" style="margin:0">Profil</h1><button class="icon-btn" aria-label="Sozlamalar" onclick="nav('settings')">${ic('gear',20)}</button></div>
+  <button class="row" style="margin:20px 0;width:100%" onclick="nav('editProfile')"><div class="avatar" style="width:56px;height:56px;font-size:18px">${initials(S.name)}</div>
+   <div style="flex:1;text-align:left"><div class="t-headline">${esc(S.name)}</div><div class="muted num t-callout notr" style="font-weight:400">+998 90 123 45 67</div></div>${ic('right',20,{c:'var(--ink-3)'})}</button>
+  <div class="group stats"><div><b>${act.length}</b><span>Faol e'lon</span></div><div><b>${myAds().reduce((s,a)=>s+a.views,0)}</b><span>Ko'rishlar</span></div><div><b>14</b><span>Qo'ng'iroqlar</span></div></div>
+  <div class="section"><h2 class="t-headline">Mening e'lonlarim</h2><a onclick="nav('myads')">Barchasi</a></div>
+  ${act.length?`<div class="group">${act.slice(0,3).map(myAdCell).join('')}</div>`:`<div class="group"><button class="cell" onclick="startPost()"><span class="ic">${ic('plus',20)}</span>Birinchi e'loningizni joylang</button></div>`}
+  <div class="section"><h2 class="t-headline">Sozlamalar</h2></div>${settingsGroup()}
+  <div class="group" style="margin-top:16px"><button class="cell" style="color:var(--red)" onclick="confirmLogout()">${ic('logout',20)}Chiqish</button></div>`;
+};
+const myAdCell=a=>`<div class="cell" style="min-height:80px;cursor:pointer" onclick="nav('detail',${a.id})">${photoTag(a.img[0],a.c,'','width:56px;height:56px;border-radius:10px;flex:none')}
+   <div style="flex:1;min-width:0"><div class="title">${esc(a.n)}</div><div class="t-caption faint num" style="font-weight:400;margin-top:2px;display:flex;gap:4px;align-items:center">${fmt(a.p)} · ${ic('eye',12)}${a.views}</div></div>
+   ${a.sold?'<span class="badge gray">Sotilgan</span>':a.top?topBadge:`<button class="chip" style="height:32px;color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold-200)" onclick="event.stopPropagation();nav('promote',${a.id})">${ic('star',14,{fill:1})}<span class="notr">TOP</span></button>`}
+   <button aria-label="Amallar" onclick="event.stopPropagation();adActions(${a.id})" style="color:var(--ink-3);padding:8px 0 8px 2px">${ic('more',20)}</button></div>`;
+const themeName=()=>({system:'Tizim',light:"Yorug'",dark:'Tungi'})[S.theme];
+const langName=()=>({lat:"O'zbekcha",cyr:'Ўзбекча'})[S.lang];
+function settingsGroup(){return `<div class="group">
+   ${S.logged?`<button class="cell" onclick="nav('payments')"><span class="ic">${ic('card',20)}</span>To'lovlar tarixi<span class="val">${ic('right',18)}</span></button>
+   <button class="cell" onclick="nav('notifSettings')"><span class="ic">${ic('bell',20)}</span>Bildirishnomalar<span class="val">${ic('right',18)}</span></button>`:''}
+   <button class="cell" onclick="openTheme()"><span class="ic">${ic('moon',20)}</span>Tungi rejim<span class="val">${themeName()} ${ic('right',18)}</span></button>
+   <button class="cell" onclick="openLang()"><span class="ic">${ic('globe',20)}</span>Til<span class="val"><span class="notr">${uz(langName())}</span> ${ic('right',18)}</span></button>
+   <button class="cell" onclick="nav('help')"><span class="ic">${ic('help',20)}</span>Yordam markazi<span class="val">${ic('right',18)}</span></button></div>`}
+R.settings=el=>{el.innerHTML=navBar('Sozlamalar')+settingsGroup()+`<div class="group" style="margin-top:16px"><button class="cell" onclick="nav('about')"><span class="ic">${ic('info',20)}</span>Ilova haqida<span class="val">1.0 ${ic('right',18)}</span></button></div>`};
+R.about=el=>{el.innerHTML=navBar('Ilova haqida')+`<div class="center" style="margin:20px 0 28px"><div class="avatar" style="width:72px;height:72px;border-radius:20px;background:var(--brand);color:#fff;margin:0 auto 12px">${ic('paw',34,{fill:1})}</div><div class="t-title">Do'st</div><div class="muted num">Versiya 1.0 (prototip)</div></div>
+  <div class="group"><button class="cell" onclick="nav('doc','terms')">Foydalanish shartlari<span class="val">${ic('right',18)}</span></button><button class="cell" onclick="nav('doc','privacy')">Maxfiylik siyosati<span class="val">${ic('right',18)}</span></button></div>
+  <p class="t-caption faint center" style="margin-top:20px;font-weight:400">Namuna fotosuratlar: GCompris loyihasi (GPL-3)</p>`};
+R.doc=(el,k)=>{const d={terms:['Foydalanish shartlari',["E'lon joylash bepul. Har bir e'lon moderatsiyadan o'tadi.","Faqat qonuniy sotilishi mumkin bo'lgan uy hayvonlari haqida e'lon beriladi.","Yolg'on ma'lumot beruvchi e'lonlar o'chiriladi, takroriy holatda hisob bloklanadi.","TOP xizmati uchun to'langan mablag' xizmat ko'rsatilgandan so'ng qaytarilmaydi."]],
+  privacy:['Maxfiylik siyosati',["Telefon raqamingiz faqat e'lon sahifasida va siz yozishgan foydalanuvchilarga ko'rinadi.","Shaxsiy ma'lumotlaringiz uchinchi shaxslarga berilmaydi.","Hisobingizni istalgan vaqtda o'chirishingiz mumkin."]]}[k];
+  el.innerHTML=navBar(d[0])+d[1].map((p,i)=>`<p class="muted" style="margin-bottom:14px"><b style="color:var(--ink)">${i+1}.</b> ${p}</p>`).join('')};
+function openTheme(){openSheet(`<h2 class="t-title" style="margin-bottom:16px">Tungi rejim</h2><div class="group">`+[['system',"Tizim bo'yicha",'Telefon sozlamasiga moslashadi'],['light',"Yorug'",''],['dark','Tungi',"Kechqurun ko'zni charchatmaydi"]].map(([v,l,d])=>
+  `<button class="cell" style="min-height:60px" onclick="S.theme='${v}';store.set('theme','${v}');applyTheme();closeSheet();refresh()"><div style="flex:1;text-align:left"><div>${l}</div>${d?`<div class="t-caption faint" style="font-weight:400">${d}</div>`:''}</div><span class="val">${S.theme===v?ic('check',20,{c:'var(--brand-fg)'}):''}</span></button>`).join('')+'</div>')}
+function openLang(){openSheet(`<h2 class="t-title" style="margin-bottom:16px">Til</h2><div class="group">`+[['lat',"O'zbekcha (lotin)"],['cyr','Ўзбекча (кирилл)'],['ru','Русский'],['en','English']].map(([v,l])=>
+  `<button class="cell" onclick="setLang('${v}')"><span class="notr">${uz(l)}</span><span class="val">${S.lang===v?ic('check',20,{c:'var(--brand-fg)'}):(v==='ru'||v==='en'?'<span class="t-caption">Tez orada</span>':'')}</span></button>`).join('')+'</div>')}
+function setLang(v){if(v==='ru'||v==='en'){closeSheet();toast(v==='ru'?'Русский язык — скоро':'English — coming soon');return}
+  const changed=S.lang!==v;S.lang=v;store.set('lang',v);closeSheet();if(changed){renderTabbar();refresh()}}
+R.notifSettings=el=>{const rows=[['msg','Yangi xabarlar','Xaridor yoki sotuvchi yozganda'],['ads',"E'lon holati","Moderatsiya va ko'rishlar"],['top','TOP muddati','Muddat tugashidan oldin eslatish'],['promo','Yangiliklar va takliflar','']];
+  el.innerHTML=navBar('Bildirishnomalar')+`<div class="group">`+rows.map(([k,t,d])=>`<button class="cell" role="switch" aria-checked="${S.notif[k]}" style="min-height:64px" onclick="S.notif.${k}=!S.notif.${k};store.set('notif',S.notif);this.querySelector('.switch').classList.toggle('on',S.notif.${k})">
+   <div style="flex:1;text-align:left"><div>${t}</div>${d?`<div class="t-caption faint" style="font-weight:400">${d}</div>`:''}</div><span class="switch ${S.notif[k]?'on':''}"></span></button>`).join('')+'</div>'};
+R.help=el=>{const faq=[["E'lon joylash pullikmi?","Yo'q, e'lon joylash mutlaqo bepul. Faqat e'lonni TOP ga chiqarish pullik (1, 3 yoki 7 kun)."],
+  ["E'lon qancha vaqtda chiqadi?","Moderatsiyadan so'ng, odatda 15 daqiqa ichida."],["Qanday qilib xavfsiz sotib olaman?","Hayvonni shaxsan ko'ring, hujjatlari va veterinar pasportini tekshiring. Oldindan to'lov qilmang."],
+  ["TOP uchun qanday to'layman?","Click, Payme, Uzcard yoki Humo kartasi orqali."],["E'lonni qanday o'chiraman?","Profil → Mening e'lonlarim → «…» → O'chirish."]];
+  el.innerHTML=navBar('Yordam markazi')+`<h2 class="t-headline" style="margin-bottom:12px">Ko'p beriladigan savollar</h2><div class="group">`+faq.map(([q,a])=>`<details><summary>${q}${ic('chev',18)}</summary><p>${a}</p></details>`).join('')+`</div>
+  <div class="section"><h2 class="t-headline">Bog'lanish</h2></div><div class="group">
+   <button class="cell" onclick="supportChat()"><span class="ic">${ic('chat',20)}</span>Qo'llab-quvvatlashga yozish<span class="val">${ic('right',18)}</span></button>
+   <a class="cell" href="tel:+998712000000"><span class="ic">${ic('phone',20)}</span>Qo'ng'iroq qilish<span class="val num notr">+998 71 200 00 00</span></a></div>`};
+function supportChat(){requireAuth(()=>{if(!THREADS.find(t=>t.id==='ts'))THREADS.push({id:'ts',who:'support',ad:null,unread:0,msgs:[{me:0,x:'Assalomu alaykum! Sizga qanday yordam bera olamiz?',t:now()}]});nav('chat','ts')})}
+R.editProfile=el=>{el.innerHTML=navBar('Profilni tahrirlash')+`<div class="center" style="margin-bottom:24px"><div class="avatar" style="width:88px;height:88px;font-size:28px;margin:0 auto 10px">${initials(S.name)}</div></div>
+  <div class="stack"><div class="field"><label>Ism va familiya</label><input class="inp" id="pn" value="${esc(S.name)}" maxlength="40"></div>
+  <div class="field"><label>Telefon raqam</label><input class="inp num notr" value="+998 90 123 45 67" disabled><div class="hint">Raqamni o'zgartirish uchun yordam markaziga yozing</div></div>
+  <button class="btn" style="margin-top:8px" onclick="S.name=$('#pn').value.trim()||S.name;store.set('name',S.name);toast('Saqlandi');back()">Saqlash</button></div>`};
+let myTab='active';
+R.myads=el=>{const l=myAds().filter(a=>myTab==='active'?!a.sold:a.sold);
+  el.innerHTML=navBar("Mening e'lonlarim",`<button class="icon-btn" onclick="startPost()" aria-label="Yangi e'lon">${ic('plus',20)}</button>`)+
+  `<div class="seg" style="margin-bottom:16px"><button class="${myTab==='active'?'on':''}" onclick="myTab='active';refresh()">Faol (${myAds().filter(a=>!a.sold).length})</button><button class="${myTab==='sold'?'on':''}" onclick="myTab='sold';refresh()">Sotilgan (${myAds().filter(a=>a.sold).length})</button></div>`+
+  (l.length?`<div class="group">${l.map(myAdCell).join('')}</div>`:emptyState('paw',"E'lonlar yo'q",myTab==='active'?"Yangi e'lon joylang":''))};
+function adActions(id){const a=ad(id);openSheet(`<h2 class="t-headline" style="margin-bottom:14px">${esc(a.n)}</h2><div class="group">
+  ${a.sold?'':`<button class="cell" onclick="closeSheet();nav('promote',${id})"><span class="ic" style="color:var(--gold)">${ic('star',20,{fill:1})}</span>TOP ga chiqarish</button>`}
+  <button class="cell" onclick="closeSheet();startPost(${id})"><span class="ic">${ic('edit',20)}</span>Tahrirlash</button>
+  <button class="cell" onclick="toggleSold(${id})"><span class="ic">${ic('archive',20)}</span>${a.sold?'Qayta faollashtirish':'Sotildi deb belgilash'}</button>
+  <button class="cell" style="color:var(--red)" onclick="confirmDelete(${id})">${ic('trash',20)}O'chirish</button></div>
+  <button class="btn secondary" style="margin-top:12px" onclick="closeSheet()">Bekor qilish</button>`)}
+function toggleSold(id){const a=ad(id);a.sold=a.sold?0:1;a.top=0;closeSheet();toast(a.sold?'Sotilgan deb belgilandi':"E'lon qayta faollashtirildi");refresh()}
+function confirmDelete(id){openSheet(`<h2 class="t-headline center">E'lonni o'chirasizmi?</h2><p class="muted center" style="margin:8px 0 20px">Bu amalni ortga qaytarib bo'lmaydi.</p>
+  <button class="btn danger" onclick="deleteAd(${id})">O'chirish</button><button class="btn text" style="margin-top:6px;color:var(--ink)" onclick="closeSheet()">Bekor qilish</button>`,true)}
+function deleteAd(id){ADS=ADS.filter(a=>a.id!==id);S.favs=S.favs.filter(x=>x!==id);closeSheet();toast("E'lon o'chirildi");if(stack[stack.length-1].id==='detail')back();else refresh()}
+function confirmLogout(){openSheet(`<h2 class="t-headline center">Hisobdan chiqasizmi?</h2><p class="muted center" style="margin:8px 0 20px">E'lonlaringiz saqlanib qoladi.</p>
+  <button class="btn danger" onclick="S.logged=false;store.set('logged',false);closeSheet();renderTabbar();stack=[{id:'welcome'}];show(stack[0])">Chiqish</button><button class="btn text" style="margin-top:6px;color:var(--ink)" onclick="closeSheet()">Bekor qilish</button>`,true)}
+
+/* =====================================================================
+   DRAG-TO-SCROLL for mouse users: screens, sheets, chips, carousels, gallery
+   (touch devices keep native scrolling)
+   ===================================================================== */
+(function(){
+  let d=null,suppress=false;const app=$('#app');
+  const scale=()=>app.getBoundingClientRect().width/app.offsetWidth;
+  app.addEventListener('pointerdown',e=>{
+    if(e.pointerType!=='mouse'||e.button!==0||e.target.closest('input,textarea,select'))return;
+    const h=e.target.closest('.chips,.hscroll,.gal-track'),v=e.target.closest('.chat-body,.sheet,.screen');
+    d={x:e.clientX,y:e.clientY,h,v,hl:h?h.scrollLeft:0,vt:v?v.scrollTop:0,axis:null,k:scale()};
+  });
+  addEventListener('pointermove',e=>{if(!d)return;const dx=(e.clientX-d.x)/d.k,dy=(e.clientY-d.y)/d.k;
+    if(!d.axis){if(Math.hypot(dx,dy)<6)return;d.axis=Math.abs(dx)>Math.abs(dy)&&d.h?'h':d.v?'v':null;if(!d.axis){d=null;return}
+      app.classList.add('dragging');if(d.axis==='h'&&d.h.classList.contains('gal-track'))d.h.style.scrollSnapType='none'}
+    if(d.axis==='h')d.h.scrollLeft=d.hl-dx;else d.v.scrollTop=d.vt-dy;e.preventDefault()});
+  addEventListener('pointerup',()=>{if(!d)return;
+    if(d.axis){suppress=true;setTimeout(()=>suppress=false,0);app.classList.remove('dragging');
+      if(d.h&&d.axis==='h'&&d.h.classList.contains('gal-track')){const t=d.h,w=t.clientWidth,i=Math.round(t.scrollLeft/w);t.scrollTo({left:i*w,behavior:'smooth'});setTimeout(()=>t.style.scrollSnapType='',450)}}
+    d=null});
+  app.addEventListener('click',e=>{if(suppress){e.stopPropagation();e.preventDefault()}},true);
+  app.addEventListener('dragstart',e=>e.preventDefault());
+})();
+document.addEventListener('scroll',e=>{if(e.target.id==='s-detail')$('#sb').classList.toggle('clear',e.target.scrollTop<330)},true);
+
+/* ---------- fit device to window ---------- */
+function fit(){const s=Math.min(1,(innerHeight-24)/978,(innerWidth-16)/462);$('#stage').style.transform=`scale(${s})`;$('#stage').style.margin=`${(978*s-978)/2}px ${(462*s-462)/2}px`}
+addEventListener('resize',fit);fit();
+renderTabbar();
+stack=[{id:S.logged?'home':'welcome'}];show(stack[0]);
+</script>
+</body>
+</html>

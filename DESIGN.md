@@ -37,4 +37,10 @@ Backend (auth OTP, rasm yuklash, qidiruv/filtr), to'lov (Click/Payme), moderatsi
 - **TOP to'lov:** tarif, to'lov usuli, to'lov jarayoni, to'lovlar tarixi.
 - **Sozlamalar:** tungi rejim (tizim/yorug'/tungi), til (lotin/kirill), bildirishnomalar, yordam markazi (FAQ + qo'llab-quvvatlash chati), profilni tahrirlash, ilova haqida, chiqish.
 - **Scroll:** sichqoncha bilan sudrab aylantirish (ekranlar, kategoriyalar, TOP karusel, rasm galereyasi).
-- **Rasmlar:** Unsplash fotosuratlari brauzerda yuklanadi; yuklanmasa neytral zaxira ko'rinish chiqadi.
+- **Rasmlar:** namuna fotosuratlar `index.html` ichiga joylangan (internet kerak emas), foydalanuvchi yuklagan rasmlar siqilib data URL sifatida saqlanadi.
+- **Maket:** iPhone 17 Pro Max, ingichka ramka (440×956 ekran).
+
+## Tuzilishi
+- `prototype/src/app.html` — manba kod
+- `prototype/img/` — namuna fotosuratlar (manba: `img/CREDITS.md`)
+- `python3 prototype/build.py` — rasmlarni ichiga joylab `prototype/index.html` ni yig'adi
