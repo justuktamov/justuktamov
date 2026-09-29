@@ -41,6 +41,39 @@ Backend (auth OTP, rasm yuklash, qidiruv/filtr), to'lov (Click/Payme), moderatsi
 - **Maket:** iPhone 17 Pro Max, ingichka ramka (440×956 ekran).
 
 ## Tuzilishi
-- `prototype/src/app.html` — manba kod
+- `prototype/src/app.html` — sahifa tuzilishi va uslublar
+- `prototype/src/app.js` — ilova kodi
+- `prototype/src/i18n-ru.json` — rus tili lug'ati
 - `prototype/img/` — namuna fotosuratlar (manba: `img/CREDITS.md`)
 - `python3 prototype/build.py` — rasmlarni ichiga joylab `prototype/index.html` ni yig'adi
+
+## v1.1 — qo'shilgan imkoniyatlar
+**Ishonch va xavfsizlik**
+- Tasdiqlangan sotuvchi (ko'k belgi): telefon → pasport/ID rasmi → selfi → tekshiruv.
+- Sotuvchi reytingi va sharhlar; sharh yozish (1–5 yulduz + izoh).
+- Veterinar hujjatlari: e'longa hujjat turlari belgilanadi, «Hujjatli» belgisi, filtrda «Faqat hujjatlilar».
+- Chatda firibgarlik ogohlantirishi: «karta», «oldindan to'lov», karta raqami kabi so'zlar aniqlanadi.
+
+**E'lon beruvchi uchun**
+- Video qo'shish (15–30 soniya), filtrda «Faqat videoli».
+- Kategoriyaga mos maydonlar: it/mushuk zoti; chorva turi, zoti, bosh soni, sut miqdori; qushlar — tuxum beradi.
+- Narx turi: Narx / Kelishiladi / Bepul beraman.
+- Tepaga ko'tarish: 7 kunda bir marta bepul, keyin 5 000 so'm.
+- E'lon statistikasi: 7 kunlik ko'rishlar, qo'ng'iroqlar, saqlashlar grafigi va konversiya.
+
+**Xaridor uchun**
+- Saqlangan qidiruvlar va ular bo'yicha bildirishnoma.
+- Viloyat → tuman tanlash, «Yaqinlari» saralash (km bilan).
+- Sxematik xarita: hududlar bo'yicha e'lonlar soni, bosilganda ro'yxat.
+- O'xshash e'lonlar.
+
+**Daromad**
+- Reklama: TOP (1/3/7 kun), VIP (oltin ramka, ro'yxatda birinchi), «Shoshilinch» belgisi.
+- Biznes hisob (Start / Pro obuna): do'kon sahifasi, logotip, muqova.
+- Xizmatlar bo'limi: veterinar, gruming, kinolog, yem-xashak, aksessuarlar.
+- Hamyon: to'ldirish (Click, Payme, Uzcard, Humo) va bir bosishda to'lash, tarix.
+
+**Qo'shimcha**
+- Rus tili (to'liq interfeys; foydalanuvchi matnlari tarjima qilinmaydi).
+- Yo'qolgan va topilgan hayvonlar bo'limi (bepul, mukofot ko'rsatish mumkin).
+- Chatda rasm, joylashuv yuborish va tayyor javoblar.
