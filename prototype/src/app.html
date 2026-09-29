@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Do'st — uy hayvonlari bozori (prototip)</title>
+<title>Do'st</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" rel="stylesheet">
@@ -59,7 +59,7 @@ svg{display:block;flex:none}
 
 /* ================= LAYOUT ================= */
 .screen{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain;padding:62px var(--gutter) 120px;display:none;background:var(--bg);scrollbar-width:none}
-.screen.on{display:block;animation:fade .18s ease}
+.screen.on{display:block}
 .screen.notab{padding-bottom:48px}
 .screen::-webkit-scrollbar{display:none}
 @keyframes fade{from{opacity:0}to{opacity:1}}
@@ -351,7 +351,8 @@ const BMP={};let upSeq=0;
 function b64bytes(b64){const bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u}
 function bitmap(k){
   if(BMP[k])return BMP[k];
-  if(IMG[k])return BMP[k]=createImageBitmap(new Blob([b64bytes(IMG[k])],{type:'image/jpeg'})).catch(()=>null);
+  if(IMG[k]){const blob=new Blob([b64bytes(IMG[k])],{type:'image/jpeg'});
+    return BMP[k]=(window.createImageBitmap?createImageBitmap(blob):Promise.reject()).catch(()=>new Promise(res=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);im.src='data:image/jpeg;base64,'+IMG[k]}))}
   return Promise.resolve(null);
 }
 function photoTag(k,c,cls='',style=''){
@@ -362,11 +363,11 @@ function photoTag(k,c,cls='',style=''){
 function paintPhotos(){
   document.querySelectorAll('.photo canvas:not(.painted)').forEach(cv=>{
     const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h||cv.dataset.busy)return;cv.dataset.busy=1;
-    bitmap(cv.dataset.k).then(bm=>{delete cv.dataset.busy;if(!bm)return;
+    bitmap(cv.dataset.k).then(bm=>{try{delete cv.dataset.busy;if(!bm)return;
       const d=Math.min(2,devicePixelRatio||1);cv.width=Math.round(w*d);cv.height=Math.round(h*d);
       const s=Math.max(cv.width/bm.width,cv.height/bm.height),sw=cv.width/s,sh=cv.height/s;
       const ctx=cv.getContext('2d');ctx.imageSmoothingQuality='high';
-      ctx.drawImage(bm,(bm.width-sw)/2,(bm.height-sh)/2,sw,sh,0,0,cv.width,cv.height);cv.classList.add('painted')});
+      ctx.drawImage(bm,(bm.width-sw)/2,(bm.height-sh)/2,sw,sh,0,0,cv.width,cv.height);cv.classList.add('painted')}catch(e){}});
   });
 }
 let paintQ=0;const schedulePaint=()=>{if(!paintQ)paintQ=requestAnimationFrame(()=>{paintQ=0;paintPhotos()})};
@@ -609,7 +610,7 @@ R.detail=(el,id)=>{
    ?`<button class="btn secondary" onclick="adActions(${a.id})">${ic('more',20)}Boshqarish</button>${a.sold?'':`<button class="btn gold" onclick="nav('promote',${a.id})">${ic('star',18,{fill:1})}TOP ga chiqarish</button>`}`
    :`<button class="btn secondary" onclick="requireAuth(()=>openChat(${a.id}))">${ic('chat',20)}Yozish</button><button class="btn" onclick="openCall('${a.s}')">${ic('phone',20)}Qo'ng'iroq qilish</button>`;
 };
-function share(id){const a=ad(id),txt=`${a.n} — ${fmt(a.p)}`;if(navigator.share)navigator.share({title:a.n,text:txt}).catch(()=>{});else{navigator.clipboard?.writeText(txt).catch(()=>{});toast('Havola nusxalandi')}}
+function share(id){const a=ad(id),txt=`${a.n} — ${fmt(a.p)}`;const copy=()=>{try{navigator.clipboard.writeText(txt).then(()=>toast('Havola nusxalandi'),()=>toast('Ulashib bo\'lmadi'))}catch(e){toast('Ulashib bo\'lmadi')}};if(navigator.share)navigator.share({title:a.n,text:txt}).catch(copy);else copy()}
 function openCall(s){const sl=SELLERS[s];openSheet(`<div class="center"><div class="avatar" style="width:64px;height:64px;font-size:20px;margin:0 auto 12px">${sl.i}</div>
   <div class="t-headline">${sl.n}</div><div class="t-title num notr" style="margin:8px 0 20px">${sl.ph}</div></div>
   <a class="btn" href="tel:${sl.ph.replace(/\s/g,'')}" onclick="closeSheet()">${ic('phone',20)}Qo'ng'iroq qilish</a>
@@ -847,8 +848,8 @@ document.addEventListener('scroll',e=>{if(e.target.id==='s-detail')$('#sb').clas
 /* ---------- fit device to window ---------- */
 function fit(){const s=Math.min(1,(innerHeight-24)/978,(innerWidth-16)/462);$('#stage').style.transform=`scale(${s})`;$('#stage').style.margin=`${(978*s-978)/2}px ${(462*s-462)/2}px`}
 addEventListener('resize',fit);fit();
-renderTabbar();
-stack=[{id:S.logged?'home':'welcome'}];show(stack[0]);
+try{renderTabbar();stack=[{id:S.logged?'home':'welcome'}];show(stack[0])}
+catch(e){$('#screens').innerHTML=`<section class="screen on"><h2 class="t-headline">Ilovani ochib bo'lmadi</h2><p class="muted" style="margin-top:8px">${esc(e.message)}</p></section>`}
 </script>
 </body>
 </html>

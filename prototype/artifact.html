@@ -1,8 +1,3 @@
-<!doctype html>
-<html lang="uz">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Do'st</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -274,8 +269,8 @@ details p{padding:0 16px 16px;color:var(--ink-2)}
 .toast{position:absolute;bottom:112px;left:50%;transform:translate(-50%,8px);background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:var(--r-md);font:var(--t-callout);z-index:130;opacity:0;pointer-events:none;transition:.22s;white-space:nowrap}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 </style>
-</head>
-<body>
+
+
 <div id="stage">
  <div class="device"><i class="b-act"></i><i class="b-vu"></i><i class="b-vd"></i><i class="b-pw"></i><i class="b-cc"></i><div class="bezel"><div class="phone" id="app">
   <div class="island"></div>
@@ -851,5 +846,3 @@ addEventListener('resize',fit);fit();
 try{renderTabbar();stack=[{id:S.logged?'home':'welcome'}];show(stack[0])}
 catch(e){$('#screens').innerHTML=`<section class="screen on"><h2 class="t-headline">Ilovani ochib bo'lmadi</h2><p class="muted" style="margin-top:8px">${esc(e.message)}</p></section>`}
 </script>
-</body>
-</html>
