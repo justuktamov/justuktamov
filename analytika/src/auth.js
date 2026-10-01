@@ -82,7 +82,9 @@ export function userFromToken(token) {
 }
 
 export function publicUser(u) {
-  return { id: u.id, name: u.name, login: u.login, role: u.role, telegram_id: u.telegram_id, active: !!u.active };
+  let projectIds = null;
+  try { projectIds = u.project_ids ? JSON.parse(u.project_ids) : null; } catch { projectIds = null; }
+  return { id: u.id, name: u.name, login: u.login, role: u.role, telegram_id: u.telegram_id, active: !!u.active, project_ids: projectIds };
 }
 
 export function ensureAdmin() {

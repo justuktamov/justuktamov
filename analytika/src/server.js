@@ -5,9 +5,15 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import {
   getDb, getSetting, setSetting, today, canEdit, FIELDS, NOTE_FIELDS, LOSS_REASONS, ROLES, PLATFORMS, PLAN_FIELDS,
-  ROLE_DUTIES, CREATIVE_TYPES, entryRoles,
+  ROLE_DUTIES, CREATIVE_TYPES, entryRoles, EXPENSE_CATEGORIES, TASK_STATUS,
 } from './db.js';
 import { reportBundle, saveDraft, submitReport, reviewReport, listReports, reportText } from './reports.js';
+import {
+  listTasks, createTask, updateTask, deleteTask, listExpenses, addExpense, deleteExpense, profitAndLoss,
+  anomalies, weeklyReportText, importCsv,
+} from './extras.js';
+import { tmpdir } from 'node:os';
+import { unlinkSync } from 'node:fs';
 import {
   login, logout, userFromToken, createUser, hashPassword, ensureAdmin, publicUser,
   createSession, changePassword, verifyTelegramInitData, userByTelegramId,
@@ -24,7 +30,7 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PUBLIC = join(ROOT, 'public');
 const PORT = Number(process.env.PORT || 3000);
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json' };
+const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json' };
 const STATIC = { '/vendor/chart.js': join(ROOT, 'node_modules/chart.js/dist/chart.umd.min.js') };
 
 class HttpError extends Error {
@@ -45,7 +51,7 @@ async function readBody(req) {
   let size = 0;
   for await (const c of req) {
     size += c.length;
-    if (size > 1e6) throw new HttpError(413, "So'rov juda katta");
+    if (size > 5e6) throw new HttpError(413, "So'rov juda katta");
     chunks.push(c);
   }
   if (!chunks.length) return {};
@@ -121,8 +127,10 @@ route('GET', '/api/me', async (req, res) => {
   send(res, 200, {
     user, today: today(), roles: ROLES, fields: FIELDS, noteFields: NOTE_FIELDS, reasons: LOSS_REASONS,
     platforms: PLATFORMS, planFields: PLAN_FIELDS, duties: ROLE_DUTIES, creativeTypes: CREATIVE_TYPES, entryRoles: entryRoles(user.role),
-    pendingToday: missingReport(today()).filter((m) => !m.filled && entryRoles(user.role).includes(m.role)).length,
+    pendingToday: missingReport(today()).filter((m) => !m.filled && entryRoles(user.role).includes(m.role) && (!user.project_ids || user.project_ids.includes(m.project_id))).length,
     reportStatus: getDb().prepare('SELECT status FROM daily_reports WHERE date = ?').get(today())?.status || null,
+    openTasks: listTasks({ userId: user.id, status: 'active' }).length,
+    expenseCategories: EXPENSE_CATEGORIES, taskStatus: TASK_STATUS,
     ai: aiAvailable(), telegram: { enabled: telegramStatus().enabled, bot: telegramStatus().bot, miniApp: Boolean(process.env.APP_URL) },
     usdRate: Number(getSetting('usd_rate', process.env.USD_RATE || 12800)),
   });
@@ -194,6 +202,10 @@ route('PUT', '/api/users/:id', async (req, res, { id }) => {
     getDb().prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
   }
   if (b.active === false) getDb().prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
+  if (b.project_ids !== undefined) {
+    const ids = Array.isArray(b.project_ids) ? b.project_ids.map(Number).filter(Boolean) : [];
+    getDb().prepare('UPDATE users SET project_ids = ? WHERE id = ?').run(ids.length ? JSON.stringify(ids) : null, id);
+  }
   send(res, 200, publicUser(getDb().prepare('SELECT * FROM users WHERE id = ?').get(id)));
 });
 
@@ -426,6 +438,87 @@ route('GET', '/api/reports', async (req, res, _p, q) => {
   send(res, 200, listReports(Math.min(Number(q.get('limit')) || 30, 120)));
 });
 
+// ---- Vazifalar ----
+const isManager = (u) => u.role === 'admin' || u.role === 'pm';
+route('GET', '/api/tasks', async (req, res, _p, q) => {
+  const u = requireUser(req);
+  const mine = q.get('mine') === '1' || !isManager(u);
+  send(res, 200, listTasks({ userId: mine ? u.id : null, status: q.get('status') || null }));
+});
+route('GET', '/api/team-users', async (req, res) => {
+  const u = requireUser(req);
+  if (!isManager(u)) throw new HttpError(403, 'Faqat direktor va PM uchun');
+  send(res, 200, getDb().prepare('SELECT id, name, role FROM users WHERE active = 1').all());
+});
+route('POST', '/api/tasks', async (req, res) => {
+  const u = requireUser(req);
+  if (!isManager(u)) throw new HttpError(403, 'Vazifani direktor yoki PM beradi');
+  const t = createTask(await readBody(req), u.id);
+  const tg = t.assignee_id && getDb().prepare('SELECT telegram_id FROM users WHERE id = ?').get(t.assignee_id)?.telegram_id;
+  if (tg) sendMessage(tg, `📌 <b>Yangi vazifa</b>${t.project_name ? ` · ${t.project_name.replace(/[<>&]/g, '')}` : ''}\n${t.title.replace(/[<>&]/g, '')}${t.due_date ? `\n⏰ ${t.due_date} gacha` : ''}\n— ${String(u.name).replace(/[<>&]/g, '')}`).catch(() => {});
+  send(res, 201, t);
+});
+route('PUT', '/api/tasks/:id', async (req, res, { id }) => {
+  const u = requireUser(req);
+  const before = getDb().prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  const t = updateTask(id, await readBody(req), u);
+  // Bajarilganda vazifa beruvchiga xabar
+  if (before && before.status !== 'done' && t.status === 'done' && before.created_by !== u.id) {
+    const tg = getDb().prepare('SELECT telegram_id FROM users WHERE id = ?').get(before.created_by)?.telegram_id;
+    if (tg) sendMessage(tg, `✅ ${String(u.name).replace(/[<>&]/g, '')} bajardi: ${t.title.replace(/[<>&]/g, '')}`).catch(() => {});
+  }
+  send(res, 200, t);
+});
+route('DELETE', '/api/tasks/:id', async (req, res, { id }) => {
+  deleteTask(id, requireUser(req));
+  send(res, 200, { ok: true });
+});
+
+// ---- Xarajatlar va sof foyda ----
+const canMoney = (u) => ['admin', 'pm', 'finance'].includes(u.role);
+const monthParam = (q) => (/^\d{4}-\d{2}$/.test(q.get('month') || '') ? q.get('month') : today().slice(0, 7));
+route('GET', '/api/pnl', async (req, res, _p, q) => {
+  const u = requireUser(req);
+  if (!canMoney(u)) throw new HttpError(403, "Foyda hisobini direktor, PM va moliya ko'radi");
+  send(res, 200, profitAndLoss(monthParam(q)));
+});
+route('POST', '/api/expenses', async (req, res) => {
+  const u = requireUser(req);
+  if (!canMoney(u)) throw new HttpError(403, 'Xarajatni direktor, PM yoki moliya kiritadi');
+  send(res, 201, addExpense(await readBody(req), u.id));
+});
+route('DELETE', '/api/expenses/:id', async (req, res, { id }) => {
+  const u = requireUser(req);
+  if (!canMoney(u)) throw new HttpError(403, "Xarajatni direktor, PM yoki moliya o'chiradi");
+  deleteExpense(id);
+  send(res, 200, { ok: true });
+});
+
+// ---- Signallar, haftalik hisobot, import, zaxira ----
+route('GET', '/api/alerts', async (req, res, _p, q) => {
+  requireUser(req);
+  send(res, 200, anomalies(isDate(q.get('date')) ? q.get('date') : today()));
+});
+route('GET', '/api/weekly-preview', async (req, res) => {
+  requireUser(req);
+  send(res, 200, { text: weeklyReportText() });
+});
+route('POST', '/api/import', async (req, res) => {
+  const u = requireAdmin(req);
+  const b = await readBody(req);
+  send(res, 200, importCsv(String(b.csv || ''), u.id));
+});
+route('GET', '/api/backup', async (req, res) => {
+  requireAdmin(req);
+  // Ishlayotgan bazaning izchil nusxasi
+  const file = join(tmpdir(), `analytika-backup-${Date.now()}.db`);
+  getDb().exec(`VACUUM INTO '${file.replace(/'/g, "''")}'`);
+  const data = await readFile(file);
+  unlinkSync(file);
+  res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-disposition': `attachment; filename="analytika-${today()}.db"` });
+  res.end(data);
+});
+
 // ---- AI ----
 route('POST', '/api/ai/analyze', async (req, res) => {
   const user = requireUser(req);
@@ -440,7 +533,7 @@ route('GET', '/api/ai/reports', async (req, res) => {
 });
 
 // ---- Sozlamalar ----
-const SETTING_KEYS = ['usd_rate', 'start_reply', 'report_chat_id', 'report_time', 'reminder_time', 'ai_daily'];
+const SETTING_KEYS = ['usd_rate', 'start_reply', 'report_chat_id', 'report_time', 'reminder_time', 'ai_daily', 'weekly_report'];
 route('GET', '/api/settings', async (req, res) => {
   requireAdmin(req);
   send(res, 200, { ...Object.fromEntries(SETTING_KEYS.map((k) => [k, getSetting(k)])), telegram: telegramStatus() });
@@ -537,6 +630,23 @@ function startScheduler() {
             await sendMessage(chat, `🤖 <b>AI tahlil (7 kun)</b>\n\n${r.content.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]))}`);
           }
         }
+      }
+      // Signallar — hisobot vaqtida direktorlarga (faqat yangi bo'lsa)
+      if (hm === reportTime && getSetting('last_alerts') !== d) {
+        setSetting('last_alerts', d);
+        const al = anomalies(d);
+        if (al.length) {
+          const text = `⚠️ <b>Signal — ${d}</b>\n${al.map((a) => `• ${a.text.replace(/[<>&]/g, '')}`).join('\n')}`;
+          const ids = getDb().prepare("SELECT telegram_id FROM users WHERE role = 'admin' AND active = 1 AND telegram_id IS NOT NULL").all();
+          for (const x of ids) await sendMessage(x.telegram_id, text);
+        }
+      }
+      // Haftalik hisobot — dushanba, hisobot vaqtida
+      const weekday = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(new Date());
+      if (weekday === 'Mon' && hm === reportTime && getSetting('last_weekly') !== d && getSetting('weekly_report') !== '0') {
+        setSetting('last_weekly', d);
+        const chat = getSetting('report_chat_id');
+        if (chat) await sendMessage(chat, weeklyReportText());
       }
       const reminderTime = getSetting('reminder_time', '19:00');
       if (hm === reminderTime && getSetting('last_reminder') !== d) {

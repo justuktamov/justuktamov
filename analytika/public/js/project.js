@@ -1,7 +1,7 @@
 // Bitta loyiha sahifasi: voronka, reja, kunlik jadval, reklama postlari, sabablar
 import {
   $, esc, api, state, shell, filtersHtml, bindFilters, computePeriod, fmtN, fmtUsd, fmtUzs, fmtP, shortDate,
-  insightsHtml, spinnerBlock, downloadCsv, toast, ICONS, botLink, copyText,
+  insightsHtml, spinnerBlock, downloadCsv, toast, ICONS, botLink, copyText, isStale,
 } from './core.js';
 import { funnelHtml, planCard, reasonsHtml, notesHtml, chartCards, drawSeriesCharts } from './widgets.js';
 import { kpiRow } from './dashboard.js';
@@ -14,6 +14,7 @@ export async function renderProject(id) {
       <div class="sub"><span class="code">${esc(botLink(p.slug))}</span> <button class="btn small ghost" id="copyLink" aria-label="Havoladan nusxa">${ICONS.copy}</button></div></div>
       ${filtersHtml({ project: false })}</div>
     <div id="proj">${spinnerBlock()}</div>`);
+  const rid = state.renderId;
   bindFilters(() => renderProject(id));
   $('#copyLink').onclick = () => copyText(botLink(p.slug));
   const { from, to } = computePeriod();
@@ -23,7 +24,7 @@ export async function renderProject(id) {
     [s, rows, camps] = await Promise.all([api(`/api/summary?${q}`), api(`/api/rows?${q}`), api(`/api/campaigns?${q}`)]);
   } catch (e) { const el = $('#proj'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#proj');
-  if (!box) return;
+  if (!box || isStale(rid)) return;
   const reasonsByDay = {};
   for (const r of rows.reasons) reasonsByDay[r.date] = (reasonsByDay[r.date] || 0) + r.count;
   box.innerHTML = `

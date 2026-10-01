@@ -42,6 +42,25 @@ Tizimdagi rollar va har biri nima berib, nima olishi «Jamoa» sahifasida koʻrs
 - **Oʻstirish mumkin:** ROAS oʻrtachadan 1.3 baravar yuqori va konversiya yaxshi boʻlsa.
 - **Byudjet taqsimoti:** hozirgi ulush × (loyiha ROAS i / oʻrtacha ROAS). Koeffitsient 0.5 dan 1.6 gacha cheklanadi.
 
+## Ichki ish uchun qulayliklar
+
+- **Vazifalar.** Direktor yoki PM tavsiya yonidagi «+» ni bosadi. Vazifa ijrochi, loyiha va muddat bilan avtomatik toʻldiriladi.
+  - Ijrochi vazifani «Kiritish» sahifasining tepasida va «Vazifalar» boʻlimida koʻradi va Telegramga xabar oladi.
+  - Bajarilganini belgilasa, vazifa beruvchiga xabar boradi. Muddati oʻtgan vazifa qizil rangda koʻrinadi.
+- **Sof foyda («Foyda»).** Reklamadan tashqari xarajatlar oy boʻyicha kiritiladi: ish haqi, ijara, oʻqituvchi va boshqalar.
+  - Formula: tushum − reklama − loyiha xarajati − umumiy xarajatdan ulush = sof foyda va marja.
+  - Umumiy xarajat loyihalarga tushumga mutanosib boʻlinadi.
+  - Joriy oyda xarajat oʻtgan kunlarga mutanosib hisoblanadi.
+- **Jadval rejimida kiritish.** Hamma loyiha bitta jadvalda koʻrinadi: kulrang raqam — kechagi qiymat, Enter — pastki qatorga oʻtish. «Hammasini saqlash» bitta tugma.
+- **Xodimga loyiha biriktirish.** Targetolog yoki ROP faqat oʻz loyihalarini koʻradi. Kerak boʻlsa «Hamma loyihalar» tugmasi bor.
+- **Signallar.** Hisobot vaqtida direktorga Telegram orqali ogohlantirish boradi, «Bugun» sahifasida ham chiqadi. Qachon:
+  - lid narxi odatdagidan 1.8 barobar oshsa;
+  - lid 2 barobar kamaysa;
+  - xarajat birdan oshib ketsa.
+- **Haftalik hisobot.** Har dushanba hisobot guruhiga boradi. Koʻrinishi: Sozlamalar → Maʼlumotlar.
+- **Excel/CSV import** (eski maʼlumotlarni yuklash) va **bazaning zaxira nusxasini** bir tugma bilan yuklab olish.
+- **Telefonga oʻrnatish (PWA).** Brauzer menyusidan «Bosh ekranga qoʻshish» — ilova kabi ochiladi.
+
 ## Imkoniyatlar
 
 ### Voronka va analitika
@@ -172,12 +191,13 @@ Content-Type: application/json
 src/server.js      HTTP server, API, rejalashtiruvchi (hisobot/eslatma)
 src/db.js          SQLite sxema, rollar, maydonlar, platformalar
 src/metrics.js     voronka, konversiya, LTV/ROAS, o'sish, reja/prognoz, postlar, intizom, avto-xulosalar
+src/extras.js      vazifalar, xarajat va sof foyda, signallar, haftalik hisobot, CSV import
 src/reports.js     PM hisoboti: qoralama → yuborish → direktor ko'rib chiqadi, Telegram matni
 src/auth.js        parollar, sessiyalar, Telegram Mini App imzosini tekshirish
 src/ai.js          Claude orqali AI tahlil (ko'rsatma: ai-prompt.js)
 src/telegram.js    bot: deep link, kanal a'zolari, hisobot, eslatma, Mini App menyusi
 src/demo-data.js   namuna ma'lumotlar (server va brauzer demosi uchun)
-public/js/         interfeys: core, today (direktor), report (PM, arxiv, jamoa), dashboard, project, entry, campaigns, ai, settings
+public/js/         interfeys: core, today (direktor), report (PM, arxiv, jamoa), tasks, profit, dashboard, project, entry, campaigns, ai, settings
 demo/              brauzer demosini yig'ish
 deploy/            systemd, nginx, zaxira nusxa
 test/              testlar — npm test

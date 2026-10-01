@@ -51,6 +51,18 @@ export const NOTE_FIELDS = {
 // ROP lid operatori maydonlarini ham kirita oladi; direktor va PM — hammasini
 const EXTRA_EDIT = { sales: ['lead'] };
 
+export const EXPENSE_CATEGORIES = {
+  salary: 'Ish haqi',
+  bonus: 'Bonuslar',
+  rent: 'Ijara',
+  teachers: "O'qituvchi / mentor",
+  content: 'Kontent va kreativ',
+  services: 'Servislar (CRM, bot, hosting)',
+  other: 'Boshqa',
+};
+
+export const TASK_STATUS = { open: 'Yangi', doing: 'Jarayonda', done: 'Bajarildi' };
+
 export const CREATIVE_TYPES = { video: 'Video', image: 'Rasm / banner', stories: 'Stories / Reels', text: 'Matnli post' };
 
 // "Nimaga lid ko'p, sotuv past?" — sotib olmaslik sabablari
@@ -229,12 +241,39 @@ function migrate(db) {
       director_comment TEXT,
       updated_at TEXT
     );
+    -- Vazifalar: direktor/PM tavsiyadan yoki qo'lda beradi
+    CREATE TABLE IF NOT EXISTS tasks (
+      id INTEGER PRIMARY KEY,
+      title TEXT NOT NULL,
+      detail TEXT,
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+      assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_by INTEGER,
+      status TEXT NOT NULL DEFAULT 'open',
+      due_date TEXT,
+      source TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      done_at TEXT
+    );
+    -- Reklamadan tashqari xarajatlar (so'm), oy bo'yicha; project_id bo'sh — umumiy xarajat
+    CREATE TABLE IF NOT EXISTS expenses (
+      id INTEGER PRIMARY KEY,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      month TEXT NOT NULL,
+      category TEXT NOT NULL,
+      amount REAL NOT NULL,
+      note TEXT,
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT
     );
   `);
   // Eski bazalarga yangi ustunlar
+  const ucols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  if (ucols.length && !ucols.includes('project_ids')) db.exec('ALTER TABLE users ADD COLUMN project_ids TEXT');
   const cols = db.prepare('PRAGMA table_info(campaigns)').all().map((c) => c.name);
   for (const [c, t] of [['impressions', 'REAL'], ['creative_type', 'TEXT'], ['creative_url', 'TEXT']]) {
     if (cols.length && !cols.includes(c)) db.exec(`ALTER TABLE campaigns ADD COLUMN ${c} ${t}`);

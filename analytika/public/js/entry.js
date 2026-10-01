@@ -1,7 +1,12 @@
 // Kunlik hisobot: har bir xodim faqat o'z rolidagi maydonlarni kiritadi
-import { $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtP, toast, spinnerBlock, refreshMe } from './core.js';
+import { $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtP, toast, spinnerBlock, refreshMe, isStale } from './core.js';
+
+import { myTasksStrip } from './tasks.js';
 
 let entryDate = null;
+let mode = (() => { try { return localStorage.getItem('entryMode') || 'grid'; } catch { return 'grid'; } })();
+let showAll = false;
+const SHORT = { spend: 'Xarajat $', impressions: "Ko'rish", clicks: 'Klik', bot_starts: 'Start', leads: 'Lid', qualified: 'Sifatli', sales: 'Sotuv', revenue: "Tushum so'm", payments: 'Kassa', repeat_sales: 'Qayta', repeat_revenue: "Qayta so'm" };
 
 // Kiritish paytida jonli hisob: kartadagi qiymatlardan konversiyalar
 function liveMetrics(form, row) {
@@ -28,9 +33,12 @@ export async function renderEntry() {
   const role = state.me.user.role;
   const isToday = entryDate === state.me.today;
   shell(`<div class="page-head"><h1><span class="grad">Kiritish</span></h1>
-    <div class="filters"><button class="btn small" id="prevDay" aria-label="Oldingi kun">←</button><input type="date" id="eDate" value="${entryDate}" max="${state.me.today}" aria-label="Sana"><button class="btn small" id="nextDay" aria-label="Keyingi kun" ${isToday ? 'disabled' : ''}>→</button>
+    <div class="filters"><div class="seg" id="eMode"><button data-m="grid" class="${mode === 'grid' ? 'on' : ''}">Jadval</button><button data-m="cards" class="${mode === 'cards' ? 'on' : ''}">Kartalar</button></div><button class="btn small" id="prevDay" aria-label="Oldingi kun">←</button><input type="date" id="eDate" value="${entryDate}" max="${state.me.today}" aria-label="Sana"><button class="btn small" id="nextDay" aria-label="Keyingi kun" ${isToday ? 'disabled' : ''}>→</button>
     ${isToday ? '' : '<button class="btn small" id="toToday">Bugun</button>'}</div></div>
-    <div id="entry">${spinnerBlock()}</div>`);
+    <div id="myTasks"></div><div id="entry">${spinnerBlock()}</div>`);
+  const rid = state.renderId;
+  $('#eMode').onclick = (e) => { const m = e.target.dataset.m; if (m) { mode = m; try { localStorage.setItem('entryMode', m); } catch { /* */ } renderEntry(); } };
+  myTasksStrip($('#myTasks'));
   $('#eDate').onchange = (e) => { if (e.target.value) { entryDate = e.target.value; renderEntry(); } };
   $('#prevDay').onclick = () => { entryDate = addDays(entryDate, -1); renderEntry(); };
   $('#nextDay').onclick = () => { if (entryDate < state.me.today) { entryDate = addDays(entryDate, 1); renderEntry(); } };
@@ -39,7 +47,11 @@ export async function renderEntry() {
   const data = await api(`/api/daily?date=${entryDate}`);
   const { fields, noteFields, reasons, roles } = state.me;
   const myRoles = state.me.entryRoles || [];
-  const mine = data.missing.filter((m) => myRoles.includes(m.role));
+  // Xodimga loyiha biriktirilgan bo'lsa — standart holatda faqat o'shalar
+  const assigned = state.me.user.project_ids;
+  if (assigned && !showAll) data.projects = data.projects.filter((p) => assigned.includes(p.id));
+  const shownIds = data.projects.map((p) => p.id);
+  const mine = data.missing.filter((m) => myRoles.includes(m.role) && shownIds.includes(m.project_id));
   const pending = mine.filter((m) => !m.filled);
 
   const fieldInput = (p, f) => {
@@ -69,9 +81,52 @@ export async function renderEntry() {
   };
 
   const box = $('#entry');
-  if (!box) return;
+  if (!box || isStale(rid)) return;
+  const myFields = Object.keys(fields).filter((f) => myRoles.includes(fields[f].role));
+  const toggleAll = assigned ? `<button type="button" class="btn small ghost" id="eAll">${showAll ? 'Faqat meniki' : 'Hamma loyihalar'}</button>` : '';
+  if (mode === 'grid') {
+    box.innerHTML = `<div class="card">
+      <div class="card-head"><h2>${pending.length ? `Kiritilmagan: ${pending.length}` : 'Hammasi kiritilgan ✓'}</h2><span class="row">${toggleAll}<span class="muted small">${isToday ? 'bugun' : entryDate}</span></span></div>
+      <div class="table-wrap"><table class="grid-entry"><thead><tr><th>Loyiha</th>${myFields.map((f) => `<th class="n" title="${esc(fields[f].label)}">${SHORT[f] || esc(fields[f].label)}</th>`).join('')}<th></th></tr></thead>
+      <tbody>${data.projects.map((p) => {
+        const left = mine.filter((m) => m.project_id === p.id && !m.filled).length;
+        return `<tr data-id="${p.id}"><td><span class="dot" style="background:${esc(p.color || '#4c86ff')};color:${esc(p.color || '#4c86ff')}"></span>${esc(p.name)}</td>
+          ${myFields.map((f) => `<td class="n"><input class="cell-in" inputmode="decimal" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${esc(fields[f].label)}" title="kecha: ${p.prev?.[f] != null ? fmtN(p.prev[f], 2) : '—'}"></td>`).join('')}
+          <td>${left ? '<span class="pill warn">⏳</span>' : '<span class="pill good">✓</span>'}</td></tr>`;
+      }).join('') || `<tr><td colspan="${myFields.length + 2}" class="empty">Loyihalar yo'q</td></tr>`}</tbody></table></div>
+      <div class="row mt"><button class="btn primary" id="gSave">Hammasini saqlash</button><span class="muted small">Kulrang raqam — kechagi qiymat. Izoh va rad sabablari — «Kartalar»da.</span></div>
+    </div>`;
+    if ($('#eAll')) $('#eAll').onclick = () => { showAll = !showAll; renderEntry(); };
+    // Enter — keyingi qatordagi shu ustunga o'tish (Excel kabi)
+    box.querySelector('tbody').addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || !e.target.matches('input')) return;
+      e.preventDefault();
+      const td = e.target.closest('td');
+      const next = td.parentElement.nextElementSibling?.children[td.cellIndex]?.querySelector('input');
+      (next || $('#gSave')).focus();
+    });
+    $('#gSave').onclick = async () => {
+      const btn = $('#gSave');
+      btn.disabled = true;
+      let changed = 0;
+      try {
+        for (const tr of box.querySelectorAll('tbody tr[data-id]')) {
+          const p = data.projects.find((x) => String(x.id) === tr.dataset.id);
+          const values = {};
+          tr.querySelectorAll('input[name]').forEach((el) => { if (el.value !== String(p.row[el.name] ?? '')) values[el.name] = el.value; });
+          if (!Object.keys(values).length) continue;
+          const r = await api('/api/daily', { method: 'PUT', body: { project_id: p.id, date: entryDate, values } });
+          changed += r.changed;
+        }
+        toast(changed ? `Saqlandi ✓ (${changed} ta o'zgarish)` : "O'zgarish yo'q");
+        await refreshMe();
+        renderEntry();
+      } catch (err) { toast(err.message, true); btn.disabled = false; }
+    };
+    return;
+  }
   box.innerHTML = `
-    <div class="card" style="margin-bottom:14px"><div class="card-head"><h2>${pending.length ? `Kiritilmagan: ${pending.length}` : 'Hammasi kiritilgan ✓'}</h2><span class="muted">${isToday ? 'bugun' : entryDate}</span></div>
+    <div class="card" style="margin-bottom:14px"><div class="card-head"><h2>${pending.length ? `Kiritilmagan: ${pending.length}` : 'Hammasi kiritilgan ✓'}</h2><span class="row">${toggleAll}<span class="muted small">${isToday ? 'bugun' : entryDate}</span></span></div>
       <div class="checklist">${data.projects.map((p) => {
         const left = mine.filter((m) => m.project_id === p.id && !m.filled).map((m) => m.role_label.split(' ')[0]);
         return `<button type="button" class="pill ${left.length ? 'warn' : 'good'}" data-scroll="p-${p.id}" style="cursor:pointer;font-family:inherit">${left.length ? '⏳' : '✓'} ${esc(p.name)}${left.length && myRoles.length > 1 ? ` · ${esc(left.join(', '))}` : ''}</button>`;
@@ -84,6 +139,7 @@ export async function renderEntry() {
         <div class="row"><button class="btn primary">Saqlash</button><div class="live" data-live></div></div>
       </form>`).join('') || '<div class="card empty">Hali loyiha qo\'shilmagan. Rahbar «Sozlamalar» bo\'limida loyiha qo\'shadi.</div>'}</div>`;
 
+  if ($('#eAll')) $('#eAll').onclick = () => { showAll = !showAll; renderEntry(); };
   box.querySelector('.checklist').onclick = (e) => {
     const id = e.target.closest('[data-scroll]')?.dataset.scroll;
     if (id) document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });

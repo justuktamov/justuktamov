@@ -14,7 +14,7 @@ for (const [name, login, role] of DEMO_USERS) {
   if (!db.prepare('SELECT 1 FROM users WHERE login = ?').get(login)) createUser({ name, login, password: 'demo1234', role });
 }
 
-const { projects, daily, reasons, campaigns, plans, reports } = generateDemo(today());
+const { projects, daily, reasons, campaigns, plans, reports, expenses, tasks } = generateDemo(today());
 const cols = ['project_id', 'date', ...Object.keys(FIELDS), ...Object.keys(NOTE_FIELDS)];
 const insertDaily = db.prepare(`INSERT INTO daily (${cols.join(', ')}, updated_at) VALUES (${cols.map(() => '?').join(', ')}, datetime('now'))`);
 const insertReason = db.prepare('INSERT INTO loss_reasons (project_id, date, reason, count) VALUES (?, ?, ?, ?)');
@@ -41,5 +41,9 @@ for (const r of reports) {
 }
 const insertPlan = db.prepare('INSERT INTO plans (project_id, month, budget, leads, sales, revenue) VALUES (?, ?, ?, ?, ?, ?)');
 for (const p of plans) insertPlan.run(ids.get(p.project_id), p.month, p.budget, p.leads, p.sales, p.revenue);
+const insExp = db.prepare('INSERT INTO expenses (project_id, month, category, amount, note) VALUES (?, ?, ?, ?, ?)');
+for (const e of expenses) insExp.run(e.project_id ? ids.get(e.project_id) : null, e.month, e.category, e.amount, e.note);
+const insTask = db.prepare("INSERT INTO tasks (title, project_id, assignee_id, created_by, status, due_date, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))");
+for (const t of tasks) insTask.run(t.title, ids.get(t.project_id), uid(t.assignee_login), uid(t.author_login), t.status, t.due);
 db.exec('COMMIT');
 console.log("Namuna ma'lumotlar qo'shildi. Kirish: admin (direktor) / pm / target / madina (ROP) / fotima / anvar / kreativ — parol: demo1234");

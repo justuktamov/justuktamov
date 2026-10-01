@@ -108,6 +108,9 @@ export const ICONS = {
   sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
   x: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
   tg: svg('<path d="m22 3-20 8 7 2 2 7 4-5 5 4z"/><path d="m9 13 13-10"/>'),
+  tasks: svg('<rect x="4" y="4" width="16" height="16" rx="4"/><path d="m8.5 12 2.5 2.5 4.5-5"/>'),
+  money: svg('<rect x="2" y="6" width="20" height="12" rx="3"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>'),
+  alert: svg('<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>'),
   home: svg('<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/>'),
   report: svg('<path d="M9 4h6l1 2h3v15H5V6h3z"/><path d="M9 12l2 2 4-4"/>'),
   chart: svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
@@ -297,6 +300,8 @@ function navItems() {
     entry: ['#/kiritish', 'Kiritish', ICONS.entry, pending],
     ads: ['#/reklama', 'Kreativlar', ICONS.ads],
     analytics: ['#/analitika', 'Analitika', ICONS.chart],
+    tasks: ['#/vazifalar', 'Vazifalar', ICONS.tasks, state.me.openTasks || null],
+    profit: ['#/foyda', 'Foyda', ICONS.money],
     ai: ['#/ai', 'AI tahlil', ICONS.ai],
     archive: ['#/hisobotlar', 'Arxiv', ICONS.archive],
     team: ['#/jamoa', 'Jamoa', ICONS.team],
@@ -304,20 +309,26 @@ function navItems() {
     profile: ['#/profil', 'Profil', ICONS.user],
   };
   const byRole = {
-    admin: [['today', 'analytics', 'ads', 'ai', 'archive'], ['team', 'settings', 'profile']],
-    pm: [['report', 'entry', 'today', 'analytics', 'ads', 'ai', 'archive'], ['team', 'profile']],
-    target: [['entry', 'ads', 'analytics'], ['team', 'profile']],
-    creative: [['ads', 'analytics'], ['team', 'profile']],
+    admin: [['today', 'tasks', 'analytics', 'ads', 'profit', 'ai', 'archive'], ['team', 'settings', 'profile']],
+    pm: [['report', 'entry', 'tasks', 'today', 'analytics', 'ads', 'profit', 'ai', 'archive'], ['team', 'profile']],
+    target: [['entry', 'tasks', 'ads', 'analytics'], ['team', 'profile']],
+    finance: [['entry', 'profit', 'tasks', 'analytics'], ['team', 'profile']],
+    creative: [['ads', 'tasks', 'analytics'], ['team', 'profile']],
   };
-  const [main, bottom] = byRole[role] || [['entry', 'analytics'], ['team', 'profile']];
+  const [main, bottom] = byRole[role] || [['entry', 'tasks', 'analytics'], ['team', 'profile']];
   return { items: main.map((k) => all[k]), bottom: bottom.map((k) => all[k]) };
 }
 
 const WEEKDAYS = ['yakshanba', 'dushanba', 'seshanba', 'chorshanba', 'payshanba', 'juma', 'shanba'];
 export const dayLabel = (d) => `${Number(d.slice(8, 10))}-${MONTHS[Number(d.slice(5, 7)) - 1]}, ${WEEKDAYS[new Date(`${d}T00:00:00Z`).getUTCDay()]}`;
 
+// Har bir sahifa chizilishi raqamlanadi: kechikkan (eskirgan) so'rov natijasi yangi sahifaga yozilmaydi
+export const isStale = (rid) => rid !== state.renderId;
+
 export function shell(content) {
+  state.renderId = (state.renderId || 0) + 1;
   destroyCharts();
+  document.querySelectorAll('.modal-back').forEach((m) => m.remove()); // sahifa almashganda ochiq oyna qolmasin
   const route = location.hash.split('?')[0] || '#/';
   const { items, bottom } = navItems();
   const active = (href) => route === href || (href !== '#/' && route.startsWith(href));
@@ -449,8 +460,9 @@ export async function boot() {
   if (!me) return renderLogin();
   state.me = me;
   state.projects = await api('/api/projects');
+  // Hash o'zgarsa — hashchange o'zi chizadi; ikki marta chizilmasin
   if (!location.hash || location.hash === '#') location.hash = homeRoute(me.user.role);
-  rerender();
+  else rerender();
 }
 
 async function fetchMe() {
