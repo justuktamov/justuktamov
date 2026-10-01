@@ -1,7 +1,7 @@
 // Reklama postlari: har bir post/kampaniya — xarajat, klik, start (deep link orqali avtomatik), lid, sotuv
 import {
   $, esc, api, state, shell, filtersHtml, bindFilters, computePeriod, kpi, fmtN, fmtUsd, fmtP, shortDate,
-  toast, modal, ICONS, botLink, copyText, spinnerBlock, chartBase, cssVar,
+  toast, modal, ICONS, botLink, copyText, spinnerBlock, chartBase, cssVar, isStale,
 } from './core.js';
 import { creativeList } from './today.js';
 
@@ -67,6 +67,7 @@ export async function renderCampaigns() {
   shell(`<div class="page-head"><h1><span class="grad">Kreativlar</span></h1>
     <div class="row">${filtersHtml()}${canEdit() ? `<button class="btn primary" id="addCamp">${ICONS.plus} Post qo'shish</button>` : ''}</div></div>
     <div id="camps">${spinnerBlock()}</div>`);
+  const rid = state.renderId;
   bindFilters(renderCampaigns);
   if ($('#addCamp')) $('#addCamp').onclick = () => openForm(null, (c) => { renderCampaigns(); showLink(c); });
   const { from, to } = computePeriod();
@@ -74,7 +75,7 @@ export async function renderCampaigns() {
   let data;
   try { data = await api(`/api/campaigns?${q}`); } catch (e) { const el = $('#camps'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#camps');
-  if (!box) return;
+  if (!box || isStale(rid)) return;
   const t = data.total;
   box.innerHTML = `
     <div class="kpis">

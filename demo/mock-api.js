@@ -2,7 +2,8 @@
 // Hisob-kitoblar serverdagi kod bilan bir xil (metrics.js, db.js, telegram.js hisobot matni).
 // Kiritilgan ma'lumotlar shu brauzerning localStorage xotirasida saqlanadi.
 import { store } from './fake-sqlite.js';
-import { today, canEdit, FIELDS, NOTE_FIELDS, LOSS_REASONS, ROLES, PLATFORMS, PLAN_FIELDS, ROLE_DUTIES, CREATIVE_TYPES, entryRoles } from '../src/db.js';
+import { today, canEdit, FIELDS, NOTE_FIELDS, LOSS_REASONS, ROLES, PLATFORMS, PLAN_FIELDS, ROLE_DUTIES, CREATIVE_TYPES, entryRoles, EXPENSE_CATEGORIES, TASK_STATUS } from '../src/db.js';
+import { listTasks, createTask, updateTask, deleteTask, addExpense, deleteExpense, profitAndLoss, anomalies, weeklyReportText, parseCsv } from '../src/extras.js';
 import { reportBundle, saveDraft, submitReport, reviewReport, listReports } from '../src/reports.js';
 import {
   summary, missingReport, loadRows, addDays, planProgress, campaignStats, discipline, toCsv,
@@ -12,7 +13,7 @@ import { generateDemo, DEMO_USERS } from '../src/demo-data.js';
 import { SYSTEM, compact, userPrompt } from '../src/ai-prompt.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v3';
+const SAVE_KEY = 'analitika-demo-v4';
 let audit = [];
 let reports = [];
 let me = null;
@@ -24,8 +25,10 @@ function seed() {
   store.reasons = demo.reasons;
   store.campaigns = demo.campaigns.map((c, i) => ({ ...c, id: i + 1 }));
   store.plans = demo.plans;
-  store.users = DEMO_USERS.map(([name, login, role], i) => ({ id: i + 1, name, login, role, telegram_id: null, active: true, password: 'demo1234' }));
+  store.users = DEMO_USERS.map(([name, login, role], i) => ({ id: i + 1, name, login, role, telegram_id: null, active: true, password: 'demo1234', project_ids: null }));
   const uid = (login) => store.users.find((u) => u.login === login)?.id ?? null;
+  store.expenses = demo.expenses.map((e, i) => ({ id: i + 1, ...e, created_by: uid('anvar'), created_at: `${TODAY} 10:00:00` }));
+  store.tasks = demo.tasks.map((t, i) => ({ id: i + 1, title: t.title, detail: null, project_id: t.project_id, assignee_id: uid(t.assignee_login), created_by: uid(t.author_login), status: t.status, due_date: t.due, source: null, created_at: `${TODAY} 09:00:00`, done_at: t.status === 'done' ? `${TODAY} 12:00:00` : null }));
   store.reports = demo.reports.map((r) => ({
     date: r.date, author_id: uid(r.author_login), status: r.status, summary: r.summary, tomorrow: r.tomorrow,
     project_notes: JSON.stringify(r.project_notes), submitted_at: `${r.date} 19:30:00`,
@@ -72,6 +75,8 @@ function num(v) {
 }
 const needUser = () => { if (!me) throw new HttpError(401, 'Tizimga kiring'); return me; };
 const needAdmin = () => { if (needUser().role !== 'admin') throw new HttpError(403, 'Faqat rahbar uchun'); return me; };
+const needMoney = () => { if (!['admin', 'pm', 'finance'].includes(needUser().role)) throw new HttpError(403, "Foyda hisobini direktor, PM va moliya ko'radi"); return me; };
+const wrap = (fn) => { try { return fn(); } catch (e) { throw new HttpError(e.status || 400, e.message); } };
 const needTarget = () => { if (!['admin', 'pm', 'target'].includes(needUser().role)) throw new HttpError(403, "Postlarni targetolog yoki rahbar boshqaradi"); return me; };
 function period(q, back = 6) {
   const to = isDate(q.get('to')) ? q.get('to') : TODAY;
@@ -124,8 +129,9 @@ const routes = {
     return {
       user: publicUser(u), today: TODAY, roles: ROLES, fields: FIELDS, noteFields: NOTE_FIELDS, reasons: LOSS_REASONS,
       platforms: PLATFORMS, planFields: PLAN_FIELDS, duties: ROLE_DUTIES, creativeTypes: CREATIVE_TYPES, entryRoles: entryRoles(u.role),
-      pendingToday: missingReport(TODAY).filter((m) => !m.filled && entryRoles(u.role).includes(m.role)).length,
+      pendingToday: missingReport(TODAY).filter((m) => !m.filled && entryRoles(u.role).includes(m.role) && (!u.project_ids || u.project_ids.includes(m.project_id))).length,
       reportStatus: store.reports.find((r) => r.date === TODAY)?.status || null,
+      openTasks: listTasks({ userId: u.id, status: 'active' }).length, expenseCategories: EXPENSE_CATEGORIES, taskStatus: TASK_STATUS,
       ai: Boolean(window.claude?.use), telegram: { enabled: false, bot: null, miniApp: false }, usdRate: Number(store.settings.usd_rate),
     };
   },
@@ -168,6 +174,7 @@ const routes = {
     if (b.password && String(b.password).length < 6) throw new HttpError(400, "Parol kamida 6 belgi bo'lsin");
     Object.assign(u, { name: b.name ?? u.name, role: b.role ?? u.role, telegram_id: b.telegram_id === undefined ? u.telegram_id : (b.telegram_id || null), active: b.active ?? u.active });
     if (b.password) u.password = b.password;
+    if (b.project_ids !== undefined) u.project_ids = Array.isArray(b.project_ids) && b.project_ids.length ? b.project_ids.map(Number) : null;
     return publicUser(u);
   },
   'GET /api/daily': (_b, _p, q) => {
@@ -305,6 +312,45 @@ const routes = {
     try { return reviewReport(b.date, u.id, b.comment); } catch (e) { throw new HttpError(e.status || 400, e.message); }
   },
   'GET /api/reports': () => { needUser(); return listReports(90); },
+  'GET /api/team-users': () => { if (!['admin', 'pm'].includes(needUser().role)) throw new HttpError(403, 'Faqat direktor va PM'); return store.users.filter((u) => u.active).map(({ id, name, role }) => ({ id, name, role })); },
+  'GET /api/tasks': (_b, _p, q) => {
+    const u = needUser();
+    const mine = q.get('mine') === '1' || !['admin', 'pm'].includes(u.role);
+    return listTasks({ userId: mine ? u.id : null, status: q.get('status') || null });
+  },
+  'POST /api/tasks': (b) => { const u = needUser(); if (!['admin', 'pm'].includes(u.role)) throw new HttpError(403, 'Vazifani direktor yoki PM beradi'); return wrap(() => createTask(b, u.id)); },
+  'PUT /api/tasks/:id': (b, { id }) => wrap(() => updateTask(id, b, needUser())),
+  'DELETE /api/tasks/:id': (_b, { id }) => wrap(() => { deleteTask(id, needUser()); return { ok: true }; }),
+  'GET /api/pnl': (_b, _p, q) => { needMoney(); return profitAndLoss(/^\d{4}-\d{2}$/.test(q.get('month') || '') ? q.get('month') : TODAY.slice(0, 7)); },
+  'POST /api/expenses': (b) => { const u = needMoney(); return wrap(() => addExpense(b, u.id)); },
+  'DELETE /api/expenses/:id': (_b, { id }) => { needMoney(); deleteExpense(id); return { ok: true }; },
+  'GET /api/alerts': (_b, _p, q) => { needUser(); return anomalies(isDate(q.get('date')) ? q.get('date') : TODAY); },
+  'GET /api/weekly-preview': () => { needUser(); return { text: weeklyReportText(addDays(TODAY, -1)) }; },
+  'POST /api/import': (b) => {
+    needAdmin();
+    const rows = parseCsv(String(b.csv || ''));
+    if (rows.length < 2) throw new HttpError(400, "Fayl bo'sh yoki sarlavha yo'q");
+    const head = rows[0].map((h) => h.trim().toLowerCase());
+    const di = head.indexOf('date'), pi = head.indexOf('project');
+    if (di < 0 || pi < 0) throw new HttpError(400, 'Kerakli ustunlar: date, project');
+    let ok = 0; const errors = [];
+    rows.slice(1).forEach((r, i) => {
+      const date = r[di]?.trim();
+      const p = store.projects.find((x) => x.name.toLowerCase() === String(r[pi]).trim().toLowerCase() || x.slug === String(r[pi]).trim().toLowerCase());
+      if (!isDate(date) || !p) { errors.push(`${i + 2}-qator`); return; }
+      let row = store.daily.find((x) => x.project_id === p.id && x.date === date);
+      if (!row) { row = { project_id: p.id, date }; store.daily.push(row); }
+      head.forEach((h, j) => {
+        const f = h === 'starts' ? 'bot_starts' : h;
+        const raw = (r[j] ?? '').trim();
+        if (!raw) return;
+        if (FIELDS[f]) { const v = Number(raw.replace(/\s/g, '').replace(',', '.')); if (Number.isFinite(v) && v >= 0) row[f] = v; } else if (NOTE_FIELDS[f]) row[f] = raw;
+      });
+      ok++;
+    });
+    return { imported: ok, errors: errors.slice(0, 20), errorCount: errors.length };
+  },
+  'GET /api/backup': () => { needAdmin(); return new Response(JSON.stringify({ today: TODAY, store, audit, reports }, null, 1), { status: 200, headers: { 'content-type': 'application/json' } }); },
   'GET /api/audit': () => { needAdmin(); return audit.slice(0, 200); },
   'GET /api/report-preview': (_b, _p, q) => { needUser(); return { text: dailyReportText(isDate(q.get('date')) ? q.get('date') : TODAY) }; },
   'POST /api/ai/analyze': async (b) => {

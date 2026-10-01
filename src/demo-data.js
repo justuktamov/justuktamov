@@ -133,5 +133,24 @@ export function generateDemo(end, days = 45) {
       director_comment: k === 0 ? null : k === 1 ? "IELTS byudjetini 20% oshiringlar. SMM bo'yicha ertaga uchrashamiz." : "Qabul qilindi.",
     });
   }
-  return { projects, daily, reasons, campaigns, plans, reports };
+  // Reklamadan tashqari xarajatlar (joriy oy) — sof foyda uchun
+  const month = end.slice(0, 7);
+  const expenses = [
+    { project_id: 1, category: 'teachers', amount: 18_000_000, note: '3 ta ustoz' },
+    { project_id: 2, category: 'teachers', amount: 22_000_000, note: 'mentorlar' },
+    { project_id: 3, category: 'salary', amount: 9_000_000, note: 'kurator' },
+    { project_id: 4, category: 'teachers', amount: 8_000_000, note: null },
+    { project_id: 3, category: 'content', amount: 3_500_000, note: 'mobilograf' },
+    { project_id: null, category: 'rent', amount: 15_000_000, note: 'ofis' },
+    { project_id: null, category: 'salary', amount: 24_000_000, note: 'sotuv bo\'limi' },
+    { project_id: null, category: 'services', amount: 2_400_000, note: 'CRM, bot' },
+  ].flatMap((e) => [{ ...e, month }, { ...e, month: addDays(`${month}-01`, -1).slice(0, 7) }]);
+  // Ochiq vazifalar — direktor tavsiyalardan bergan
+  const tasks = [
+    { title: 'Python: Instagram kreativini almashtirish', project_id: 2, assignee_login: 'target', author_login: 'admin', status: 'doing', due: addDays(end, 1) },
+    { title: "SMM Pro: sotuv skriptini qayta ko'rish", project_id: 3, assignee_login: 'madina', author_login: 'admin', status: 'open', due: addDays(end, -1) },
+    { title: 'Bolalar ingliz tili: 2 ta yangi video', project_id: 4, assignee_login: 'kreativ', author_login: 'pm', status: 'open', due: addDays(end, 2) },
+    { title: 'IELTS byudjetini 20% oshirish', project_id: 1, assignee_login: 'target', author_login: 'admin', status: 'done', due: addDays(end, -1) },
+  ];
+  return { projects, daily, reasons, campaigns, plans, reports, expenses, tasks };
 }

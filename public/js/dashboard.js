@@ -1,7 +1,7 @@
 // Bosh panel — barcha loyihalar bo'yicha voronka, reja, xulosalar va taqqoslash
 import {
   $, esc, api, state, shell, filtersHtml, bindFilters, computePeriod, kpi, fmtN, fmtUsd, fmtUzs, fmtP,
-  insightsHtml, spinnerBlock, downloadCsv, toast, ICONS, cssVar,
+  insightsHtml, spinnerBlock, downloadCsv, toast, ICONS, cssVar, isStale,
 } from './core.js';
 import {
   funnelHtml, planCard, reasonsHtml, disciplineHtml, notesHtml, chartCards, drawSeriesCharts, drawConversionChart,
@@ -25,6 +25,7 @@ export function kpiRow(s) {
 export async function renderDashboard() {
   const admin = state.me.user.role === 'admin';
   shell(`<div class="page-head"><div><h1><span class="grad">Analitika</span></h1><div class="sub" id="periodSub">&nbsp;</div></div>${filtersHtml()}</div><div id="dash">${spinnerBlock()}</div>`);
+  const rid = state.renderId;
   bindFilters(renderDashboard);
   const { from, to } = computePeriod();
   const q = new URLSearchParams({ from, to, ...(state.project ? { project: state.project } : {}) });
@@ -33,7 +34,7 @@ export async function renderDashboard() {
     [s, disc] = await Promise.all([api(`/api/summary?${q}`), admin ? api('/api/discipline?days=14') : null]);
   } catch (e) { const el = $('#dash'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#dash');
-  if (!box) return;
+  if (!box || isStale(rid)) return;
   $('#periodSub').textContent = `${from === to ? from : `${from} — ${to}`} · oldingi davrga nisbatan`;
   const avg = s.totals.lead_to_sale;
   box.innerHTML = `

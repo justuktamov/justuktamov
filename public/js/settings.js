@@ -6,7 +6,7 @@ import {
 
 let settingsTab = 'projects';
 let planMonth = null;
-const TABS = [['projects', 'Loyihalar'], ['plans', 'Oylik rejalar'], ['users', 'Xodimlar'], ['telegram', 'Telegram va hisobot'], ['audit', "O'zgarishlar tarixi"]];
+const TABS = [['projects', 'Loyihalar'], ['plans', 'Rejalar'], ['users', 'Xodimlar'], ['telegram', 'Telegram'], ['data', "Ma'lumotlar"], ['audit', 'Tarix']];
 
 export async function renderSettings() {
   if (state.me.user.role !== 'admin') { location.hash = '#/profil'; return; }
@@ -21,7 +21,7 @@ export async function renderSettings() {
   };
   const body = $('#sBody');
   try {
-    await ({ projects: tabProjects, plans: tabPlans, users: tabUsers, telegram: tabTelegram, audit: tabAudit })[settingsTab](body);
+    await ({ projects: tabProjects, plans: tabPlans, users: tabUsers, telegram: tabTelegram, data: tabData, audit: tabAudit })[settingsTab](body);
   } catch (e) { body.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
 
@@ -111,14 +111,16 @@ async function tabUsers(body) {
         <label class="field">Rol<select name="role" id="nuRole">${roleOpts('lead')}</select></label>
         <label class="field">Telegram ID<input name="telegram_id" id="nuTg" placeholder="123456789"></label>
       </div><div><button class="btn primary">${ICONS.plus} Qo'shish</button></div></form>
-    <div class="card"><div class="table-wrap"><table><thead><tr><th>Xodim</th><th>Rol</th><th>Telegram ID</th><th>Yangi parol</th><th>Holat</th><th></th></tr></thead><tbody>
+    <div class="card"><div class="table-wrap"><table><thead><tr><th>Xodim</th><th>Rol</th><th title="Belgilanmasa — hamma loyihalar">Loyihalari</th><th>Telegram ID</th><th>Yangi parol</th><th>Holat</th><th></th></tr></thead><tbody>
     ${users.map((u) => `<tr data-id="${u.id}"><td><div class="row" style="flex-wrap:nowrap"><span class="avatar" style="width:30px;height:30px;font-size:12px">${esc(initials(u.name))}</span><div><input data-f="name" value="${esc(u.name)}" style="width:150px" aria-label="Ism"><div class="tiny muted">${esc(u.login)}</div></div></div></td>
       <td><select data-f="role" aria-label="Rol">${roleOpts(u.role)}</select></td>
+      <td><div class="pchips">${state.projects.filter((p) => p.active).map((p) => `<button type="button" class="${u.project_ids?.includes(p.id) ? 'on' : ''}" data-pid="${p.id}" title="${esc(p.name)}"><span class="dot" style="background:${esc(p.color || '#4c86ff')};color:${esc(p.color || '#4c86ff')};margin:0"></span>${esc(p.name.split(' ')[0])}</button>`).join('')}</div></td>
       <td><input data-f="telegram_id" value="${esc(u.telegram_id || '')}" style="width:130px" aria-label="Telegram ID"></td>
       <td><input data-f="password" placeholder="o'zgartirmaslik" style="width:140px" autocomplete="new-password" aria-label="Yangi parol"></td>
       <td>${u.active ? '<span class="pill good">Faol</span>' : '<span class="pill">O\'chirilgan</span>'}</td>
       <td><button class="btn small" data-a="save">Saqlash</button> <button class="btn small ghost" data-a="toggle">${u.active ? "O'chirish" : 'Yoqish'}</button></td></tr>`).join('')}
     </tbody></table></div></div>`;
+  body.querySelector('tbody').addEventListener('click', (e) => { const c = e.target.closest('.pchips button'); if (c) c.classList.toggle('on'); });
   $('#newUser').onsubmit = async (e) => {
     e.preventDefault();
     try { await api('/api/users', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); toast("Xodim qo'shildi"); renderSettings(); } catch (err) { toast(err.message, true); }
@@ -129,6 +131,7 @@ async function tabUsers(body) {
     const tr = e.target.closest('tr');
     const u = users.find((x) => String(x.id) === tr.dataset.id);
     const b = a === 'toggle' ? { active: !u.active } : Object.fromEntries($$('[data-f]', tr).map((el) => [el.dataset.f, el.value]).filter(([k, v]) => k !== 'password' || v));
+    if (a === 'save') b.project_ids = $$('.pchips .on', tr).map((x) => Number(x.dataset.pid));
     try { await api(`/api/users/${u.id}`, { method: 'PUT', body: b }); toast('Saqlandi'); renderSettings(); } catch (err) { toast(err.message, true); }
   };
 }
@@ -149,6 +152,7 @@ async function tabTelegram(body) {
             <label class="field">Eslatma vaqti<input name="reminder_time" id="sRem" type="time" value="${esc(settings.reminder_time ?? '19:00')}"></label>
           </div>
           <label class="row small" style="color:var(--text-2)"><input type="checkbox" name="ai_daily" id="sAi" value="1" ${settings.ai_daily === '1' ? 'checked' : ''}> AI tahlilni ham yuborish</label>
+          <label class="row small" style="color:var(--text-2)"><input type="checkbox" name="weekly_report" id="sWeekly" value="1" ${settings.weekly_report !== '0' ? 'checked' : ''}> Har dushanba haftalik hisobot</label>
           <label class="field">/start javobi<textarea name="start_reply" id="sReply" rows="2">${esc(settings.start_reply ?? '')}</textarea></label>
           <div class="row"><button class="btn primary">Saqlash</button><button type="button" class="btn" id="testReport" ${tg.enabled ? '' : 'disabled'}>${ICONS.tg} Hozir yuborish</button></div>
         </form>
@@ -173,10 +177,49 @@ async function tabTelegram(body) {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.target));
     f.ai_daily = f.ai_daily ? '1' : '0';
+    f.weekly_report = f.weekly_report ? '1' : '0';
     try { await api('/api/settings', { method: 'PUT', body: f }); await refreshMe(); toast('Saqlandi'); renderSettings(); } catch (err) { toast(err.message, true); }
   };
   $('#testReport').onclick = async () => { try { await api('/api/telegram/test-report', { method: 'POST', body: {} }); toast('Yuborildi'); } catch (err) { toast(err.message, true); } };
   body.addEventListener('click', (e) => { const c = e.target.closest('[data-copy]'); if (c) copyText(c.dataset.copy); });
+}
+
+// ---------- Ma'lumotlar: import, zaxira, haftalik hisobot ko'rinishi ----------
+async function tabData(body) {
+  const weekly = await api('/api/weekly-preview').catch(() => ({ text: '' }));
+  body.innerHTML = `<div class="grid g2">
+    <div class="stack">
+      <div class="card stack"><h2>Excel / CSV dan yuklash</h2>
+        <div class="small muted">Ustunlar: <span class="code">date, project, spend, clicks, leads, sales, revenue…</span> — eksport bilan bir xil. Bor qiymatlar yangilanadi.</div>
+        <input type="file" id="csvFile" accept=".csv,.txt,text/csv" aria-label="CSV fayl">
+        <textarea id="csvText" rows="5" placeholder="yoki shu yerga joylang (Excel'dan nusxa ham bo'ladi)" aria-label="CSV matn"></textarea>
+        <div class="row"><button class="btn primary" id="csvGo">Yuklash</button><span class="small muted" id="csvRes"></span></div></div>
+      <div class="card stack"><h2>Zaxira nusxa</h2>
+        <div class="small muted">Butun baza bitta faylda — xavfsiz joyda saqlang.</div>
+        <div class="row"><button class="btn" id="bkGo">${ICONS.dl} Yuklab olish</button><a class="btn ghost" href="#/analitika">CSV eksport — Analitikada</a></div></div>
+    </div>
+    <div class="card stack"><h2>Haftalik hisobot</h2><pre class="tg">${weekly.text}</pre></div>
+  </div>`;
+  $('#csvFile').onchange = async (e) => { const f = e.target.files[0]; if (f) $('#csvText').value = await f.text(); };
+  $('#csvGo').onclick = async () => {
+    const csv = $('#csvText').value.trim();
+    if (!csv) return toast('Fayl tanlang yoki matn joylang', true);
+    try {
+      const r = await api('/api/import', { method: 'POST', body: { csv } });
+      $('#csvRes').textContent = `${r.imported} qator yuklandi${r.errorCount ? ` · ${r.errorCount} xato: ${r.errors.slice(0, 3).join('; ')}` : ''}`;
+      toast(`${r.imported} qator yuklandi`);
+    } catch (err) { toast(err.message, true); }
+  };
+  $('#bkGo').onclick = async () => {
+    try {
+      const res = await fetch('/api/backup');
+      if (!res.ok) throw new Error((await res.json()).error || 'Xato');
+      if (window.__demoDownload) return window.__demoDownload(`analytika-${state.me.today}.json`, await res.text(), 'application/json');
+      const blob = await res.blob();
+      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `analytika-${state.me.today}.db` });
+      document.body.append(a); a.click(); a.remove();
+    } catch (err) { toast(err.message, true); }
+  };
 }
 
 // ---------- Tarix ----------

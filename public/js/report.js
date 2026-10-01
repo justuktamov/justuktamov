@@ -1,6 +1,6 @@
 // Proekt menejer: kunlik hisobotni yig'ish va direktorga yuborish; hisobotlar arxivi
-import { $, $$, esc, api, state, shell, fmtN, toast, ICONS, spinnerBlock, dayLabel, refreshMe, homeRoute } from './core.js';
-import { dateNav, pstats, actionsHtml } from './today.js';
+import { $, $$, esc, api, state, shell, fmtN, toast, ICONS, spinnerBlock, dayLabel, refreshMe, homeRoute, isStale } from './core.js';
+import { dateNav, pstats, actionsHtml, bindAssign } from './today.js';
 
 const STATE_PILL = { draft: ['warn', 'Qoralama'], submitted: ['info', 'Yuborildi'], reviewed: ['good', "Ko'rib chiqildi"] };
 
@@ -11,10 +11,11 @@ export async function renderReport() {
   const go = (d) => { state.reportDate = d; renderReport(); };
   shell(`<div class="page-head"><h1><span class="grad">Hisobot</span></h1>${dateNav(date, go)}</div>
     <div id="rep">${spinnerBlock()}</div>`);
+  const rid = state.renderId;
   let b;
   try { b = await api(`/api/report?date=${date}`); } catch (e) { const el = $('#rep'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#rep');
-  if (!box) return;
+  if (!box || isStale(rid)) return;
   const r = b.report || { status: null, project_notes: {} };
   const canWrite = ['admin', 'pm'].includes(role) && r.status !== 'reviewed';
   const notes = structuredClone(r.project_notes || {});
@@ -42,7 +43,7 @@ export async function renderReport() {
       return `<article class="pcard" data-pid="${p.id}">
         <div class="pcard-top"><span class="ptitle"><span class="dot" style="background:${esc(p.color || '#4c86ff')};color:${esc(p.color || '#4c86ff')}"></span>${esc(p.name)}</span></div>
         ${pstats(p)}
-        ${actionsHtml(rec.actions)}
+        ${actionsHtml(rec.actions, p.id)}
         <div class="status-chips" role="radiogroup" aria-label="${esc(p.name)} holati">${statuses.map(([k, l]) => `<button type="button" data-st="${k}" class="${cur === k ? 'on' : ''} ${rec.status === k ? 'auto' : ''}" title="${rec.status === k ? 'Tizim tavsiyasi' : ''}" ${canWrite ? '' : 'disabled'}>${esc(l)}</button>`).join('')}</div>
         <input data-comment placeholder="Izoh direktorga…" value="${esc(notes[p.id]?.comment || '')}" aria-label="${esc(p.name)} izohi" ${canWrite ? '' : 'disabled'}>
       </article>`;
@@ -52,6 +53,7 @@ export async function renderReport() {
       <textarea id="rTomorrow" rows="2" placeholder="Ertaga kim nima qiladi…" aria-label="Ertangi reja" ${canWrite ? '' : 'disabled'}>${esc(r.tomorrow || '')}</textarea>
     </div>`;
 
+  bindAssign(box, recById);
   if (!canWrite) return;
   box.querySelector('.pcards').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-st]');

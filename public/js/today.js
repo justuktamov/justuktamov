@@ -1,7 +1,8 @@
 // Direktor paneli: PM hisoboti, loyihalar holati, tavsiyalar, byudjet taqsimoti, kreativlar
 import {
-  $, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtUzs, fmtP, kpi, toast, ICONS, spinnerBlock, dayLabel, refreshMe,
+  $, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtUzs, fmtP, kpi, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale,
 } from './core.js';
+import { openTaskForm } from './tasks.js';
 
 export const STATUS_PILL = { unprofitable: 'crit', sales_issue: 'crit', creative: 'warn', needs_leads: 'info', scale: 'lime', good: 'good', nodata: '' };
 export const OWNER = { admin: 'Direktor', target: 'Target', sales: 'ROP', pm: 'PM', creative: 'Kreativ' };
@@ -29,10 +30,26 @@ export function pstats(p) {
 }
 
 // Tavsiya: egasi + qisqa matn + tegishli nomlar (chip); to'liq tafsilot — sichqoncha ustida
-export function actionsHtml(actions) {
+export function actionsHtml(actions, projectId = null) {
   if (!actions.length) return '';
-  return `<div class="actions">${actions.map((a) => `<div class="action" title="${esc(a.detail || '')}"><span class="who-chip">${OWNER[a.owner] || a.owner}</span>
-    <span>${esc(a.text)}${(a.items || []).map((i) => ` <span class="mini">${esc(i)}</span>`).join('')}</span></div>`).join('')}</div>`;
+  const canAssign = ['admin', 'pm'].includes(state.me.user.role);
+  return `<div class="actions">${actions.map((a, i) => `<div class="action" title="${esc(a.detail || '')}"><span class="who-chip">${OWNER[a.owner] || a.owner}</span>
+    <span>${esc(a.text)}${(a.items || []).map((x) => ` <span class="mini">${esc(x)}</span>`).join('')}</span>
+    ${canAssign && projectId ? `<button class="assign" data-assign="${projectId}:${i}" title="Vazifa qilib berish" aria-label="Vazifa qilib berish">${ICONS.plus}</button>` : ''}</div>`).join('')}</div>`;
+}
+
+// Tavsiyadagi "+" — vazifa oynasini to'ldirib ochadi
+export function bindAssign(root, recById) {
+  root.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-assign]');
+    if (!b) return;
+    const [pid, i] = b.dataset.assign.split(':').map(Number);
+    const rec = recById[pid];
+    const a = rec?.actions[i];
+    if (!a) return;
+    const owner = a.owner === 'admin' ? 'pm' : a.owner;
+    openTaskForm({ title: `${rec.name}: ${a.text}${(a.items || []).length ? ` (${a.items.join(', ')})` : ''}`, project_id: pid, role: owner, detail: a.detail, source: a.type }, refreshMe);
+  });
 }
 
 function allocationHtml(list) {
@@ -85,10 +102,11 @@ export async function renderToday() {
   const go = (d) => { state.reportDate = d; renderToday(); };
   shell(`<div class="page-head"><h1><span class="grad">${date === state.me.today ? 'Bugun' : dayLabel(date)}</span></h1>${dateNav(date, go)}</div>
     <div id="today">${spinnerBlock()}</div>`);
-  let b;
-  try { b = await api(`/api/report?date=${date}`); } catch (e) { const el = $('#today'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const rid = state.renderId;
+  let b, alerts;
+  try { [b, alerts] = await Promise.all([api(`/api/report?date=${date}`), api(`/api/alerts?date=${date}`).catch(() => [])]); } catch (e) { const el = $('#today'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#today');
-  if (!box) return;
+  if (!box || isStale(rid)) return;
   const t = b.day.totals, d = b.day.delta;
   const notes = b.report?.project_notes || {};
   const recById = Object.fromEntries(b.rec.projects.map((p) => [p.id, p]));
@@ -97,6 +115,7 @@ export async function renderToday() {
   const planLeads = Object.fromEntries((b.plan.items || []).map((i) => [i.project_id, i.metrics.leads]));
 
   box.innerHTML = `
+    ${alerts.length ? `<div class="alerts">${alerts.map((a) => `<a class="alert ${a.level}" href="#/loyiha/${a.project_id}">${ICONS.alert}<span>${esc(a.text)}</span></a>`).join('')}</div>` : ''}
     <div class="grid g-wide">
       ${banner(b)}
       <div class="kpis two">
@@ -117,7 +136,7 @@ export async function renderToday() {
             <div class="row"><span class="pill ${STATUS_PILL[rec.status]}">${esc(rec.status_label)}</span>${pmStatus ? `<span class="pill" title="PM bahosi">PM: ${esc(b.statuses[pmStatus])}</span>` : ''}</div></div>
           ${pstats(p)}
           ${note.comment ? `<div class="quote"><b>PM:</b> ${esc(note.comment)}</div>` : ''}
-          ${actionsHtml(rec.actions)}
+          ${actionsHtml(rec.actions, p.id)}
           <div class="pfoot">
             ${pl?.plan ? `<span class="mini-plan" title="Oylik lid rejasi ${fmtN(pl.fact)} / ${fmtN(pl.plan)}">Reja <span class="ptrack sm"><span class="pfill ${['behind', 'risk'].includes(pl.status) ? pl.status : ''}" style="width:${Math.min(pl.pct * 100, 100)}%"></span></span> ${fmtP(pl.pct, 0)}</span>` : '<span></span>'}
             ${missingByProject[p.id] ? `<span>⏳ ${esc(missingByProject[p.id].join(', '))}</span>` : `<span>${p.reported?.sales ? `ROAS ${p.roas == null ? '—' : fmtN(p.roas, 1)}` : ''}</span>`}
@@ -131,6 +150,7 @@ export async function renderToday() {
       </div>
     </div>`;
 
+  bindAssign(box, recById);
   const f = $('#reviewForm');
   if (f) {
     f.onsubmit = async (e) => {

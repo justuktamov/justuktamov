@@ -1,6 +1,7 @@
 // Brauzer demosi uchun node:sqlite o'rnini bosuvchi: metrics.js, db.js va telegram.js ishlatadigan
 // so'rovlarni xotiradagi massivlar ustida bajaradi.
-export const store = { projects: [], daily: [], reasons: [], events: [], campaigns: [], plans: [], users: [], reports: [], settings: {} };
+export const store = { projects: [], daily: [], reasons: [], events: [], campaigns: [], plans: [], users: [], reports: [], tasks: [], expenses: [], settings: {} };
+const nextId = (list) => list.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1;
 
 const inRange = (d, from, to) => d >= from && d <= to;
 
@@ -41,6 +42,31 @@ const QUERIES = [
   [/^UPDATE daily_reports SET status = 'reviewed'/, { run: (uid, at, comment, date) => { Object.assign(store.reports.find((x) => x.date === date), { status: 'reviewed', reviewed_by: uid, reviewed_at: at, director_comment: comment }); return {}; } }],
   [/^SELECT id, name FROM users$/, { all: () => store.users.map(({ id, name }) => ({ id, name })) }],
   [/^SELECT name, role FROM users WHERE active = 1 ORDER BY id$/, { all: () => store.users.filter((u) => u.active).map(({ name, role }) => ({ name, role })) }],
+  // Vazifalar
+  [/^SELECT id, name, role FROM users$/, { all: () => store.users.map(({ id, name, role }) => ({ id, name, role })) }],
+  [/^SELECT id, name, color FROM projects$/, { all: () => store.projects.map(({ id, name, color }) => ({ id, name, color })) }],
+  [/^SELECT \* FROM tasks ORDER BY id DESC$/, { all: () => [...store.tasks].sort((a, b) => b.id - a.id).map((t) => ({ ...t })) }],
+  [/^SELECT \* FROM tasks WHERE id = \?$/, { get: (id) => store.tasks.find((t) => t.id === Number(id)) }],
+  [/^SELECT id FROM users WHERE role = \? AND active = 1 ORDER BY id$/, { get: (r) => store.users.find((u) => u.role === r && u.active) }],
+  [/^SELECT id FROM users WHERE id = \? AND active = 1$/, { get: (id) => store.users.find((u) => u.id === Number(id) && u.active) }],
+  [/^SELECT telegram_id FROM users WHERE id = \?$/, { get: () => undefined }],
+  [/^INSERT INTO tasks /, { run: (title, detail, project_id, assignee_id, created_by, status, due_date, source, created_at) => {
+    const id = nextId(store.tasks);
+    store.tasks.push({ id, title, detail, project_id, assignee_id, created_by, status, due_date, source, created_at, done_at: null });
+    return { lastInsertRowid: id };
+  } }],
+  [/^UPDATE tasks SET status = \?, done_at = \? WHERE id = \?$/, { run: (st, at, id) => { Object.assign(store.tasks.find((t) => t.id === Number(id)), { status: st, done_at: at }); return {}; } }],
+  [/^UPDATE tasks SET (title|assignee_id|due_date) = \? WHERE id = \?$/, { run: function () { return {}; } }],
+  [/^DELETE FROM tasks WHERE id = \?$/, { run: (id) => { store.tasks = store.tasks.filter((t) => t.id !== Number(id)); return {}; } }],
+  // Xarajatlar
+  [/^SELECT \* FROM expenses WHERE month = \? ORDER BY id DESC$/, { all: (m) => store.expenses.filter((e) => e.month === m).sort((a, b) => b.id - a.id).map((e) => ({ ...e })) }],
+  [/^SELECT id FROM projects WHERE id = \?$/, { get: (id) => store.projects.find((p) => p.id === Number(id)) }],
+  [/^INSERT INTO expenses /, { run: (project_id, month, category, amount, note, created_by, created_at) => {
+    const id = nextId(store.expenses);
+    store.expenses.push({ id, project_id, month, category, amount, note, created_by, created_at });
+    return { lastInsertRowid: id };
+  } }],
+  [/^DELETE FROM expenses WHERE id = \?$/, { run: (id) => { store.expenses = store.expenses.filter((e) => e.id !== Number(id)); return {}; } }],
   [/^SELECT value FROM settings WHERE key = \?$/, { get: (k) => (k in store.settings ? { value: store.settings[k] } : undefined) }],
 ];
 
@@ -56,6 +82,8 @@ export class DatabaseSync {
     const s = sql.replace(/\s+/g, ' ').trim();
     const hit = QUERIES.find(([re]) => re.test(s));
     if (!hit) throw new Error(`Demo: qo'llab-quvvatlanmagan so'rov: ${s.slice(0, 80)}`);
+    const field = s.match(/^UPDATE tasks SET (title|assignee_id|due_date) = \?/)?.[1];
+    if (field) return { run: (v, id) => { store.tasks.find((t) => t.id === Number(id))[field] = v; return {}; } };
     return { all: (...a) => hit[1].all(...a), get: (...a) => hit[1].get?.(...a), run: (...a) => (hit[1].run ? hit[1].run(...a) : {}) };
   }
 }

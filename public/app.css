@@ -523,3 +523,40 @@ a.ptitle:hover { text-decoration: none; color: var(--accent); }
 .status-chips button.auto { box-shadow: inset 0 0 0 1px var(--accent); }
 @media (max-width: 1100px) { .pcards.cols { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 860px) { .pcards.cols .pstats { grid-template-columns: repeat(3, minmax(0, 1fr)); } .citem { grid-template-columns: auto minmax(0, 1fr) auto; } .citem .circle-btn { display: none; } }
+
+/* Signallar */
+.alerts { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.alert { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 700; text-decoration: none !important; }
+.alert svg { width: 15px; height: 15px; flex: none; }
+.alert.critical { background: var(--crit-bg); color: var(--crit); }
+.alert.warning { background: var(--warn-bg); color: var(--warn); }
+.action { grid-template-columns: auto 1fr auto; }
+.assign { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border-strong); background: transparent; color: var(--text-2); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.assign:hover { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.assign svg { width: 14px; height: 14px; }
+/* Vazifalar */
+.tasks { display: grid; gap: 6px; }
+.task { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 14px; background: var(--surface-2); }
+.task.done .task-main b { text-decoration: line-through; color: var(--text-3); }
+.task-main { display: grid; min-width: 0; }
+.task-main b { font-size: 14px; font-weight: 700; }
+.task-main small { font-size: 12px; color: var(--text-3); display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+.task-main .late { color: var(--crit); font-weight: 700; }
+.task .pill { cursor: pointer; font-family: inherit; }
+.tick { width: 26px; height: 26px; border-radius: 8px; border: 1.5px solid var(--border-strong); background: transparent; color: transparent; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.tick svg { width: 15px; height: 15px; }
+.tick:hover { border-color: var(--accent); color: var(--accent); }
+.tick.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+/* Jadval rejimida kiritish */
+.grid-entry td { padding: 6px 6px; }
+.grid-entry th.n { text-align: center; }
+.cell-in { width: 96px; padding: 8px 10px; text-align: right; border-radius: 10px; font-variant-numeric: tabular-nums; }
+.cell-in::placeholder { color: var(--text-3); opacity: .7; }
+
+.pchips { display: flex; gap: 4px; flex-wrap: wrap; max-width: 260px; }
+.pchips button { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); background: transparent; color: var(--text-3); font: inherit; font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 99px; cursor: pointer; }
+.pchips button.on { background: var(--blue-soft); color: var(--text); border-color: rgba(122,162,255,.4); }
+
+input[type="file"] { padding: 6px; }
+input[type="file"]::file-selector-button { font: inherit; font-weight: 700; font-size: 13px; border: 0; border-radius: 999px; padding: 7px 14px; margin-right: 10px; background: var(--surface-3); color: var(--text); cursor: pointer; }
