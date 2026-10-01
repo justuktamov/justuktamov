@@ -23,8 +23,8 @@ export function kpiRow(s) {
 }
 
 export async function renderDashboard() {
-  const admin = state.me.user.role === 'admin';
-  shell(`<div class="page-head"><div><h1><span class="grad">Analitika</span></h1><div class="sub" id="periodSub">&nbsp;</div></div>${filtersHtml()}</div><div id="dash">${spinnerBlock()}</div>`);
+  const admin = ['admin', 'pm'].includes(state.me.user.role);
+  shell(`<div class="page-head"><div><h1><span class="grad">Loyihalar</span></h1><div class="sub" id="periodSub">&nbsp;</div></div>${filtersHtml()}</div><div id="dash">${spinnerBlock()}</div>`);
   const rid = state.renderId;
   bindFilters(renderDashboard);
   const { from, to } = computePeriod();

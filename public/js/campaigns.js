@@ -3,7 +3,7 @@ import {
   $, esc, api, state, shell, filtersHtml, bindFilters, computePeriod, kpi, fmtN, fmtUsd, fmtP, shortDate,
   toast, modal, ICONS, botLink, copyText, spinnerBlock, chartBase, cssVar, isStale,
 } from './core.js';
-import { creativeList } from './today.js';
+import { creativeList } from './pm.js';
 
 const canEdit = () => ['admin', 'pm', 'target'].includes(state.me.user.role);
 const VERDICT_PILL = { good: 'good', bad: 'crit', ok: '', new: 'info' };

@@ -276,47 +276,23 @@ let routerFn = () => {};
 export function setRouter(fn) { routerFn = fn; }
 export function rerender() { if (state.me) routerFn(); }
 
-const DEMO_LOGINS = [['admin', 'Direktor', 'Direktor'], ['pm', 'Dilshod', 'Proekt menejer'], ['target', 'Jasur', 'Targetolog'], ['madina', 'Madina', 'ROP'], ['fotima', 'Fotima', 'Lid operatori'], ['anvar', 'Anvar', 'Moliya'], ['kreativ', 'Sardor', 'Kreativchi']];
-const CHEV = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>';
 function demoMenu() {
-  const cur = DEMO_LOGINS.find(([l]) => l === state.me.user.login) || DEMO_LOGINS[0];
-  return `<details class="menu" id="demoMenu"><summary class="menu-btn" aria-label="Kim sifatida ko'rish"><span class="tag-demo">Demo</span><span class="avatar xs">${esc(initials(cur[1]))}</span>${esc(cur[2])}${CHEV}</summary>
-    <div class="menu-list" role="menu">${DEMO_LOGINS.map(([l, n, r]) => `<button role="menuitem" data-login="${l}" class="${l === cur[0] ? 'on' : ''}"><span class="avatar xs">${esc(initials(n))}</span><span>${esc(n)}<small>${esc(r)}</small></span></button>`).join('')}
-      <hr><button data-reset>↺ Boshlang'ich ma'lumot</button></div></details>`;
+  return `<span class="menu-btn" style="cursor:default"><span class="tag-demo">Demo</span>namuna ma'lumot</span>
+    <button class="btn small ghost" data-demo-reset title="Namuna ma'lumotni qaytarish">↺</button>`;
 }
 
-// Har bir rolning bosh sahifasi
-export function homeRoute(role) {
-  return { admin: '#/', pm: '#/hisobot', creative: '#/reklama' }[role] || '#/kiritish';
-}
+// Ilova bitta foydalanuvchi — proekt menejer uchun: hamma uchun bosh sahifa «Bugun»
+export function homeRoute() { return '#/'; }
 
 function navItems() {
-  const role = state.me.user.role;
-  const pending = state.me.pendingToday;
-  const reportBadge = role === 'admin' && state.me.reportStatus === 'submitted' ? '1' : null;
-  const all = {
-    today: ['#/', 'Bugun', ICONS.home, reportBadge],
-    report: ['#/hisobot', 'Hisobot', ICONS.report, role === 'pm' && state.me.reportStatus !== 'submitted' && state.me.reportStatus !== 'reviewed' ? '!' : null],
-    entry: ['#/kiritish', 'Kiritish', ICONS.entry, pending],
-    ads: ['#/reklama', 'Kreativlar', ICONS.ads],
-    analytics: ['#/analitika', 'Analitika', ICONS.chart],
-    tasks: ['#/vazifalar', 'Vazifalar', ICONS.tasks, state.me.openTasks || null],
-    profit: ['#/foyda', 'Foyda', ICONS.money],
-    ai: ['#/ai', 'AI tahlil', ICONS.ai],
-    archive: ['#/hisobotlar', 'Arxiv', ICONS.archive],
-    team: ['#/jamoa', 'Jamoa', ICONS.team],
-    settings: ['#/sozlamalar', 'Sozlamalar', ICONS.set],
-    profile: ['#/profil', 'Profil', ICONS.user],
-  };
-  const byRole = {
-    admin: [['today', 'tasks', 'analytics', 'ads', 'profit', 'ai', 'archive'], ['team', 'settings', 'profile']],
-    pm: [['report', 'entry', 'tasks', 'today', 'analytics', 'ads', 'profit', 'ai', 'archive'], ['team', 'profile']],
-    target: [['entry', 'tasks', 'ads', 'analytics'], ['team', 'profile']],
-    finance: [['entry', 'profit', 'tasks', 'analytics'], ['team', 'profile']],
-    creative: [['ads', 'tasks', 'analytics'], ['team', 'profile']],
-  };
-  const [main, bottom] = byRole[role] || [['entry', 'tasks', 'analytics'], ['team', 'profile']];
-  return { items: main.map((k) => all[k]), bottom: bottom.map((k) => all[k]) };
+  const sent = ['submitted', 'reviewed'].includes(state.me.reportStatus);
+  const items = [
+    ['#/', 'Bugun', ICONS.home, sent ? null : '!'],
+    ['#/hisobotlar', 'Hisobotlar', ICONS.archive],
+    ['#/loyihalar', 'Loyihalar', ICONS.chart],
+    ['#/reklama', 'Kreativlar', ICONS.ads],
+  ];
+  return { items, bottom: [['#/sozlamalar', 'Sozlamalar', ICONS.set]] };
 }
 
 const WEEKDAYS = ['yakshanba', 'dushanba', 'seshanba', 'chorshanba', 'payshanba', 'juma', 'shanba'];
@@ -336,19 +312,18 @@ export function shell(content) {
   const u = state.me.user;
   const projects = state.projects.filter((p) => p.active);
   const dark = isDark();
-  const mobileItems = [...items.slice(0, 4), bottom[bottom.length - 1]];
-  const bell = u.role === 'admin' ? state.me.reportStatus === 'submitted' : state.me.pendingToday > 0;
+  const mobileItems = [...items, ...bottom];
   app().innerHTML = `
     <div class="mobile-top"><span class="logo"><span class="logo-mark">${ICONS.logo}</span>Analitika</span>
       <button id="themeBtnM" aria-label="Mavzuni almashtirish">${dark ? ICONS.sun.replace('<svg', '<svg width="18" height="18"') : ICONS.moon.replace('<svg', '<svg width="18" height="18"')}</button></div>
     <div class="layout">
       <aside class="sidebar">
-        <div class="logo"><span class="logo-mark">${ICONS.logo}</span><span>Analitika<small>loyihalar boshqaruvi</small></span></div>
+        <div class="logo"><span class="logo-mark">${ICONS.logo}</span><span>Analitika<small>kunlik hisobot</small></span></div>
         <nav class="nav" aria-label="Asosiy">${items.map(link).join('')}</nav>
-        ${projects.length ? `<div class="nav-label">Loyihalar</div><nav class="nav" aria-label="Loyihalar">${projects.map((p) => `<a href="#/loyiha/${p.id}" class="${route === `#/loyiha/${p.id}` ? 'active' : ''}"><span class="dotic"><span class="dot" style="background:${esc(p.color || '#4c86ff')};color:${esc(p.color || '#4c86ff')};margin:0"></span></span><span>${esc(p.name)}</span></a>`).join('')}</nav>` : ''}
+        ${projects.length ? `<div class="nav-label">Loyiha sahifalari</div><nav class="nav" aria-label="Loyihalar">${projects.map((p) => `<a href="#/loyiha/${p.id}" class="${route === `#/loyiha/${p.id}` ? 'active' : ''}"><span class="dotic"><span class="dot" style="background:${esc(p.color || '#4c86ff')};color:${esc(p.color || '#4c86ff')};margin:0"></span></span><span>${esc(p.name)}</span></a>`).join('')}</nav>` : ''}
         <div class="side-foot">
           <nav class="nav">${bottom.map(link).join('')}</nav>
-          <div class="side-user"><span class="avatar">${esc(initials(u.name))}</span><span>${esc(u.name)}<small>${esc(state.me.roles[u.role])}</small></span></div>
+          <a class="side-user" href="#/profil" style="text-decoration:none"><span class="avatar">${esc(initials(u.name))}</span><span>${esc(u.name)}<small>Proekt menejer</small></span></a>
           <div class="side-actions"><button id="themeBtn">${dark ? 'Yorug\' rejim' : 'Tungi rejim'}</button><button id="logout">Chiqish</button></div>
         </div>
       </aside>
@@ -356,7 +331,6 @@ export function shell(content) {
         <div class="topbar">
           <div class="crumbs"><span class="pill">${ICONS.cal.replace('<svg', '<svg width="13" height="13"')} ${dayLabel(state.me.today)}</span>${window.DEMO ? demoMenu() : ''}</div>
           <div class="top-actions">
-            <a class="circle-btn" href="${u.role === 'admin' ? '#/' : homeRoute(u.role)}" title="${u.role === 'admin' ? 'Yangi PM hisoboti' : 'Bugun kiritilmaganlar'}">${ICONS.bell}${bell ? '<span class="ping"></span>' : ''}</a>
             <button class="circle-btn" id="themeBtnTop" aria-label="Mavzuni almashtirish">${dark ? ICONS.sun : ICONS.moon}</button>
             <a class="avatar" href="#/profil" style="width:42px;height:42px;text-decoration:none" title="Profil">${esc(initials(u.name))}</a>
           </div>
@@ -376,17 +350,7 @@ export function shell(content) {
     state.me = null;
     renderLogin();
   };
-  document.querySelectorAll('.menu').forEach((menu) => {
-    menu.addEventListener('click', async (e) => {
-      const b = e.target.closest('button');
-      if (!b) return;
-      menu.open = false;
-      if (b.dataset.reset !== undefined) return window.__demoReset?.();
-      await api('/api/login', { method: 'POST', body: { login: b.dataset.login, password: 'demo1234' } });
-      location.hash = '';
-      await boot();
-    });
-  });
+  document.querySelectorAll('[data-demo-reset]').forEach((b) => { b.onclick = () => window.__demoReset?.(); });
 
 }
 
@@ -411,13 +375,13 @@ export function renderLogin(message = '') {
             <div><span>Sotuvlar</span><i style="width:6%"></i><span class="num">25</span></div>
           </div>
         </div>
-        <p class="small" style="margin:0;color:#c9d4f5">Targetolog · ROP · PM → Direktor</p>
+        <p class="small" style="margin:0;color:#c9d4f5">Har kuni 4 qadam: target → sotuv → tekshirish → direktorga</p>
       </div>
       <div class="login-form"><form id="loginForm">
         <h1>Kirish</h1>
         <label class="field">Login<input name="login" id="loginName" autocomplete="username" required autofocus></label>
         <label class="field">Parol<input name="password" id="loginPass" type="password" autocomplete="current-password" required></label>
-        ${window.DEMO ? '<p class="small muted" style="margin:0">Demo: <b>admin</b> / <b>pm</b> / <b>target</b> / <b>madina</b> · parol <b>demo1234</b></p>' : ''}
+        ${window.DEMO ? '<p class="small muted" style="margin:0">Demo: login <b>pm</b> · parol <b>demo1234</b></p>' : ''}
         <div class="error" id="loginErr">${esc(message)}</div>
         <button class="btn primary" style="justify-content:center">Kirish</button>
       </form></div>
@@ -461,7 +425,7 @@ export async function boot() {
   state.me = me;
   state.projects = await api('/api/projects');
   // Hash o'zgarsa — hashchange o'zi chizadi; ikki marta chizilmasin
-  if (!location.hash || location.hash === '#') location.hash = homeRoute(me.user.role);
+  if (!location.hash || location.hash === '#') location.hash = '#/';
   else rerender();
 }
 

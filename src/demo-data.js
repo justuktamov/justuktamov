@@ -52,9 +52,10 @@ export function generateDemo(end, days = 45) {
       const repeat = rand() < 0.25 ? Math.max(1, Math.round(sales * 0.15)) : 0;
       const today0 = k === 0;
       const noLeads = today0 && slug === 'kids';
+      const noTarget = today0 && slug === 'kids';
       const noSales = today0 && i % 2 === 1;
       daily.push({
-        project_id: id, date, spend, impressions: Math.round(clicks * jitter(55)), clicks, bot_starts: starts,
+        project_id: id, date, spend: noTarget ? null : spend, impressions: noTarget ? null : Math.round(clicks * jitter(55)), clicks: noTarget ? null : clicks, bot_starts: starts,
         leads: noLeads ? null : leads, qualified: noLeads ? null : Math.round(leads * jitter(slug === 'smm' ? 0.25 : 0.55)),
         sales: noSales ? null : sales, revenue: noSales ? null : revenue,
         payments: today0 ? null : Math.round(revenue * 0.85), repeat_sales: repeat || null,
@@ -122,7 +123,7 @@ export function generateDemo(end, days = 45) {
     3: { status: 'sales_issue', comment: "Lid ko'p, lekin sotuv past. Madina bilan skriptni qayta ko'rib chiqdik" },
     4: { status: 'needs_leads', comment: k === 0 ? 'Lidlar hali kiritilmagan (Fotima kechqurun kiritadi)' : "Trafik kam, Telegram Ads ni qayta yoqish kerak" },
   });
-  for (let k = 3; k >= 0; k--) {
+  for (let k = 3; k >= 1; k--) { // bugungi hisobotni PM o'zi tayyorlaydi
     reports.push({
       date: addDays(end, -k), author_login: 'pm', status: k === 0 ? 'submitted' : 'reviewed',
       summary: k === 0
