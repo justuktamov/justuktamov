@@ -32,8 +32,8 @@ async function tabProjects(body) {
   body.innerHTML = `
     <form class="card stack" id="newProject" style="margin-bottom:14px"><h2>Yangi loyiha / kurs</h2>
       <div class="fields">
-        <label class="field">Nomi<input name="name" id="npName" required placeholder="IELTS Intensiv"></label>
-        <label class="field">Identifikator (lotin)<input name="slug" id="npSlug" placeholder="ielts"></label>
+        <label class="field">Nomi<input name="name" id="npName" required placeholder="VIZART"></label>
+        <label class="field">Identifikator (lotin)<input name="slug" id="npSlug" placeholder="vizart"></label>
         <label class="field">Turi<select name="kind" id="npKind"><option value="kurs">Kurs</option><option value="loyiha">Loyiha</option><option value="kanal">Kanal</option></select></label>
         <label class="field">Rang<input name="color" id="npColor" type="color" value="#2a78d6"></label>
       </div><div><button class="btn primary">${ICONS.plus} Qo'shish</button></div></form>
