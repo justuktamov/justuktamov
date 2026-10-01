@@ -45,8 +45,8 @@ export function planCard(plan, { title = 'Oylik reja', single = false } = {}) {
   const head = `<div class="card-head"><h2>${title}</h2><span class="muted">${monthLabel(plan.month)} · ${plan.elapsed}/${plan.days} kun</span></div>`;
   if (!plan.hasPlans) {
     const admin = state.me.user.role === 'admin';
-    return `<div class="card">${head}<div class="plan-empty"><span>Bu oy uchun reja kiritilmagan. Reja bo'lsa, platforma oy oxirigacha prognoz qiladi va orqada qolayotgan loyihani ko'rsatadi.</span>
-      ${admin ? '<a class="btn small" href="#/sozlamalar?tab=plans">Reja kiritish</a>' : '<span class="muted small">Rejani rahbar kiritadi.</span>'}</div></div>`;
+    return `<div class="card">${head}<div class="plan-empty"><span>Bu oyga reja yo'q</span>
+      ${admin ? '<a class="btn small" href="#/sozlamalar?tab=plans">Reja kiritish</a>' : ''}</div></div>`;
   }
   const src = single ? plan.items[0]?.metrics || {} : plan.total;
   const keys = ['revenue', 'sales', 'leads', 'budget'].filter((k) => src[k]?.plan);
@@ -55,12 +55,11 @@ export function planCard(plan, { title = 'Oylik reja', single = false } = {}) {
       ${plan.items.map((i) => `<tr class="click" data-href="#/loyiha/${i.project_id}"><td><span class="dot" style="background:${esc(i.color || 'var(--series-1)')}"></span>${esc(i.name)}</td>
         ${keys.map((k) => { const m = i.metrics[k]; if (!m?.plan) return '<td class="n muted">—</td>'; const [c] = STATUS[m.status]; return `<td class="n"><span class="pill ${c}">${fmtP(m.pct, 0)}</span></td>`; }).join('')}</tr>`).join('')}
       </tbody></table></div>` : '';
-  return `<div class="card">${head}<div class="plans">${keys.map((k) => planBar(k, src[k])).join('')}</div>${perProject}
-    <p class="tiny muted" style="margin:12px 0 0">Chiziqdagi belgi — bugungacha bajarilishi kerak bo'lgan ulush (${fmtP(plan.elapsed / plan.days, 0)}).</p></div>`;
+  return `<div class="card">${head}<div class="plans">${keys.map((k) => planBar(k, src[k])).join('')}</div>${perProject}</div>`;
 }
 
 export function reasonsHtml(reasons) {
-  if (!reasons.length) return '<div class="muted small">Sabablar hali kiritilmagan. Lid va sotuv menejerlari «Kunlik hisobot» sahifasida kiritadi.</div>';
+  if (!reasons.length) return '<div class="muted small">Hali kiritilmagan</div>';
   const total = reasons.reduce((a, r) => a + r.count, 0);
   const max = reasons[0].count;
   return `<div class="hbars">${reasons.map((r) => `<div class="hbar"><span>${esc(r.label)}</span><div class="t"><div class="b" style="width:${(r.count / max) * 100}%"></div></div><span class="num muted" title="${fmtN(r.count)} ta">${fmtP(r.count / total, 0)}</span></div>`).join('')}</div>`;
@@ -76,7 +75,7 @@ export function disciplineHtml(list) {
       }).join('')}</div>
       <span class="pill ${pctCls}">${fmtP(r.pct, 0)}</span></div>`;
   }).join('')}</div>
-  <div class="legend"><span><i style="background:var(--brand)"></i>Hammasi kiritilgan</span><span><i style="background:color-mix(in srgb, var(--brand) 45%, var(--surface-3))"></i>Qisman</span><span><i style="background:var(--crit-bg)"></i>Kiritilmagan</span><span>Chap → o'ng: eski → bugun</span></div>`;
+  <div class="legend"><span><i style="background:var(--brand)"></i>Hammasi kiritilgan</span><span><i style="background:color-mix(in srgb, var(--brand) 45%, var(--surface-3))"></i>Qisman</span><span><i style="background:var(--crit-bg)"></i>Kiritilmagan</span></div>`;
 }
 
 export function notesHtml(notes) {
