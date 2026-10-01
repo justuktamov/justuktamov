@@ -28,6 +28,7 @@ const QUERIES = [
   [/^SELECT id, name, role FROM users WHERE active = 1$/, { all: () => store.users.filter((u) => u.active).map(({ id, name, role }) => ({ id, name, role })) }],
   [/^PRAGMA table_info/, { all: () => [] }],
   [/^SELECT \* FROM daily_reports WHERE date = \?$/, { get: (d) => { const r = store.reports.find((x) => x.date === d); return r && { ...r }; } }],
+  [/^SELECT date, director_comment FROM daily_reports WHERE date < \? AND director_comment IS NOT NULL/, { get: (d) => [...store.reports].filter((x) => x.date < d && x.director_comment).sort((a, b) => (a.date < b.date ? 1 : -1))[0] }],
   [/^SELECT status FROM daily_reports WHERE date = \?$/, { get: (d) => store.reports.find((x) => x.date === d) }],
   [/^SELECT date FROM daily_reports ORDER BY date DESC LIMIT \?$/, { all: (n) => [...store.reports].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, n).map((r) => ({ date: r.date })) }],
   [/^INSERT INTO daily_reports \(date, author_id, status, summary, tomorrow, project_notes, updated_at\)/, {
