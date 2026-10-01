@@ -17,13 +17,13 @@ export const ROLES = {
 
 // Kim tizimda nima uchun javob beradi — «Jamoa» sahifasida ko'rsatiladi
 export const ROLE_DUTIES = {
-  admin: { gives: "Oylik reja, byudjet qarorlari, hisobotga izoh", gets: "PM ning kunlik hisoboti, tavsiyalar, byudjet taqsimoti" },
-  pm: { gives: "Kunlik hisobotni yig'adi, har bir loyihaga holat va izoh yozadi, direktorga yuboradi", gets: "Targetolog va ROP raqamlari, kim kiritmagani, avtomatik tavsiyalar" },
-  target: { gives: "Har bir loyiha bo'yicha xarajat ($), ko'rishlar, kliklar; har bir post/kreativ natijasi", gets: "Qaysi kreativ ishlamayapti, qaysi loyihaga byudjet oshirish kerak" },
-  sales: { gives: "Lidlar soni, sifatli lidlar, sotuvlar, tushum, nega sotib olmaganlar", gets: "Qaysi loyihada lid→sotuv past, lid sifati" },
-  lead: { gives: "Bot startlar va lidlar (ROP o'rniga kiritishi mumkin)", gets: "Kunlik vazifalar ro'yxati" },
-  finance: { gives: "Kassaga tushgan pul, qayta sotuvlar (LTV)", gets: "Tushum va to'lovlar farqi" },
-  creative: { gives: "Kreativlar (video/rasm) — targetolog bilan birga", gets: "Har bir kreativning CTR va lid narxi, qaysisi ishlamayapti" },
+  admin: { gives: 'Reja, byudjet qarori, izoh', gets: 'PM hisoboti, tavsiyalar' },
+  pm: { gives: 'Kunlik hisobot direktorga', gets: 'Hamma raqamlar, kim kiritmagani' },
+  target: { gives: 'Xarajat, klik, kreativlar', gets: 'Qaysi kreativ ishlamayapti' },
+  sales: { gives: 'Lid, sotuv, tushum, rad sababi', gets: 'Qayerda konversiya past' },
+  lead: { gives: 'Startlar va lidlar', gets: 'Kunlik vazifa' },
+  finance: { gives: 'Kassaga tushum, qayta sotuv', gets: 'Tushum va to\'lov farqi' },
+  creative: { gives: 'Video va rasm kreativlar', gets: 'Har bir kreativ CTR va lid narxi' },
 };
 
 // Har bir rol qaysi maydonlarni kiritadi (PDF dagi mas'ullar jadvaliga mos)

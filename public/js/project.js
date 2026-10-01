@@ -11,7 +11,7 @@ export async function renderProject(id) {
   if (!p) { location.hash = '#/'; return; }
   shell(`<a class="back" href="#/">← Bosh panel</a>
     <div class="page-head"><div><h1><span class="dot" style="background:${esc(p.color || 'var(--series-1)')};width:12px;height:12px"></span>${esc(p.name)}</h1>
-      <div class="sub">${esc(p.kind)} · bot havolasi <span class="code">${esc(botLink(p.slug))}</span> <button class="btn small ghost" id="copyLink" aria-label="Havoladan nusxa">${ICONS.copy}</button></div></div>
+      <div class="sub"><span class="code">${esc(botLink(p.slug))}</span> <button class="btn small ghost" id="copyLink" aria-label="Havoladan nusxa">${ICONS.copy}</button></div></div>
       ${filtersHtml({ project: false })}</div>
     <div id="proj">${spinnerBlock()}</div>`);
   bindFilters(() => renderProject(id));

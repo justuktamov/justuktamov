@@ -181,36 +181,36 @@ export function insights(t, prev, byProject, reasons) {
     // Sotuv hali kiritilmagan bo'lsa (masalan, kun yarmida) — sotuvga oid xulosa chiqarilmaydi
     const salesIn = p.reported.sales > 0;
     if (salesIn && p.leads >= 20 && avgConv && p.lead_to_sale != null && p.sales > 0 && p.lead_to_sale < avgConv * 0.6) {
-      push('critical', `${p.name}: lid ko'p (${fmt(p.leads)}), lekin lid→sotuv konversiyasi ${pct(p.lead_to_sale)} — umumiy o'rtachadan (${pct(avgConv)}) ancha past. Sotuv skripti va lid sifatini tekshiring.`);
+      push('critical', `${p.name}: lid ko'p, sotuv past — ${pct(p.lead_to_sale)} (o'rt. ${pct(avgConv)})`);
     }
     if (salesIn && p.leads >= 20 && p.sales === 0) {
-      push('critical', `${p.name}: ${fmt(p.leads)} ta lid bor, lekin birorta ham sotuv bo'lmagan.`);
+      push('critical', `${p.name}: ${fmt(p.leads)} lid, birorta ham sotuv yo'q`);
     }
     if (salesIn && p.spend > 0 && p.roas != null && p.roas < 1) {
-      push('warning', `${p.name}: reklama o'zini oqlamayapti — ROAS ${p.roas.toFixed(2)} (reklamaga sarflangan har 1 so'mga ${p.roas.toFixed(2)} so'm tushum).`);
+      push('warning', `${p.name}: zarar — ROAS ${p.roas.toFixed(2)}`);
     }
     if (p.qualified_share != null && p.leads >= 20 && p.qualified_share < 0.3) {
-      push('warning', `${p.name}: sifatli lidlar ulushi ${pct(p.qualified_share)} — targeting auditoriyasini qayta ko'rib chiqing.`);
+      push('warning', `${p.name}: sifatli lid atigi ${pct(p.qualified_share)}`);
     }
     if (salesIn && p.growth.leads != null && p.growth.leads > 0.3 && (p.growth.sales ?? 0) <= 0) {
-      push('warning', `${p.name}: lidlar ${pct(p.growth.leads)} o'sdi, sotuvlar esa o'smadi — sotuv bo'limi yuklamani ko'tara olyaptimi?`);
+      push('warning', `${p.name}: lid +${pct(p.growth.leads)}, sotuv o'smadi`);
     }
   }
 
   if (prev.cpl && t.cpl && t.cpl > prev.cpl * 1.25) {
-    push('warning', `Lid narxi (CPL) o'tgan davrga nisbatan ${pct(t.cpl / prev.cpl - 1)} oshdi: $${prev.cpl.toFixed(2)} → $${t.cpl.toFixed(2)}.`);
+    push('warning', `Lid narxi oshdi: $${prev.cpl.toFixed(2)} → $${t.cpl.toFixed(2)}`);
   }
   if (t.organic_share != null && t.organic_share > 0.5) {
-    push('good', `Bot startlarining ${pct(t.organic_share)} qismi organik (${fmt(t.organic)} ta) — kontent va tavsiyalar yaxshi ishlayapti.`);
+    push('good', `Organik oqim ${pct(t.organic_share)} (${fmt(t.organic)} start)`);
   }
   if (reasons.length) {
     const total = reasons.reduce((s, r) => s + r.count, 0);
     const top = reasons[0];
-    push('info', `Sotib olmaslikning asosiy sababi: «${top.label}» — ${pct(top.count / total)} (${fmt(top.count)} ta holat).`);
+    push('info', `Asosiy rad sababi: «${top.label}» — ${pct(top.count / total)}`);
   }
   const best = [...byProject].filter((p) => p.roas != null && p.spend > 0).sort((a, b) => b.roas - a.roas)[0];
   if (best && byProject.length > 1) {
-    push('good', `Eng samarali loyiha: ${best.name} — ROAS ${best.roas.toFixed(2)}, lid→sotuv ${best.lead_to_sale != null ? pct(best.lead_to_sale) : '—'}.`);
+    push('good', `Eng samarali: ${best.name} — ROAS ${best.roas.toFixed(2)}`);
   }
   return out;
 }
@@ -289,15 +289,15 @@ function planInsights(plan) {
   for (const i of plan.items) {
     const s = i.metrics.sales;
     if (s.plan && s.status === 'behind') {
-      out.push({ level: 'warning', text: `${i.name}: oylik sotuv rejasi ${pct(s.pct)} bajarildi (shu kungacha ${pct(s.expected_pct)} kutilgan). Prognoz: ${fmt(s.forecast)} / ${fmt(s.plan)}.` });
+      out.push({ level: 'warning', text: `${i.name}: sotuv rejasi ${pct(s.pct)} (kerak ${pct(s.expected_pct)})` });
     }
     const b = i.metrics.budget;
     if (b.plan && b.status === 'over') {
-      out.push({ level: 'warning', text: `${i.name}: reklama byudjeti rejadan tez sarflanyapti — $${fmt(b.fact)} / $${fmt(b.plan)} (${pct(b.pct)}), oy oxirigacha $${fmt(b.forecast)} ketadi.` });
+      out.push({ level: 'warning', text: `${i.name}: byudjet tez ketyapti — prognoz $${fmt(b.forecast)} / $${fmt(b.plan)}` });
     }
   }
   const t = plan.total.revenue;
-  if (t?.plan && t.status === 'ahead') out.push({ level: 'good', text: `Tushum rejasi bo'yicha oldindamiz: ${pct(t.pct)} bajarildi, prognoz ${pct(t.forecast_pct)}.` });
+  if (t?.plan && t.status === 'ahead') out.push({ level: 'good', text: `Tushum rejadan oldinda: ${pct(t.pct)}` });
   return out;
 }
 
@@ -345,18 +345,18 @@ export function campaignStats({ from, to, projectId = null }) {
 
 // Kreativ bahosi: davrdagi o'rtacha CTR / lid narxi / start narxiga nisbatan. Kam pul sarflangan bo'lsa — baho berilmaydi
 export function creativeVerdict(r, avg) {
-  if (!(r.spend >= 10)) return { verdict: 'new', verdict_label: "Ma'lumot kam", verdict_reason: "$10 dan kam sarflangan" };
-  const bad = [];
-  if (r.ctr != null && avg.ctr && r.ctr < avg.ctr * 0.65) bad.push(`CTR ${pct(r.ctr)} (o'rtacha ${pct(avg.ctr)})`);
-  if (r.cpl != null && avg.cpl && r.cpl > avg.cpl * 1.5) bad.push(`lid narxi $${r.cpl.toFixed(2)} (o'rtacha $${avg.cpl.toFixed(2)})`);
-  if (r.leads === 0 && r.spend >= 20) bad.push("birorta ham lid yo'q");
-  if (r.cost_per_start != null && avg.cost_per_start && r.cost_per_start > avg.cost_per_start * 1.6) bad.push(`1 start $${r.cost_per_start.toFixed(3)}`);
-  if (bad.length) return { verdict: 'bad', verdict_label: 'Ishlamayapti', verdict_reason: bad.join(', ') };
+  if (!(r.spend >= 10)) return { verdict: 'new', verdict_label: 'Yangi', verdict_short: "ma'lumot kam", verdict_reason: "$10 dan kam sarflangan" };
+  const bad = []; // [qisqa, to'liq]
+  if (r.ctr != null && avg.ctr && r.ctr < avg.ctr * 0.65) bad.push([`CTR ${pct(r.ctr)}`, `CTR ${pct(r.ctr)} (o'rtacha ${pct(avg.ctr)})`]);
+  if (r.cpl != null && avg.cpl && r.cpl > avg.cpl * 1.5) bad.push([`lid $${r.cpl.toFixed(2)}`, `lid narxi $${r.cpl.toFixed(2)} (o'rtacha $${avg.cpl.toFixed(2)})`]);
+  if (r.leads === 0 && r.spend >= 20) bad.push(["lid yo'q", "birorta ham lid yo'q"]);
+  if (r.cost_per_start != null && avg.cost_per_start && r.cost_per_start > avg.cost_per_start * 1.6) bad.push([`start $${r.cost_per_start.toFixed(2)}`, `1 start $${r.cost_per_start.toFixed(3)} (o'rtacha $${avg.cost_per_start.toFixed(3)})`]);
+  if (bad.length) return { verdict: 'bad', verdict_label: 'Yomon', verdict_short: bad[0][0], verdict_reason: bad.map((b) => b[1]).join(', ') };
   const good = [];
-  if (r.cpl != null && avg.cpl && r.cpl < avg.cpl * 0.8) good.push(`lid narxi $${r.cpl.toFixed(2)}`);
-  if (r.ctr != null && avg.ctr && r.ctr > avg.ctr * 1.25) good.push(`CTR ${pct(r.ctr)}`);
-  if (good.length) return { verdict: 'good', verdict_label: 'Yaxshi ishlayapti', verdict_reason: good.join(', ') };
-  return { verdict: 'ok', verdict_label: "O'rtacha", verdict_reason: "o'rtacha natija" };
+  if (r.cpl != null && avg.cpl && r.cpl < avg.cpl * 0.8) good.push([`lid $${r.cpl.toFixed(2)}`, `lid narxi $${r.cpl.toFixed(2)} (o'rtacha $${avg.cpl.toFixed(2)})`]);
+  if (r.ctr != null && avg.ctr && r.ctr > avg.ctr * 1.25) good.push([`CTR ${pct(r.ctr)}`, `CTR ${pct(r.ctr)} (o'rtacha ${pct(avg.ctr)})`]);
+  if (good.length) return { verdict: 'good', verdict_label: 'Yaxshi', verdict_short: good[0][0], verdict_reason: good.map((g) => g[1]).join(', ') };
+  return { verdict: 'ok', verdict_label: "O'rtacha", verdict_short: "o'rtacha", verdict_reason: "o'rtacha natija" };
 }
 
 // ---------- Hisobot intizomi ----------
@@ -421,37 +421,36 @@ export function recommendations({ from, to }) {
     }
     if (salesIn && p.spend > 0 && p.roas != null && p.roas < 1) {
       flags.add('unprofitable');
-      actions.push({ type: 'budget_down', owner: 'admin', text: `Reklama o'zini oqlamayapti: ROAS ${p.roas.toFixed(2)} — byudjetni qisqartirish yoki kreativ/auditoriyani to'liq almashtirish.` });
+      actions.push({ type: 'budget_down', owner: 'admin', text: 'Byudjetni qisqartirish', detail: `ROAS ${p.roas.toFixed(2)} — reklama o'zini oqlamayapti` });
     }
     if (salesIn && p.leads >= 15 && avg.lead_to_sale && p.lead_to_sale != null && p.lead_to_sale < avg.lead_to_sale * 0.6) {
       flags.add('sales_issue');
       const top = reasonsFor(from, to, p.id)[0];
-      actions.push({ type: 'sales', owner: 'sales', text: `ROP: lid→sotuv ${pct(p.lead_to_sale)} (o'rtacha ${pct(avg.lead_to_sale)}).${top ? ` Asosiy sabab — «${top.label}».` : ''} Qo'ng'iroq tezligi va skriptni tekshirish.` });
+      actions.push({ type: 'sales', owner: 'sales', text: `Sotuvni ko'tarish: ${pct(p.lead_to_sale)} (o'rt. ${pct(avg.lead_to_sale)})`, items: top ? [top.label] : [], detail: `Lid→sotuv past.${top ? ` Asosiy sabab — «${top.label}».` : ''} Qo'ng'iroq tezligi va skriptni tekshirish.` });
     }
     const ctr = p.ctr, cplHigh = p.cpl != null && avg.cpl && p.cpl > avg.cpl * 1.4;
     if (badCreatives.length || cplHigh || (ctr != null && avg.ctr && ctr < avg.ctr * 0.7)) {
       flags.add('creative');
-      const names = badCreatives.slice(0, 3).map((c) => `«${c.name}»`).join(', ');
-      actions.push({ type: 'creative', owner: 'target', text: names
-        ? `Kreativlarni almashtirish: ${names} ishlamayapti (${badCreatives[0].verdict_reason}).`
-        : `Lid narxi $${(p.cpl || 0).toFixed(2)} — o'rtachadan ${pct(p.cpl / avg.cpl - 1)} qimmat. Yangi kreativ (video) sinash kerak.` });
+      actions.push(badCreatives.length
+        ? { type: 'creative', owner: 'target', text: `${badCreatives.length} ta kreativni almashtirish`, items: badCreatives.slice(0, 3).map((c) => c.name), detail: badCreatives.map((c) => `${c.name}: ${c.verdict_reason}`).join('; ') }
+        : { type: 'creative', owner: 'target', text: `Yangi kreativ sinash: lid $${(p.cpl || 0).toFixed(2)}`, detail: `Lid narxi o'rtachadan ${pct(p.cpl / avg.cpl - 1)} qimmat` });
     }
     const pl = plan.items.find((i) => i.project_id === p.id)?.metrics.leads;
     if (pl?.plan && plan.elapsed >= 5 && ['behind', 'risk'].includes(pl.status) && remaining > 0) {
       flags.add('needs_leads');
       const need = Math.ceil((pl.plan - pl.fact) / remaining);
       const now = Math.round(pl.fact / plan.elapsed);
-      actions.push({ type: 'leads', owner: 'target', text: `Reja uchun kuniga ~${fmt(need)} lid kerak (hozir ${fmt(now)}). Oylik reja ${pct(pl.pct)} bajarilgan.` });
+      actions.push({ type: 'leads', owner: 'target', text: `Kuniga ${fmt(need)} lid kerak (hozir ${fmt(now)})`, detail: `Oylik lid rejasi ${pct(pl.pct)} bajarilgan` });
     } else if (p.growth.leads != null && p.growth.leads < -0.15) {
       flags.add('needs_leads');
-      actions.push({ type: 'leads', owner: 'target', text: `Lidlar o'tgan davrga nisbatan ${pct(-p.growth.leads)} kamaydi — trafikni tiklash kerak.` });
+      actions.push({ type: 'leads', owner: 'target', text: `Lid ${pct(-p.growth.leads)} kamaydi — trafikni tiklash`, detail: "O'tgan 7 kunga nisbatan" });
     }
     if (!flags.has('unprofitable') && !flags.has('creative') && salesIn && avg.roas && p.roas >= avg.roas * 1.3 && (p.lead_to_sale ?? 0) >= (avg.lead_to_sale ?? 0) * 0.9) {
       flags.add('scale');
-      actions.push({ type: 'budget_up', owner: 'admin', text: `Byudjetni +20–30% oshirish mumkin: ROAS ${p.roas.toFixed(2)} (o'rtacha ${avg.roas.toFixed(2)}), lid narxi $${(p.cpl || 0).toFixed(2)}.` });
+      actions.push({ type: 'budget_up', owner: 'admin', text: 'Byudjetni +20–30% oshirish', detail: `ROAS ${p.roas.toFixed(2)} (o'rtacha ${avg.roas.toFixed(2)}), lid narxi $${(p.cpl || 0).toFixed(2)}` });
     }
     const status = STATUS_ORDER.find((k) => flags.has(k)) || 'good';
-    return { ...pick(p), status, status_label: PROJECT_STATUS[status], actions, badCreatives: badCreatives.map((c) => ({ id: c.id, name: c.name, reason: c.verdict_reason })) };
+    return { ...pick(p), status, status_label: PROJECT_STATUS[status], actions, badCreatives: badCreatives.map((c) => ({ id: c.id, name: c.name, reason: c.verdict_short })) };
   });
   return { from, to, totals: pick(avg), projects, allocation: allocation(s.byProject, avg, s.days), worstCreatives: camps.worst, bestCreatives: camps.best };
 }

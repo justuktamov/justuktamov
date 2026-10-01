@@ -34,19 +34,19 @@ export async function renderDashboard() {
   } catch (e) { const el = $('#dash'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#dash');
   if (!box) return;
-  $('#periodSub').textContent = `${from === to ? from : `${from} — ${to}`} · oldingi davr bilan solishtirilgan (${s.prevFrom} — ${s.prevTo})`;
+  $('#periodSub').textContent = `${from === to ? from : `${from} — ${to}`} · oldingi davrga nisbatan`;
   const avg = s.totals.lead_to_sale;
   box.innerHTML = `
     ${kpiRow(s)}
     <div class="grid g-wide">
-      <div class="card"><div class="card-head"><h2>Voronka</h2><span class="muted">${s.days} kun · har bir bosqichdagi konversiya</span></div>${funnelHtml(s.totals)}</div>
+      <div class="card"><div class="card-head"><h2>Voronka</h2><span class="muted">${s.days} kun</span></div>${funnelHtml(s.totals)}</div>
       ${planCard(s.plan)}
     </div>
-    <div class="card mt"><div class="card-head"><h2>Loyihalar taqqoslash</h2><span class="row"><span class="muted">qatorni bosing — loyiha sahifasi</span>
+    <div class="card mt"><div class="card-head"><h2>Loyihalar taqqoslash</h2><span class="row">
       <button class="btn small" id="csvBtn">${ICONS.dl} CSV</button></span></div>${projectTable(s.byProject, avg)}</div>
     <div class="grid g2 mt">
       <div class="card"><div class="card-head"><h2>Xulosalar</h2><a href="#/ai" class="small">AI bilan chuqurroq →</a></div>${insightsHtml(s.insights)}</div>
-      <div class="card"><div class="card-head"><h2>Nega sotib olmadi?</h2><span class="muted">menejerlar kiritgan sabablar</span></div>${reasonsHtml(s.reasons)}</div>
+      <div class="card"><div class="card-head"><h2>Nega sotib olmadi?</h2></div>${reasonsHtml(s.reasons)}</div>
     </div>
     ${chartCards()}
     <div class="grid ${disc ? 'g2' : ''} mt">

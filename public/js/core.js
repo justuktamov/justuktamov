@@ -125,16 +125,17 @@ export const ICONS = {
 // Qorong'i rejim — standart (dizayn shunga qurilgan); yorug' rejim — profilda tanlanadi
 export function getTheme() { try { return localStorage.getItem('theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; } }
 export function applyTheme(t = getTheme()) {
+  // data-ui — ilovaning o'z belgisi; claude.ai ning data-theme si dizaynni yorug'ga o'tkazib yubormaydi
   const root = document.documentElement;
-  if (t === 'light') root.dataset.theme = 'light';
-  else delete root.dataset.theme;
+  if (t === 'light') root.dataset.ui = 'light';
+  else delete root.dataset.ui;
 }
 export function setTheme(t) {
   try { localStorage.setItem('theme', t); } catch { /* xotira yo'q */ }
   applyTheme(t);
   rerender();
 }
-export const isDark = () => document.documentElement.dataset.theme !== 'light';
+export const isDark = () => document.documentElement.dataset.ui !== 'light';
 
 // ---------- Grafiklar ----------
 export const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -272,11 +273,13 @@ let routerFn = () => {};
 export function setRouter(fn) { routerFn = fn; }
 export function rerender() { if (state.me) routerFn(); }
 
-const DEMO_LOGINS = [['admin', 'Direktor'], ['pm', 'Dilshod — proekt menejer'], ['target', 'Jasur — targetolog'], ['madina', 'Madina — ROP'], ['fotima', 'Fotima — lid operatori'], ['anvar', 'Anvar — moliya'], ['kreativ', 'Sardor — kreativchi']];
-function demoBar() {
-  return `<div class="demo-bar"><span><b>Demo</b> · namuna ma'lumotlar; kiritganlaringiz shu brauzerda saqlanadi</span>
-    <span class="row"><label>Kim sifatida: <select id="demoRole">${DEMO_LOGINS.map(([l, n]) => `<option value="${l}" ${state.me.user.login === l ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
-    <button class="btn small" id="demoReset">Boshlang'ich holat</button></span></div>`;
+const DEMO_LOGINS = [['admin', 'Direktor', 'Direktor'], ['pm', 'Dilshod', 'Proekt menejer'], ['target', 'Jasur', 'Targetolog'], ['madina', 'Madina', 'ROP'], ['fotima', 'Fotima', 'Lid operatori'], ['anvar', 'Anvar', 'Moliya'], ['kreativ', 'Sardor', 'Kreativchi']];
+const CHEV = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>';
+function demoMenu() {
+  const cur = DEMO_LOGINS.find(([l]) => l === state.me.user.login) || DEMO_LOGINS[0];
+  return `<details class="menu" id="demoMenu"><summary class="menu-btn" aria-label="Kim sifatida ko'rish"><span class="tag-demo">Demo</span><span class="avatar xs">${esc(initials(cur[1]))}</span>${esc(cur[2])}${CHEV}</summary>
+    <div class="menu-list" role="menu">${DEMO_LOGINS.map(([l, n, r]) => `<button role="menuitem" data-login="${l}" class="${l === cur[0] ? 'on' : ''}"><span class="avatar xs">${esc(initials(n))}</span><span>${esc(n)}<small>${esc(r)}</small></span></button>`).join('')}
+      <hr><button data-reset>↺ Boshlang'ich ma'lumot</button></div></details>`;
 }
 
 // Har bir rolning bosh sahifasi
@@ -290,12 +293,12 @@ function navItems() {
   const reportBadge = role === 'admin' && state.me.reportStatus === 'submitted' ? '1' : null;
   const all = {
     today: ['#/', 'Bugun', ICONS.home, reportBadge],
-    report: ['#/hisobot', 'PM hisoboti', ICONS.report, role === 'pm' && state.me.reportStatus !== 'submitted' && state.me.reportStatus !== 'reviewed' ? '!' : null],
-    entry: ['#/kiritish', 'Kunlik kiritish', ICONS.entry, pending],
-    ads: ['#/reklama', 'Reklama va kreativlar', ICONS.ads],
+    report: ['#/hisobot', 'Hisobot', ICONS.report, role === 'pm' && state.me.reportStatus !== 'submitted' && state.me.reportStatus !== 'reviewed' ? '!' : null],
+    entry: ['#/kiritish', 'Kiritish', ICONS.entry, pending],
+    ads: ['#/reklama', 'Kreativlar', ICONS.ads],
     analytics: ['#/analitika', 'Analitika', ICONS.chart],
     ai: ['#/ai', 'AI tahlil', ICONS.ai],
-    archive: ['#/hisobotlar', 'Hisobotlar arxivi', ICONS.archive],
+    archive: ['#/hisobotlar', 'Arxiv', ICONS.archive],
     team: ['#/jamoa', 'Jamoa', ICONS.team],
     settings: ['#/sozlamalar', 'Sozlamalar', ICONS.set],
     profile: ['#/profil', 'Profil', ICONS.user],
@@ -310,7 +313,6 @@ function navItems() {
   return { items: main.map((k) => all[k]), bottom: bottom.map((k) => all[k]) };
 }
 
-const NAV_TITLES = { '#/': 'Bugun', '#/hisobot': 'PM hisoboti', '#/kiritish': 'Kunlik kiritish', '#/reklama': 'Reklama va kreativlar', '#/analitika': 'Analitika', '#/ai': 'AI tahlil', '#/hisobotlar': 'Hisobotlar arxivi', '#/jamoa': 'Jamoa', '#/sozlamalar': 'Sozlamalar', '#/profil': 'Profil' };
 const WEEKDAYS = ['yakshanba', 'dushanba', 'seshanba', 'chorshanba', 'payshanba', 'juma', 'shanba'];
 export const dayLabel = (d) => `${Number(d.slice(8, 10))}-${MONTHS[Number(d.slice(5, 7)) - 1]}, ${WEEKDAYS[new Date(`${d}T00:00:00Z`).getUTCDay()]}`;
 
@@ -324,7 +326,6 @@ export function shell(content) {
   const projects = state.projects.filter((p) => p.active);
   const dark = isDark();
   const mobileItems = [...items.slice(0, 4), bottom[bottom.length - 1]];
-  const pageTitle = route.startsWith('#/loyiha/') ? (state.projects.find((p) => `#/loyiha/${p.id}` === route)?.name || 'Loyiha') : NAV_TITLES[route] || '';
   const bell = u.role === 'admin' ? state.me.reportStatus === 'submitted' : state.me.pendingToday > 0;
   app().innerHTML = `
     <div class="mobile-top"><span class="logo"><span class="logo-mark">${ICONS.logo}</span>Analitika</span>
@@ -342,14 +343,14 @@ export function shell(content) {
       </aside>
       <main class="main" id="main">
         <div class="topbar">
-          <div class="crumbs"><span>${ICONS.home.replace('<svg', '<svg width="15" height="15" style="vertical-align:-2px"')} Bosh</span><span class="sep">/</span><b>${esc(pageTitle)}</b><span class="sep">/</span><span class="pill">${ICONS.cal.replace('<svg', '<svg width="13" height="13"')} ${dayLabel(state.me.today)}</span></div>
+          <div class="crumbs"><span class="pill">${ICONS.cal.replace('<svg', '<svg width="13" height="13"')} ${dayLabel(state.me.today)}</span>${window.DEMO ? demoMenu() : ''}</div>
           <div class="top-actions">
             <a class="circle-btn" href="${u.role === 'admin' ? '#/' : homeRoute(u.role)}" title="${u.role === 'admin' ? 'Yangi PM hisoboti' : 'Bugun kiritilmaganlar'}">${ICONS.bell}${bell ? '<span class="ping"></span>' : ''}</a>
             <button class="circle-btn" id="themeBtnTop" aria-label="Mavzuni almashtirish">${dark ? ICONS.sun : ICONS.moon}</button>
             <a class="avatar" href="#/profil" style="width:42px;height:42px;text-decoration:none" title="Profil">${esc(initials(u.name))}</a>
           </div>
         </div>
-        ${window.DEMO ? demoBar() : ''}${content}
+        ${window.DEMO ? `<div class="demo-mobile">${demoMenu()}</div>` : ''}${content}
       </main>
     </div>
     <nav class="mobile-nav" style="--n:${mobileItems.length}">${mobileItems.map(link).join('')}</nav>`;
@@ -364,16 +365,23 @@ export function shell(content) {
     state.me = null;
     renderLogin();
   };
-  const sw = $('#demoRole');
-  if (sw) {
-    sw.onchange = async () => {
-      await api('/api/login', { method: 'POST', body: { login: sw.value, password: 'demo1234' } });
+  document.querySelectorAll('.menu').forEach((menu) => {
+    menu.addEventListener('click', async (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      menu.open = false;
+      if (b.dataset.reset !== undefined) return window.__demoReset?.();
+      await api('/api/login', { method: 'POST', body: { login: b.dataset.login, password: 'demo1234' } });
       location.hash = '';
       await boot();
-    };
-    $('#demoReset').onclick = () => { window.__demoReset?.(); };
-  }
+    });
+  });
+
 }
+
+// Ochiq menyu tashqarisiga bosilsa yoki Esc bosilsa yopiladi
+document.addEventListener('click', (e) => { document.querySelectorAll('.menu[open]').forEach((m) => { if (!m.contains(e.target)) m.open = false; }); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('.menu[open]').forEach((m) => { m.open = false; }); });
 
 // ---------- Kirish ----------
 export function renderLogin(message = '') {
@@ -392,14 +400,13 @@ export function renderLogin(message = '') {
             <div><span>Sotuvlar</span><i style="width:6%"></i><span class="num">25</span></div>
           </div>
         </div>
-        <p class="small" style="margin:0;color:#c9d4f5">Targetolog va ROP raqam kiritadi, proekt menejer hisobotni yig'adi, direktor esa qaysi loyihaga pul tikish kerakligini bir qarashda ko'radi.</p>
+        <p class="small" style="margin:0;color:#c9d4f5">Targetolog · ROP · PM → Direktor</p>
       </div>
       <div class="login-form"><form id="loginForm">
         <h1>Kirish</h1>
-        <p class="muted small" style="margin:-6px 0 0">Login va parolni rahbardan oling.</p>
         <label class="field">Login<input name="login" id="loginName" autocomplete="username" required autofocus></label>
         <label class="field">Parol<input name="password" id="loginPass" type="password" autocomplete="current-password" required></label>
-        ${window.DEMO ? '<p class="small muted" style="margin:0">Demo loginlar: <b>admin</b> (direktor), <b>pm</b>, <b>target</b>, <b>madina</b> (ROP), <b>kreativ</b> · parol: <b>demo1234</b></p>' : ''}
+        ${window.DEMO ? '<p class="small muted" style="margin:0">Demo: <b>admin</b> / <b>pm</b> / <b>target</b> / <b>madina</b> · parol <b>demo1234</b></p>' : ''}
         <div class="error" id="loginErr">${esc(message)}</div>
         <button class="btn primary" style="justify-content:center">Kirish</button>
       </form></div>

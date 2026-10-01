@@ -12,7 +12,7 @@ export async function renderSettings() {
   if (state.me.user.role !== 'admin') { location.hash = '#/profil'; return; }
   const qTab = new URLSearchParams(location.hash.split('?')[1] || '').get('tab');
   if (qTab && TABS.some(([k]) => k === qTab)) settingsTab = qTab;
-  shell(`<div class="page-head"><div><h1><span class="grad">Sozlamalar</span></h1><div class="sub">Loyihalar, rejalar, xodimlar va Telegram</div></div></div>
+  shell(`<div class="page-head"><h1><span class="grad">Sozlamalar</span></h1></div>
     <div class="tabs" id="sTabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-k="${k}" class="${settingsTab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
     <div id="sBody">${spinnerBlock()}</div>`);
   $('#sTabs').onclick = (e) => {
@@ -34,7 +34,7 @@ async function tabProjects(body) {
     <form class="card stack" id="newProject" style="margin-bottom:14px"><h2>Yangi loyiha / kurs</h2>
       <div class="fields">
         <label class="field">Nomi<input name="name" id="npName" required placeholder="IELTS Intensiv"></label>
-        <label class="field">Identifikator (lotin)<span class="hint">bot havolasida: ?start=ielts</span><input name="slug" id="npSlug" placeholder="ielts"></label>
+        <label class="field">Identifikator (lotin)<input name="slug" id="npSlug" placeholder="ielts"></label>
         <label class="field">Turi<select name="kind" id="npKind"><option value="kurs">Kurs</option><option value="loyiha">Loyiha</option><option value="kanal">Kanal</option></select></label>
         <label class="field">Rang<input name="color" id="npColor" type="color" value="#2a78d6"></label>
       </div><div><button class="btn primary">${ICONS.plus} Qo'shish</button></div></form>
@@ -47,9 +47,7 @@ async function tabProjects(body) {
       <td><button class="btn small ghost" data-a="key" title="Nusxa olish">${ICONS.copy} <span class="code">${esc(String(p.track_key).slice(0, 8))}…</span></button></td>
       <td>${p.active ? '<span class="pill good">Faol</span>' : '<span class="pill">Arxiv</span>'}</td>
       <td><button class="btn small" data-a="save">Saqlash</button> <button class="btn small ghost" data-a="toggle">${p.active ? 'Arxivlash' : 'Tiklash'}</button></td></tr>`).join('')}
-    </tbody></table></div>
-    <p class="muted small" style="margin:12px 0 0">Bot havolasini reklama postlariga qo'ying — kim qaysi loyihadan /start bosgani avtomatik sanaladi. Har bir post uchun alohida havola «Reklama postlari» bo'limida beriladi.
-    Kanal a'zolarini sanash uchun botni kanalga admin qiling va Kanal ID ni kiriting. Tracking kaliti — loyihaning o'z boti hodisalarni <span class="code">POST /api/track</span> orqali yuborishi uchun.</p></div>`;
+    </tbody></table></div></div>`;
   $('#newProject').onsubmit = async (e) => {
     e.preventDefault();
     try { await api('/api/projects', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); toast("Loyiha qo'shildi"); renderSettings(); } catch (err) { toast(err.message, true); }
@@ -76,7 +74,6 @@ async function tabPlans(body) {
   body.innerHTML = `<div class="card">
     <div class="card-head"><h2>Reja: ${monthLabel(planMonth)}</h2>
       <div class="filters"><input type="month" id="planMonth" value="${planMonth}" aria-label="Oy"><button class="btn small" id="copyPrev">O'tgan oydan nusxa</button></div></div>
-    <p class="muted small" style="margin:-4px 0 12px">Har bir loyiha uchun oylik maqsad. Bosh panel va Telegram hisobotida bajarilish foizi va oy oxirigacha prognoz ko'rinadi. Bo'sh qoldirilgan ko'rsatkich hisoblanmaydi.</p>
     <div class="table-wrap"><table><thead><tr><th>Loyiha</th>${Object.values(planFields).map((l) => `<th>${esc(l)}</th>`).join('')}<th></th></tr></thead><tbody>
       ${projects.map((p) => `<tr data-id="${p.id}"><td><span class="dot" style="background:${esc(p.color || 'var(--series-1)')}"></span>${esc(p.name)}</td>
         ${Object.keys(planFields).map((k) => `<td><input data-k="${k}" inputmode="decimal" value="${val(p.id, k)}" placeholder="—" style="width:130px" aria-label="${esc(planFields[k])}"></td>`).join('')}
@@ -110,9 +107,9 @@ async function tabUsers(body) {
       <div class="fields">
         <label class="field">Ism<input name="name" id="nuName" required placeholder="Fotima"></label>
         <label class="field">Login<input name="login" id="nuLogin" required placeholder="fotima" autocomplete="off"></label>
-        <label class="field">Parol<span class="hint">kamida 6 belgi</span><input name="password" id="nuPass" required minlength="6" type="text" autocomplete="new-password"></label>
+        <label class="field">Parol<input name="password" id="nuPass" required minlength="6" type="text" autocomplete="new-password"></label>
         <label class="field">Rol<select name="role" id="nuRole">${roleOpts('lead')}</select></label>
-        <label class="field">Telegram ID<span class="hint">xodim botga /id yozsa bilib oladi</span><input name="telegram_id" id="nuTg" placeholder="123456789"></label>
+        <label class="field">Telegram ID<input name="telegram_id" id="nuTg" placeholder="123456789"></label>
       </div><div><button class="btn primary">${ICONS.plus} Qo'shish</button></div></form>
     <div class="card"><div class="table-wrap"><table><thead><tr><th>Xodim</th><th>Rol</th><th>Telegram ID</th><th>Yangi parol</th><th>Holat</th><th></th></tr></thead><tbody>
     ${users.map((u) => `<tr data-id="${u.id}"><td><div class="row" style="flex-wrap:nowrap"><span class="avatar" style="width:30px;height:30px;font-size:12px">${esc(initials(u.name))}</span><div><input data-f="name" value="${esc(u.name)}" style="width:150px" aria-label="Ism"><div class="tiny muted">${esc(u.login)}</div></div></div></td>
@@ -121,8 +118,7 @@ async function tabUsers(body) {
       <td><input data-f="password" placeholder="o'zgartirmaslik" style="width:140px" autocomplete="new-password" aria-label="Yangi parol"></td>
       <td>${u.active ? '<span class="pill good">Faol</span>' : '<span class="pill">O\'chirilgan</span>'}</td>
       <td><button class="btn small" data-a="save">Saqlash</button> <button class="btn small ghost" data-a="toggle">${u.active ? "O'chirish" : 'Yoqish'}</button></td></tr>`).join('')}
-    </tbody></table></div>
-    <p class="muted small" style="margin:12px 0 0">Har bir rol nimani kiritishi va nimani olishi — <a href="#/jamoa">Jamoa</a> sahifasida.</p></div>`;
+    </tbody></table></div></div>`;
   $('#newUser').onsubmit = async (e) => {
     e.preventDefault();
     try { await api('/api/users', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); toast("Xodim qo'shildi"); renderSettings(); } catch (err) { toast(err.message, true); }
@@ -146,33 +142,31 @@ async function tabTelegram(body) {
     <div class="grid g2">
       <div class="stack">
         <form class="card stack" id="setForm"><h2>Hisobot sozlamalari</h2>
-          <label class="field">Dollar kursi (so'm)<span class="hint">ROAS va foyda shu kurs bilan hisoblanadi</span><input name="usd_rate" id="sRate" inputmode="decimal" value="${esc(settings.usd_rate ?? state.me.usdRate)}"></label>
-          <label class="field">Kunlik hisobot yuboriladigan chat ID<span class="hint">guruh ID (-100…) yoki shaxsiy ID — botga /id yozing</span><input name="report_chat_id" id="sChat" value="${esc(settings.report_chat_id ?? '')}"></label>
+          <label class="field">Dollar kursi (so'm)<input name="usd_rate" id="sRate" inputmode="decimal" value="${esc(settings.usd_rate ?? state.me.usdRate)}"></label>
+          <label class="field">Hisobot chati (ID)<input name="report_chat_id" id="sChat" value="${esc(settings.report_chat_id ?? '')}"></label>
           <div class="fields">
             <label class="field">Hisobot vaqti<input name="report_time" id="sTime" type="time" value="${esc(settings.report_time ?? '21:00')}"></label>
-            <label class="field">Eslatma vaqti<span class="hint">kiritmaganlarga</span><input name="reminder_time" id="sRem" type="time" value="${esc(settings.reminder_time ?? '19:00')}"></label>
+            <label class="field">Eslatma vaqti<input name="reminder_time" id="sRem" type="time" value="${esc(settings.reminder_time ?? '19:00')}"></label>
           </div>
-          <label class="row small" style="color:var(--text-2)"><input type="checkbox" name="ai_daily" id="sAi" value="1" ${settings.ai_daily === '1' ? 'checked' : ''}> Har kuni AI tahlilni ham yuborish (so'nggi 7 kun)</label>
-          <label class="field">/start javobi (ixtiyoriy)<span class="hint">{loyiha} — loyiha nomi bilan almashtiriladi</span><textarea name="start_reply" id="sReply" rows="2">${esc(settings.start_reply ?? '')}</textarea></label>
+          <label class="row small" style="color:var(--text-2)"><input type="checkbox" name="ai_daily" id="sAi" value="1" ${settings.ai_daily === '1' ? 'checked' : ''}> AI tahlilni ham yuborish</label>
+          <label class="field">/start javobi<textarea name="start_reply" id="sReply" rows="2">${esc(settings.start_reply ?? '')}</textarea></label>
           <div class="row"><button class="btn primary">Saqlash</button><button type="button" class="btn" id="testReport" ${tg.enabled ? '' : 'disabled'}>${ICONS.tg} Hozir yuborish</button></div>
         </form>
-        <div class="card stack"><h2>Hisobot ko'rinishi</h2><p class="muted small" style="margin:0">Telegramga har kuni shunday xabar boradi (bugungi ma'lumot bilan):</p><pre class="tg">${preview.text}</pre></div>
+        <div class="card stack"><h2>Hisobot ko'rinishi</h2><pre class="tg">${preview.text}</pre></div>
       </div>
       <div class="card stack"><h2>Telegram bot</h2>
         ${tg.enabled ? `<div class="insight good"><span class="ic">Ulangan</span><span>@${esc(botName)} ishlayapti.</span></div>` : `<div class="insight warning"><span class="ic">O'chiq</span><span>${window.DEMO ? 'Demoda bot ulanmagan — haqiqiy serverda ishlaydi.' : 'Serverda <span class="code">TELEGRAM_BOT_TOKEN</span> o\'rnatilmagan.'}</span></div>`}
-        <ol class="small" style="margin:0;padding-left:18px;color:var(--text-2);display:grid;gap:6px">
-          <li>@BotFather dan bot yarating va tokenni serverga qo'ying.</li>
-          <li>Botni har bir loyiha kanaliga <b>admin</b> qilib qo'shing — kanal pastda paydo bo'ladi, ID sini «Loyihalar» bo'limida kiriting.</li>
-          <li>Reklama postlarida loyiha yoki post havolasidan foydalaning: <span class="code">t.me/${esc(botName)}?start=slug__post</span></li>
-          <li>Xodimlar botga <span class="code">/id</span> yozib, ID ni profiliga qo'shtiradi — eslatma va hisobotlar keladi.</li>
-          <li><b>Mini App:</b> serverda <span class="code">APP_URL</span> (https) berilsa, bot menyusida «Hisobot» tugmasi paydo bo'ladi — menejerlar raqamlarni Telegram ichida kiritadi.</li>
+        <ol class="small" style="margin:0;padding-left:18px;color:var(--text-2);display:grid;gap:4px">
+          <li>@BotFather → token serverga</li>
+          <li>Botni kanallarga admin qiling</li>
+          <li>Xodimlar botga <span class="code">/id</span> yozadi</li>
+          <li><span class="code">APP_URL</span> → bot menyusida Mini App</li>
         </ol>
         <h3>Bot admin bo'lgan chatlar</h3>
         ${tg.chats.length ? `<table><tbody>${tg.chats.map((c) => `<tr><td>${esc(c.title)}<div class="muted tiny">${esc(c.type)} · ${esc(c.status)}</div></td><td class="n"><button class="btn small ghost" data-copy="${esc(c.id)}">${ICONS.copy} ${esc(c.id)}</button></td></tr>`).join('')}</tbody></table>` : '<div class="muted small">Hali yo\'q.</div>'}
-        <h3>Tashqi bot yoki sayt uchun API</h3>
+        <h3>Tracking API</h3>
         <pre class="code" style="white-space:pre-wrap;margin:0;padding:10px">POST ${esc(location.origin)}/api/track
 {"key":"&lt;tracking kaliti&gt;","event":"start","tg_user_id":123456,"source":"post12"}</pre>
-        <p class="small muted" style="margin:0">event: start · lead · sale · join · leave. <span class="code">source</span> post tegiga teng bo'lsa, natija shu postga yoziladi.</p>
       </div>
     </div>`;
   $('#setForm').onsubmit = async (e) => {
@@ -198,7 +192,7 @@ async function tabAudit(body) {
 export function renderProfile() {
   const u = state.me.user;
   const theme = getTheme();
-  shell(`<div class="page-head"><div><h1><span class="grad">Profil</span></h1><div class="sub">Shaxsiy sozlamalar</div></div></div>
+  shell(`<div class="page-head"><h1><span class="grad">Profil</span></h1></div>
     <div class="grid g2">
       <div class="card stack">
         <div class="row"><span class="avatar" style="width:48px;height:48px;font-size:16px;background:var(--brand-soft);color:var(--brand)">${esc(initials(u.name))}</span>
@@ -210,7 +204,7 @@ export function renderProfile() {
       </div>
       <form class="card stack" id="pwForm"><h2>Parolni almashtirish</h2>
         <label class="field">Joriy parol<input type="password" name="old" id="pwOld" autocomplete="current-password" required></label>
-        <label class="field">Yangi parol<span class="hint">kamida 6 belgi</span><input type="password" name="new" id="pwNew" autocomplete="new-password" minlength="6" required></label>
+        <label class="field">Yangi parol<input type="password" name="new" id="pwNew" autocomplete="new-password" minlength="6" required></label>
         <div><button class="btn primary">Saqlash</button></div></form>
     </div>`);
   $('#themeSeg').onclick = (e) => { const t = e.target.dataset.t; if (t) setTheme(t); };

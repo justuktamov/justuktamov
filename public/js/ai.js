@@ -11,19 +11,19 @@ const SUGGESTED = [
 
 export async function renderAI() {
   const ai = state.me.ai;
-  shell(`<div class="page-head"><div><h1><span class="grad">AI</span> tahlil</h1><div class="sub">Voronka, reja, sabablar va izohlar asosida xulosa va tavsiyalar</div></div>${filtersHtml()}</div>
+  shell(`<div class="page-head"><h1><span class="grad">AI</span> tahlil</h1>${filtersHtml()}</div>
     <div class="grid g-wide">
       <div class="stack">
         <div class="card stack">
           ${ai ? '' : window.DEMO
-            ? '<div class="insight warning"><span class="ic">Diqqat</span><span>AI tahlil bu demoni claude.ai ichida ochganda ishlaydi.</span></div>'
-            : '<div class="insight warning"><span class="ic">Diqqat</span><span>AI ulanmagan. Serverda <span class="code">ANTHROPIC_API_KEY</span> o\'rnatilishi kerak (README). Qoidaga asoslangan xulosalar Bosh panelda ishlayveradi.</span></div>'}
-          <label class="field">Savol (ixtiyoriy — bo'sh qoldirsangiz, to'liq tahlil)<textarea id="aiQ" rows="3" placeholder="Masalan: Nega SMM kursida lid ko'p, sotuv past?"></textarea></label>
+            ? '<div class="insight warning"><span class="ic">Diqqat</span><span>AI faqat claude.ai ichida ishlaydi</span></div>'
+            : '<div class="insight warning"><span class="ic">Diqqat</span><span>AI ulanmagan: serverda <span class="code">ANTHROPIC_API_KEY</span> yo\'q</span></div>'}
+          <textarea id="aiQ" rows="2" placeholder="Savol (ixtiyoriy)…" aria-label="Savol"></textarea>
           <div class="chips" id="aiChips">${SUGGESTED.map((q) => `<button type="button" class="chip">${esc(q)}</button>`).join('')}</div>
           <div class="row"><button class="btn primary" id="aiRun" ${ai ? '' : 'disabled'}>${ICONS.ai} Tahlil qilish</button>
-            <span class="muted small">30–90 soniya davom etadi.</span></div>
+            <span class="muted small">~1 daqiqa</span></div>
         </div>
-        <div class="card" id="aiOut"><div class="muted">Natija shu yerda chiqadi. Tahlil tarixda saqlanadi — keyin qayta ochish mumkin.</div></div>
+        <div class="card" id="aiOut"><div class="muted">Savol bering yoki «Tahlil qilish»ni bosing</div></div>
       </div>
       <div class="card"><div class="card-head"><h2>Tarix</h2></div><div id="aiHist"><div class="muted">Yuklanmoqda…</div></div></div>
     </div>`);
