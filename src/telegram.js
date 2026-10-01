@@ -5,6 +5,8 @@
 import { getDb, getSetting, setSetting, today, ROLES } from './db.js';
 import { summary, missingReport, addDays } from './metrics.js';
 
+const APP_URL = process.env.APP_URL; // HTTPS manzil — Telegram Mini App uchun
+
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const API = `https://api.telegram.org/bot${TOKEN}`;
 let running = false;
@@ -78,6 +80,13 @@ async function handleUpdate(u) {
       }
       return;
     }
+    if (cmd === '/app') {
+      if (!APP_URL) return sendMessage(m.chat.id, 'Mini App sozlanmagan: serverda APP_URL (https://...) kiritilishi kerak.');
+      return call('sendMessage', {
+        chat_id: m.chat.id, text: 'Kunlik hisobot va analitika:',
+        reply_markup: { inline_keyboard: [[{ text: '📊 Platformani ochish', web_app: { url: APP_URL } }]] },
+      });
+    }
     if (cmd === '/id') return sendMessage(m.chat.id, `Chat ID: <code>${m.chat.id}</code>\nFoydalanuvchi ID: <code>${m.from.id}</code>`);
     if (cmd === '/hisobot' || cmd === '/report') {
       if (!userByTelegram(m.from.id)) return sendMessage(m.chat.id, "Siz tizimda ro'yxatdan o'tmagansiz. Admin profilingizga Telegram ID qo'shishi kerak (/id).");
@@ -111,6 +120,16 @@ export async function startPolling() {
   try {
     botInfo = await call('getMe');
     console.log(`Telegram bot ulandi: @${botInfo.username}`);
+    if (APP_URL) {
+      // Bot pastidagi menyu tugmasi platformani Mini App sifatida ochadi
+      await call('setChatMenuButton', { menu_button: { type: 'web_app', text: 'Hisobot', web_app: { url: APP_URL } } });
+    }
+    await call('setMyCommands', { commands: [
+      { command: 'app', description: 'Platformani ochish' },
+      { command: 'hisobot', description: 'Bugungi hisobot' },
+      { command: 'kecha', description: 'Kechagi hisobot' },
+      { command: 'id', description: 'Telegram ID ni bilish' },
+    ] });
   } catch (e) {
     console.error('Telegram:', e.message);
   }
@@ -150,6 +169,12 @@ export function dailyReportText(date) {
   ];
   for (const pr of s.byProject) {
     lines.push(`• ${esc(pr.name)}: $${pr.spend.toFixed(0)} → ${n(pr.clicks)} klik → ${n(pr.starts)} start → ${n(pr.leads)} lid → ${n(pr.sales)} sotuv (${p(pr.lead_to_sale)})`);
+  }
+  const plan = s.plan;
+  if (plan?.hasPlans) {
+    const lbl = { leads: 'Lid', sales: 'Sotuv', revenue: 'Tushum', budget: 'Byudjet' };
+    const parts = Object.entries(plan.total).map(([k, m]) => `${lbl[k]} ${p(m.pct)}`);
+    lines.push('', `<b>Oylik reja (${plan.elapsed}/${plan.days} kun, kutilgan ${p(plan.elapsed / plan.days)}):</b> ${parts.join(' · ')}`);
   }
   if (s.insights.length) {
     lines.push('', '<b>Diqqat:</b>');

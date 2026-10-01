@@ -48,6 +48,23 @@ export const LOSS_REASONS = {
   other: 'Boshqa',
 };
 
+export const PLATFORMS = {
+  telegram_ads: 'Telegram Ads',
+  channel_post: 'Kanal posti (reklama)',
+  instagram: 'Instagram / Facebook',
+  blogger: 'Bloger',
+  youtube: 'YouTube',
+  google: 'Google',
+  other: 'Boshqa',
+};
+
+export const PLAN_FIELDS = {
+  budget: 'Byudjet ($)',
+  leads: 'Lidlar',
+  sales: 'Sotuvlar',
+  revenue: "Tushum (so'm)",
+};
+
 export function canEdit(role, field) {
   if (role === 'admin') return true;
   if (FIELDS[field]) return FIELDS[field].role === role;
@@ -144,6 +161,34 @@ function migrate(db) {
       question TEXT,
       content TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    -- Oylik reja (KPI): loyiha × oy
+    CREATE TABLE IF NOT EXISTS plans (
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      month TEXT NOT NULL,
+      budget REAL,
+      leads REAL,
+      sales REAL,
+      revenue REAL,
+      PRIMARY KEY (project_id, month)
+    );
+    -- Reklama postlari / kampaniyalar: har biri o'z deep link tegiga ega (?start=slug__teg)
+    CREATE TABLE IF NOT EXISTS campaigns (
+      id INTEGER PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      name TEXT NOT NULL,
+      platform TEXT NOT NULL DEFAULT 'telegram_ads',
+      tag TEXT NOT NULL,
+      spend REAL,
+      clicks REAL,
+      starts REAL,
+      leads REAL,
+      sales REAL,
+      note TEXT,
+      created_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (project_id, tag)
     );
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,

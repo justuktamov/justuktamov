@@ -15,7 +15,7 @@ const js = result.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const css = await readFile(here('../public/app.css'), 'utf8');
 const html = `<title>Loyihalar analitikasi</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>${css}</style>
 <div id="app"><div class="boot">Yuklanmoqda…</div></div>
 <div id="toast" role="status" aria-live="polite"></div>

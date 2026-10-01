@@ -1,5 +1,5 @@
 // Voronka hisob-kitoblari: xarajat → klik → bot start (reklama + organik) → lid → sotuv → tushum → LTV
-import { getDb, getSetting, FIELDS, LOSS_REASONS, ROLES } from './db.js';
+import { getDb, getSetting, today, FIELDS, LOSS_REASONS, ROLES, PLATFORMS } from './db.js';
 
 const SUM_FIELDS = Object.keys(FIELDS);
 
@@ -159,10 +159,11 @@ export function summary({ from, to, projectId = null }) {
       target: r.note_target, lead: r.note_lead, sales: r.note_sales, finance: r.note_finance,
     }));
 
+  const plan = planProgress(to.slice(0, 7), projectId, to);
   return {
     from, to, prevFrom, prevTo, days: len,
-    totals, prev, delta, byProject, series, reasons, notes,
-    insights: insights(totals, prev, byProject, reasons),
+    totals, prev, delta, byProject, series, reasons, notes, plan,
+    insights: [...insights(totals, prev, byProject, reasons), ...planInsights(plan)],
   };
 }
 
@@ -232,4 +233,138 @@ export function missingReport(date) {
     }
   }
   return out;
+}
+
+// ---------- Oylik reja (KPI) ----------
+export function monthBounds(month) {
+  const [y, m] = month.split('-').map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, '0')}`, days: last };
+}
+
+// Reja ↔ fakt: oy boshidan asOf gacha. Kutilgan = reja × o'tgan kunlar / oy kunlari; prognoz — joriy sur'at bo'yicha
+export function planProgress(month, projectId = null, asOf = today()) {
+  const { from, to: monthEnd, days } = monthBounds(month);
+  const to = asOf < monthEnd ? asOf : monthEnd;
+  const elapsed = to < from ? 0 : daysBetween(from, to);
+  const plans = getDb().prepare('SELECT * FROM plans WHERE month = ?').all(month)
+    .filter((p) => !projectId || p.project_id === Number(projectId));
+  const { projects, rows } = elapsed ? loadRows(from, to, projectId) : { projects: [], rows: [] };
+  const allProjects = getDb().prepare('SELECT * FROM projects WHERE active = 1 ORDER BY id').all();
+  const factKey = { budget: 'spend', leads: 'leads', sales: 'sales', revenue: 'total_revenue' };
+
+  const metric = (fact, plan, key) => {
+    if (!plan) return { fact, plan: null };
+    const expected = (plan * elapsed) / days;
+    const forecast = elapsed ? (fact / elapsed) * days : 0;
+    let status = fact >= expected * 0.95 ? 'ahead' : fact >= expected * 0.8 ? 'risk' : 'behind';
+    if (key === 'budget') status = fact > expected * 1.1 ? 'over' : 'ok';
+    if (elapsed < 5) status = 'early'; // oy boshida bir-ikki kunlik tebranish xulosa uchun yetarli emas
+    return { fact, plan, pct: fact / plan, expected, expected_pct: elapsed / days, forecast, forecast_pct: forecast / plan, status };
+  };
+
+  const items = plans.map((pl) => {
+    const proj = allProjects.find((p) => p.id === pl.project_id);
+    if (!proj) return null;
+    const fact = sumRows(rows.filter((r) => r.project_id === pl.project_id));
+    return {
+      project_id: pl.project_id, name: proj.name, color: proj.color,
+      metrics: Object.fromEntries(Object.entries(factKey).map(([k, f]) => [k, metric(fact[f], pl[k], k)])),
+    };
+  }).filter(Boolean);
+
+  const total = {};
+  for (const [k, f] of Object.entries(factKey)) {
+    const withPlan = items.filter((i) => i.metrics[k].plan);
+    if (!withPlan.length) continue;
+    const fact = withPlan.reduce((a, i) => a + i.metrics[k].fact, 0);
+    total[k] = metric(fact, withPlan.reduce((a, i) => a + i.metrics[k].plan, 0), k);
+  }
+  return { month, from, to, days, elapsed, items, total, hasPlans: items.length > 0, projectsWithoutPlan: projects.length - items.length };
+}
+
+function planInsights(plan) {
+  const out = [];
+  if (!plan.hasPlans || plan.elapsed < 3) return out;
+  for (const i of plan.items) {
+    const s = i.metrics.sales;
+    if (s.plan && s.status === 'behind') {
+      out.push({ level: 'warning', text: `${i.name}: oylik sotuv rejasi ${pct(s.pct)} bajarildi (shu kungacha ${pct(s.expected_pct)} kutilgan). Prognoz: ${fmt(s.forecast)} / ${fmt(s.plan)}.` });
+    }
+    const b = i.metrics.budget;
+    if (b.plan && b.status === 'over') {
+      out.push({ level: 'warning', text: `${i.name}: reklama byudjeti rejadan tez sarflanyapti — $${fmt(b.fact)} / $${fmt(b.plan)} (${pct(b.pct)}), oy oxirigacha $${fmt(b.forecast)} ketadi.` });
+    }
+  }
+  const t = plan.total.revenue;
+  if (t?.plan && t.status === 'ahead') out.push({ level: 'good', text: `Tushum rejasi bo'yicha oldindamiz: ${pct(t.pct)} bajarildi, prognoz ${pct(t.forecast_pct)}.` });
+  return out;
+}
+
+// ---------- Reklama postlari ----------
+export function campaignStats({ from, to, projectId = null }) {
+  const db = getDb();
+  const list = db.prepare(`SELECT c.*, p.name AS project_name, p.slug AS project_slug, p.color AS project_color FROM campaigns c
+                           JOIN projects p ON p.id = c.project_id WHERE c.date BETWEEN ? AND ? ORDER BY c.date DESC, c.id DESC`).all(from, to)
+    .filter((c) => !projectId || c.project_id === Number(projectId));
+  const ev = db.prepare(`SELECT project_id, source, type, COUNT(*) AS n FROM events WHERE source IS NOT NULL
+                         GROUP BY project_id, source, type`).all();
+  const auto = (c, type) => ev.find((e) => e.project_id === c.project_id && e.source === c.tag && e.type === type)?.n || 0;
+  const rows = list.map((c) => {
+    const a = { start: auto(c, 'start'), lead: auto(c, 'lead'), sale: auto(c, 'sale') };
+    const starts = a.start > 0 ? a.start : c.starts;
+    const leads = a.lead > 0 ? a.lead : c.leads;
+    const sales = a.sale > 0 ? a.sale : c.sales;
+    const organic = starts != null && c.clicks ? Math.max(starts - c.clicks, 0) : null;
+    return {
+      ...c, platform_label: PLATFORMS[c.platform] || c.platform,
+      starts, leads, sales, organic, auto: a,
+      cpc: div(c.spend, c.clicks), cost_per_start: div(c.spend, starts), cpl: div(c.spend, leads), cac: div(c.spend, sales),
+      start_to_sale: div(sales, starts),
+    };
+  });
+  const sum = (k) => rows.reduce((a, r) => a + (Number(r[k]) || 0), 0);
+  const total = { count: rows.length, spend: sum('spend'), clicks: sum('clicks'), starts: sum('starts'), leads: sum('leads'), sales: sum('sales') };
+  Object.assign(total, { cpc: div(total.spend, total.clicks), cost_per_start: div(total.spend, total.starts), cpl: div(total.spend, total.leads), cac: div(total.spend, total.sales) });
+  const byPlatform = Object.entries(PLATFORMS).map(([k, label]) => {
+    const rs = rows.filter((r) => r.platform === k);
+    const spend = rs.reduce((a, r) => a + (r.spend || 0), 0);
+    const starts = rs.reduce((a, r) => a + (r.starts || 0), 0);
+    const leads = rs.reduce((a, r) => a + (r.leads || 0), 0);
+    return { platform: k, label, count: rs.length, spend, starts, leads, cost_per_start: div(spend, starts), cpl: div(spend, leads) };
+  }).filter((p) => p.count);
+  return { rows, total, byPlatform };
+}
+
+// ---------- Hisobot intizomi ----------
+// Har bir rol so'nggi N kunda o'z maydonlarini nechta loyiha-kun uchun kiritgan
+export function discipline(days = 14, asOf = today()) {
+  const from = addDays(asOf, -(days - 1));
+  const { projects, rows } = loadRows(from, asOf);
+  const users = getDb().prepare('SELECT id, name, role FROM users WHERE active = 1').all();
+  const roleFields = {};
+  for (const [f, def] of Object.entries(FIELDS)) if (f !== 'bot_starts') (roleFields[def.role] ||= []).push(f);
+  return Object.entries(roleFields).map(([role, fields]) => {
+    const dayList = [];
+    let filled = 0, total = 0;
+    for (let d = from; d <= asOf; d = addDays(d, 1)) {
+      const dayRows = rows.filter((r) => r.date === d);
+      const n = projects.filter((p) => dayRows.some((r) => r.project_id === p.id && fields.some((f) => r[f] != null))).length;
+      dayList.push({ date: d, filled: n, total: projects.length });
+      if (d < asOf) { filled += n; total += projects.length; } // bugun hali tugamagan
+    }
+    return { role, label: ROLES[role], users: users.filter((u) => u.role === role).map((u) => u.name), pct: total ? filled / total : null, days: dayList };
+  });
+}
+
+// Excel to'g'ri ochishi uchun BOM bilan CSV
+export function toCsv(projects, rows) {
+  const cols = ['date', 'project', 'spend', 'impressions', 'clicks', 'starts', 'starts_source', 'joins', 'leads', 'qualified', 'sales', 'revenue', 'payments', 'repeat_sales', 'repeat_revenue', 'note_target', 'note_lead', 'note_sales', 'note_finance'];
+  const esc = (v) => (v == null ? '' : /[",\n;]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+  const lines = [cols.join(',')];
+  for (const r of [...rows].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.project_id - b.project_id))) {
+    const pr = projects.find((p) => p.id === r.project_id);
+    lines.push(cols.map((c) => esc(c === 'project' ? pr?.name : r[c])).join(','));
+  }
+  return `\ufeff${lines.join('\n')}`;
 }

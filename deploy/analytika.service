@@ -1,0 +1,14 @@
+# systemd: sudo cp deploy/analytika.service /etc/systemd/system/ && sudo systemctl enable --now analytika
+[Unit]
+Description=Loyihalar analitikasi
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/analytika
+ExecStart=/usr/bin/node --env-file=/opt/analytika/.env --disable-warning=ExperimentalWarning src/server.js
+Restart=always
+User=www-data
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

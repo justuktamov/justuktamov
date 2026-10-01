@@ -4,10 +4,15 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import {
-  getDb, getSetting, setSetting, today, canEdit, FIELDS, NOTE_FIELDS, LOSS_REASONS, ROLES,
+  getDb, getSetting, setSetting, today, canEdit, FIELDS, NOTE_FIELDS, LOSS_REASONS, ROLES, PLATFORMS, PLAN_FIELDS,
 } from './db.js';
-import { login, logout, userFromToken, createUser, hashPassword, ensureAdmin, publicUser } from './auth.js';
-import { summary, loadRows, missingReport, addDays } from './metrics.js';
+import {
+  login, logout, userFromToken, createUser, hashPassword, ensureAdmin, publicUser,
+  createSession, changePassword, verifyTelegramInitData, userByTelegramId,
+} from './auth.js';
+import {
+  summary, loadRows, missingReport, addDays, planProgress, campaignStats, discipline, toCsv,
+} from './metrics.js';
 import { analyze, aiAvailable } from './ai.js';
 import {
   startPolling, telegramStatus, recordEvent, sendMessage, dailyReportText, remindMissing,
@@ -49,6 +54,11 @@ function cookies(req) {
   return Object.fromEntries((req.headers.cookie || '').split(';').map((c) => c.trim().split('=')).filter((x) => x[0]));
 }
 
+function bearer(req) {
+  const h = String(req.headers.authorization || '');
+  return h.startsWith('Bearer ') ? h.slice(7).trim() : null;
+}
+
 function requireUser(req) {
   if (!req.user) throw new HttpError(401, 'Tizimga kiring');
   return req.user;
@@ -85,14 +95,32 @@ route('POST', '/api/login', async (req, res) => {
   send(res, 200, { user: r.user }, { 'set-cookie': `sid=${r.token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${30 * 86400}${secure}` });
 });
 route('POST', '/api/logout', async (req, res) => {
-  logout(cookies(req).sid);
+  logout(bearer(req) || cookies(req).sid);
   send(res, 200, { ok: true }, { 'set-cookie': 'sid=; HttpOnly; Path=/; Max-Age=0' });
+});
+// Telegram Mini App ichidan kirish: initData imzosi tekshiriladi, Telegram ID xodimga bog'langan bo'lishi kerak
+route('POST', '/api/tg-login', async (req, res) => {
+  const { initData } = await readBody(req);
+  const tgUser = verifyTelegramInitData(initData, process.env.TELEGRAM_BOT_TOKEN);
+  if (!tgUser) throw new HttpError(401, "Telegram ma'lumoti tasdiqlanmadi");
+  const u = userByTelegramId(tgUser.id);
+  if (!u) throw new HttpError(403, `Telegram ID ${tgUser.id} hech bir xodimga bog'lanmagan. Rahbar uni Sozlamalar → Xodimlar bo'limida qo'shsin.`);
+  send(res, 200, { token: createSession(u.id), user: publicUser(u) });
+});
+route('PUT', '/api/me/password', async (req, res) => {
+  const user = requireUser(req);
+  const b = await readBody(req);
+  if (String(b.new || '').length < 6) throw new HttpError(400, "Yangi parol kamida 6 belgi bo'lsin");
+  if (!changePassword(user.id, b.old, b.new)) throw new HttpError(400, "Joriy parol noto'g'ri");
+  send(res, 200, { ok: true });
 });
 route('GET', '/api/me', async (req, res) => {
   const user = requireUser(req);
   send(res, 200, {
     user, today: today(), roles: ROLES, fields: FIELDS, noteFields: NOTE_FIELDS, reasons: LOSS_REASONS,
-    ai: aiAvailable(), telegram: { enabled: telegramStatus().enabled, bot: telegramStatus().bot },
+    platforms: PLATFORMS, planFields: PLAN_FIELDS,
+    pendingToday: missingReport(today()).filter((m) => !m.filled && (user.role === 'admin' || m.role === user.role)).length,
+    ai: aiAvailable(), telegram: { enabled: telegramStatus().enabled, bot: telegramStatus().bot, miniApp: Boolean(process.env.APP_URL) },
     usdRate: Number(getSetting('usd_rate', process.env.USD_RATE || 12800)),
   });
 });
@@ -171,6 +199,7 @@ route('GET', '/api/daily', async (req, res, _p, q) => {
   requireUser(req);
   const date = isDate(q.get('date')) ? q.get('date') : today();
   const { projects, rows } = loadRows(date, date);
+  const { rows: prevRows } = loadRows(addDays(date, -1), addDays(date, -1));
   const reasons = getDb().prepare('SELECT project_id, reason, count FROM loss_reasons WHERE date = ?').all(date);
   const updatedBy = getDb().prepare(`SELECT a.project_id, a.field, u.name, MAX(a.created_at) AS at FROM audit a LEFT JOIN users u ON u.id = a.user_id
                                      WHERE a.date = ? GROUP BY a.project_id, a.field`).all(date);
@@ -179,6 +208,7 @@ route('GET', '/api/daily', async (req, res, _p, q) => {
     projects: projects.map((p) => ({
       id: p.id, name: p.name, slug: p.slug, kind: p.kind, color: p.color,
       row: rows.find((r) => r.project_id === p.id) || {},
+      prev: prevRows.find((r) => r.project_id === p.id) || {},
       reasons: Object.fromEntries(reasons.filter((r) => r.project_id === p.id).map((r) => [r.reason, r.count])),
       updatedBy: Object.fromEntries(updatedBy.filter((r) => r.project_id === p.id).map((r) => [r.field, { name: r.name, at: r.at }])),
     })),
@@ -239,21 +269,106 @@ route('GET', '/api/export.csv', async (req, res, _p, q) => {
   requireUser(req);
   const { from, to } = period(q);
   const { projects, rows } = loadRows(from, to, q.get('project') ? Number(q.get('project')) : null);
-  const cols = ['date', 'project', 'spend', 'impressions', 'clicks', 'starts', 'starts_source', 'joins', 'leads', 'qualified', 'sales', 'revenue', 'payments', 'repeat_sales', 'repeat_revenue', 'note_target', 'note_lead', 'note_sales', 'note_finance'];
-  const esc = (v) => (v == null ? '' : /[",\n;]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
-  const lines = [cols.join(',')];
-  for (const r of rows.sort((a, b) => (a.date < b.date ? -1 : 1))) {
-    const pr = projects.find((p) => p.id === r.project_id);
-    lines.push(cols.map((c) => esc(c === 'project' ? pr?.name : r[c])).join(','));
-  }
   res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="hisobot_${from}_${to}.csv"` });
-  res.end(`﻿${lines.join('\n')}`);
+  res.end(toCsv(projects, rows));
 });
 route('GET', '/api/audit', async (req, res, _p, q) => {
   requireAdmin(req);
   const limit = Math.min(Number(q.get('limit')) || 100, 500);
   send(res, 200, getDb().prepare(`SELECT a.*, u.name AS user_name, p.name AS project_name FROM audit a
     LEFT JOIN users u ON u.id = a.user_id LEFT JOIN projects p ON p.id = a.project_id ORDER BY a.id DESC LIMIT ?`).all(limit));
+});
+
+route('GET', '/api/rows', async (req, res, _p, q) => {
+  requireUser(req);
+  const { from, to } = period(q);
+  const projectId = q.get('project') ? Number(q.get('project')) : null;
+  const { rows } = loadRows(from, to, projectId);
+  const reasons = getDb().prepare('SELECT project_id, date, reason, count FROM loss_reasons WHERE date BETWEEN ? AND ?').all(from, to)
+    .filter((r) => !projectId || r.project_id === projectId);
+  send(res, 200, { rows: rows.sort((a, b) => (a.date < b.date ? 1 : -1)), reasons });
+});
+route('GET', '/api/discipline', async (req, res, _p, q) => {
+  requireUser(req);
+  send(res, 200, discipline(Math.min(Number(q.get('days')) || 14, 60)));
+});
+
+// ---- Oylik reja ----
+const isMonth = (s) => /^\d{4}-\d{2}$/.test(String(s || ''));
+route('GET', '/api/plans', async (req, res, _p, q) => {
+  requireUser(req);
+  const month = isMonth(q.get('month')) ? q.get('month') : today().slice(0, 7);
+  send(res, 200, { month, rows: getDb().prepare('SELECT * FROM plans WHERE month = ?').all(month) });
+});
+route('PUT', '/api/plans', async (req, res) => {
+  requireAdmin(req);
+  const b = await readBody(req);
+  if (!isMonth(b.month)) throw new HttpError(400, "Oy noto'g'ri (YYYY-MM)");
+  const p = getDb().prepare('SELECT id FROM projects WHERE id = ?').get(b.project_id);
+  if (!p) throw new HttpError(404, 'Loyiha topilmadi');
+  const v = Object.fromEntries(Object.keys(PLAN_FIELDS).map((k) => [k, num(b.values?.[k])]));
+  if (Object.values(v).every((x) => x == null)) {
+    getDb().prepare('DELETE FROM plans WHERE project_id = ? AND month = ?').run(p.id, b.month);
+  } else {
+    getDb().prepare(`INSERT INTO plans (project_id, month, budget, leads, sales, revenue) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(project_id, month) DO UPDATE SET budget = excluded.budget, leads = excluded.leads, sales = excluded.sales, revenue = excluded.revenue`)
+      .run(p.id, b.month, v.budget, v.leads, v.sales, v.revenue);
+  }
+  send(res, 200, { ok: true });
+});
+route('GET', '/api/plan-progress', async (req, res, _p, q) => {
+  requireUser(req);
+  const month = isMonth(q.get('month')) ? q.get('month') : today().slice(0, 7);
+  send(res, 200, planProgress(month, q.get('project') ? Number(q.get('project')) : null));
+});
+
+// ---- Reklama postlari ----
+function campaignBody(b, partial = false) {
+  const out = {};
+  if (!partial || 'name' in b) { if (!String(b.name || '').trim()) throw new HttpError(400, 'Post nomini kiriting'); out.name = String(b.name).trim().slice(0, 120); }
+  if (!partial || 'date' in b) { if (!isDate(b.date)) throw new HttpError(400, "Sana noto'g'ri"); out.date = b.date; }
+  if (!partial || 'platform' in b) { if (!PLATFORMS[b.platform]) throw new HttpError(400, "Platforma noto'g'ri"); out.platform = b.platform; }
+  for (const k of ['spend', 'clicks', 'starts', 'leads', 'sales']) if (!partial || k in b) out[k] = num(b[k]);
+  if (!partial || 'note' in b) out.note = String(b.note || '').trim().slice(0, 500) || null;
+  return out;
+}
+const canCampaign = (u) => u.role === 'admin' || u.role === 'target';
+route('GET', '/api/campaigns', async (req, res, _p, q) => {
+  requireUser(req);
+  const to = isDate(q.get('to')) ? q.get('to') : today();
+  const from = isDate(q.get('from')) ? q.get('from') : addDays(to, -29);
+  send(res, 200, { from, to, ...campaignStats({ from, to, projectId: q.get('project') ? Number(q.get('project')) : null }) });
+});
+route('POST', '/api/campaigns', async (req, res) => {
+  const u = requireUser(req);
+  if (!canCampaign(u)) throw new HttpError(403, 'Postlarni targetolog yoki rahbar qo\'shadi');
+  const b = await readBody(req);
+  const project = getDb().prepare('SELECT * FROM projects WHERE id = ? AND active = 1').get(b.project_id);
+  if (!project) throw new HttpError(404, 'Loyiha topilmadi');
+  const c = campaignBody(b);
+  // Teg: deep link manbasi (?start=slug__teg), Telegram start parametri 64 belgigacha
+  let tag = slugify(b.tag || c.name).replace(/-/g, '_').slice(0, 20) || `p${Date.now() % 1e6}`;
+  const taken = (t) => getDb().prepare('SELECT 1 FROM campaigns WHERE project_id = ? AND tag = ?').get(project.id, t);
+  for (let i = 2; taken(tag); i++) tag = `${tag.slice(0, 17)}_${i}`;
+  const info = getDb().prepare(`INSERT INTO campaigns (project_id, date, name, platform, tag, spend, clicks, starts, leads, sales, note, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(project.id, c.date, c.name, c.platform, tag, c.spend, c.clicks, c.starts, c.leads, c.sales, c.note, u.id);
+  send(res, 201, getDb().prepare('SELECT * FROM campaigns WHERE id = ?').get(info.lastInsertRowid));
+});
+route('PUT', '/api/campaigns/:id', async (req, res, { id }) => {
+  const u = requireUser(req);
+  if (!canCampaign(u)) throw new HttpError(403, 'Postlarni targetolog yoki rahbar o\'zgartiradi');
+  const cur = getDb().prepare('SELECT * FROM campaigns WHERE id = ?').get(id);
+  if (!cur) throw new HttpError(404, 'Post topilmadi');
+  const c = campaignBody(await readBody(req), true);
+  const keys = Object.keys(c);
+  if (keys.length) getDb().prepare(`UPDATE campaigns SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).run(...keys.map((k) => c[k]), id);
+  send(res, 200, getDb().prepare('SELECT * FROM campaigns WHERE id = ?').get(id));
+});
+route('DELETE', '/api/campaigns/:id', async (req, res, { id }) => {
+  const u = requireUser(req);
+  if (!canCampaign(u)) throw new HttpError(403, "Postni targetolog yoki rahbar o'chiradi");
+  getDb().prepare('DELETE FROM campaigns WHERE id = ?').run(id);
+  send(res, 200, { ok: true });
 });
 
 // ---- AI ----
@@ -280,6 +395,10 @@ route('PUT', '/api/settings', async (req, res) => {
   const b = await readBody(req);
   for (const k of SETTING_KEYS) if (k in b) setSetting(k, b[k] === '' ? null : b[k]);
   send(res, 200, { ok: true });
+});
+route('GET', '/api/report-preview', async (req, res, _p, q) => {
+  requireUser(req);
+  send(res, 200, { text: dailyReportText(isDate(q.get('date')) ? q.get('date') : today()) });
 });
 route('POST', '/api/telegram/test-report', async (req, res) => {
   requireAdmin(req);
@@ -324,9 +443,9 @@ export function createApp() {
     const url = new URL(req.url, 'http://localhost');
     try {
       if (url.pathname.startsWith('/api/')) {
-        req.user = userFromToken(cookies(req).sid);
+        req.user = userFromToken(bearer(req) || cookies(req).sid);
         // CSRF himoyasi: o'zgartiruvchi so'rovlar faqat JSON bilan
-        if (req.method !== 'GET' && url.pathname !== '/api/track' && !String(req.headers['content-type'] || '').includes('application/json')) {
+        if (!['GET', 'DELETE'].includes(req.method) && url.pathname !== '/api/track' && !String(req.headers['content-type'] || '').includes('application/json')) {
           throw new HttpError(415, 'Content-Type: application/json kerak');
         }
         for (const r of routes) {
