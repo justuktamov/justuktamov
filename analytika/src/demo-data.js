@@ -23,11 +23,16 @@ const REASONS_MIX = {
 };
 
 // end — oxirgi kun (bugun); oxirgi kunda ba'zi rollar hali kiritmagan bo'lib ko'rinadi
+const CHANNELS = ['@ielts_uz', '@til_markazi', '@it_yangiliklar', '@biznes_kanal', '@ota_onalar', '@talabalar_uz'];
+const PLATFORM_CYCLE = ['channel_post', 'telegram_ads', 'instagram', 'channel_post', 'blogger'];
+// Oylik reja koeffitsienti: joriy sur'atga nisbatan (>1 — reja qiyinroq)
+const PLAN_K = { ielts: 1.0, python: 1.05, smm: 1.6, kids: 1.25 };
+
 export function generateDemo(end, days = 45) {
   let seed = 42;
   const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   const jitter = (x, k = 0.25) => x * (1 - k + rand() * 2 * k);
-  const projects = [], daily = [], reasons = [];
+  const projects = [], daily = [], reasons = [], campaigns = [], plans = [];
 
   PROJECTS.forEach(([name, slug, cpc, organicK, s2l, l2s, check, budget], i) => {
     const id = i + 1;
@@ -65,6 +70,42 @@ export function generateDemo(end, days = 45) {
         }
       }
     }
+
+    // Reklama postlari: har 3 kunda bitta, kunlik xarajatning bir qismi
+    const mine = daily.filter((r) => r.project_id === id);
+    let n = 1;
+    for (let k = mine.length - 1; k >= 0; k -= 3) {
+      const r = mine[k];
+      const platform = PLATFORM_CYCLE[(n + i) % PLATFORM_CYCLE.length];
+      const share = jitter(0.55, 0.3);
+      const pk = { channel_post: 1.0, telegram_ads: 0.8, instagram: 0.55, blogger: 1.3 }[platform];
+      const spend = Math.round(r.spend * share * 3 * 100) / 100;
+      const clicks = Math.round(r.clicks * share * 3 * pk);
+      const starts = Math.round(clicks * jitter(organicK, 0.2));
+      const leads = Math.round(starts * jitter(s2l, 0.25));
+      campaigns.push({
+        project_id: id, date: r.date, platform, spend, clicks, starts, leads, sales: Math.round(leads * jitter(l2s, 0.4)),
+        name: platform === 'blogger' ? `Bloger integratsiyasi #${n}` : platform === 'channel_post' ? `${CHANNELS[(n + i) % CHANNELS.length]} posti` : `${slug.toUpperCase()} kreativ #${n}`,
+        tag: `${platform === 'channel_post' ? 'kanal' : platform === 'telegram_ads' ? 'tgads' : platform === 'instagram' ? 'insta' : 'bloger'}_${n}`,
+        note: null,
+      });
+      n++;
+    }
+
+    // Oylik reja: oxirgi 14 kun sur'ati bo'yicha × koeffitsient
+    const recent = mine.slice(-15, -1);
+    const perDay = (f) => recent.reduce((a, r) => a + (r[f] || 0), 0) / recent.length;
+    const month = end.slice(0, 7);
+    const dim = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
+    const k = PLAN_K[slug] || 1;
+    const round = (x, step) => Math.round(x / step) * step;
+    plans.push({
+      project_id: id, month,
+      budget: round(perDay('spend') * dim * 0.95, 50),
+      leads: round(perDay('leads') * dim * k, 10),
+      sales: round(perDay('sales') * dim * k, 5),
+      revenue: round(perDay('revenue') * dim * k, 1_000_000),
+    });
   });
-  return { projects, daily, reasons };
+  return { projects, daily, reasons, campaigns, plans };
 }

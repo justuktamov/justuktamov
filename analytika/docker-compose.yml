@@ -1,0 +1,12 @@
+# Ishga tushirish: cp .env.example .env && docker compose up -d
+services:
+  analytika:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_PATH: /data/analytika.db
+    ports:
+      - "127.0.0.1:3000:3000"   # tashqariga nginx (HTTPS) orqali chiqariladi
+    volumes:
+      - ./data:/data

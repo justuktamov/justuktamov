@@ -1,4 +1,4 @@
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { getDb } from './db.js';
 
 const SESSION_DAYS = 30;
@@ -29,10 +29,43 @@ export function login(loginName, password) {
     .prepare('SELECT * FROM users WHERE login = ? AND active = 1')
     .get(String(loginName || '').trim().toLowerCase());
   if (!user || !verifyPassword(password || '', user.password_hash)) return null;
+  return { token: createSession(user.id), user: publicUser(user) };
+}
+
+export function createSession(userId) {
   const token = randomBytes(32).toString('hex');
   const expires = new Date(Date.now() + SESSION_DAYS * 864e5).toISOString();
-  getDb().prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)').run(token, user.id, expires);
-  return { token, user: publicUser(user) };
+  getDb().prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)').run(token, userId, expires);
+  return token;
+}
+
+export function changePassword(userId, oldPassword, newPassword) {
+  const u = getDb().prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  if (!u || !verifyPassword(oldPassword || '', u.password_hash)) return false;
+  getDb().prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(newPassword), userId);
+  return true;
+}
+
+// Telegram Mini App: initData imzosini tekshirish (core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app)
+export function verifyTelegramInitData(initData, botToken, maxAgeSec = 86400, now = Date.now()) {
+  if (!initData || !botToken) return null;
+  const params = new URLSearchParams(initData);
+  const hash = params.get('hash');
+  if (!hash) return null;
+  params.delete('hash');
+  const check = [...params.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => `${k}=${v}`).join('\n');
+  const secret = createHmac('sha256', 'WebAppData').update(botToken).digest();
+  const expected = createHmac('sha256', secret).update(check).digest('hex');
+  const a = Buffer.from(expected, 'hex');
+  const b = Buffer.from(hash, 'hex');
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  const authDate = Number(params.get('auth_date'));
+  if (!authDate || now / 1000 - authDate > maxAgeSec) return null;
+  try { return JSON.parse(params.get('user') || 'null'); } catch { return null; }
+}
+
+export function userByTelegramId(tgId) {
+  return getDb().prepare('SELECT * FROM users WHERE telegram_id = ? AND active = 1').get(String(tgId));
 }
 
 export function logout(token) {
