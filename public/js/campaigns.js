@@ -20,7 +20,7 @@ function formHtml(c) {
       <label class="field">Sana<input type="date" name="date" id="cDate" value="${v('date') || state.me.today}" max="${state.me.today}" required></label>
       <label class="field">Platforma<select name="platform" id="cPlatform">${Object.entries(platforms).map(([k, l]) => `<option value="${k}" ${c.platform === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
     </div>
-    <label class="field">Post / kreativ nomi<input name="name" id="cName" required maxlength="120" value="${v('name')}" placeholder="Masalan: IELTS — o'quvchi natijasi videosi"></label>
+    <label class="field">Post / kreativ nomi<input name="name" id="cName" required maxlength="120" value="${v('name')}" placeholder="Masalan: VIZART — o'quvchi ishi videosi"></label>
     <div class="fields">
       <label class="field">Kreativ turi<select name="creative_type" id="cType"><option value="">—</option>${Object.entries(state.me.creativeTypes || {}).map(([k, l]) => `<option value="${k}" ${c.creative_type === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
       <label class="field" style="grid-column:span 2">Kreativ havolasi<span class="hint">video yoki post (ixtiyoriy)</span><input name="creative_url" id="cUrl" type="url" value="${v('creative_url')}" placeholder="https://t.me/kanal/123"></label>

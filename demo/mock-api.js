@@ -13,7 +13,7 @@ import { generateDemo, DEMO_USERS } from '../src/demo-data.js';
 import { SYSTEM, compact, userPrompt } from '../src/ai-prompt.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v5';
+const SAVE_KEY = 'analitika-demo-v6';
 let audit = [];
 let reports = [];
 let me = null;

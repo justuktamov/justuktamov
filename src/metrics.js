@@ -115,6 +115,29 @@ export function reasonsFor(from, to, projectId) {
     .sort((a, b) => b.count - a.count);
 }
 
+// Har bir loyiha o'z me'yori bilan solishtiriladi: loyihalar har xil biznes
+// (masalan, STARPAY do'kon — konversiyasi kurslarnikidan ancha yuqori).
+// Konversiya me'yori: oylik reja (sotuv/lid), bo'lmasa — o'zining oldingi 4 haftasi.
+// Lid narxi va CTR me'yori: o'zining oldingi 4 haftasi.
+function benchmarks(from, byProject, plan, projectId) {
+  const baseTo = addDays(from, -1);
+  const { rows } = loadRows(addDays(baseTo, -27), baseTo, projectId);
+  const out = {};
+  for (const p of byProject) {
+    const b = sumRows(rows.filter((r) => r.project_id === p.id));
+    const m = plan.items.find((i) => i.project_id === p.id)?.metrics;
+    const planConv = m?.leads?.plan && m?.sales?.plan ? m.sales.plan / m.leads.plan : null;
+    const ownConv = b.leads >= 30 && b.sales != null ? b.lead_to_sale : null;
+    out[p.id] = {
+      conv: planConv ?? ownConv,
+      conv_src: planConv != null ? 'reja' : ownConv != null ? 'odatda' : null,
+      cpl: b.leads >= 10 ? b.cpl : null,
+      ctr: b.impressions >= 1000 ? b.ctr : null,
+    };
+  }
+  return out;
+}
+
 export function summary({ from, to, projectId = null }) {
   const len = daysBetween(from, to);
   const prevTo = addDays(from, -1);
@@ -160,6 +183,8 @@ export function summary({ from, to, projectId = null }) {
     }));
 
   const plan = planProgress(to.slice(0, 7), projectId, to);
+  const bench = benchmarks(from, byProject, plan, projectId);
+  for (const p of byProject) p.bench = bench[p.id];
   return {
     from, to, prevFrom, prevTo, days: len,
     totals, prev, delta, byProject, series, reasons, notes, plan,
@@ -176,12 +201,12 @@ export function insights(t, prev, byProject, reasons) {
   const push = (level, text) => out.push({ level, text });
 
   // Asosiy savol: lid ko'p, sotuv past
-  const avgConv = t.lead_to_sale;
   for (const p of byProject) {
+    const conv = p.bench?.conv;
     // Sotuv hali kiritilmagan bo'lsa (masalan, kun yarmida) — sotuvga oid xulosa chiqarilmaydi
     const salesIn = p.reported.sales > 0;
-    if (salesIn && p.leads >= 20 && avgConv && p.lead_to_sale != null && p.sales > 0 && p.lead_to_sale < avgConv * 0.6) {
-      push('critical', `${p.name}: lid ko'p, sotuv past — ${pct(p.lead_to_sale)} (o'rt. ${pct(avgConv)})`);
+    if (salesIn && p.leads >= 20 && conv && p.lead_to_sale != null && p.sales > 0 && p.lead_to_sale < conv * 0.6) {
+      push('critical', `${p.name}: lid ko'p, sotuv past — ${pct(p.lead_to_sale)} (${p.bench.conv_src} ${pct(conv)})`);
     }
     if (salesIn && p.leads >= 20 && p.sales === 0) {
       push('critical', `${p.name}: ${fmt(p.leads)} lid, birorta ham sotuv yo'q`);
@@ -326,7 +351,14 @@ export function campaignStats({ from, to, projectId = null }) {
   const sum = (k) => rows.reduce((a, r) => a + (Number(r[k]) || 0), 0);
   const total = { count: rows.length, spend: sum('spend'), impressions: sum('impressions'), clicks: sum('clicks'), starts: sum('starts'), leads: sum('leads'), sales: sum('sales') };
   Object.assign(total, { ctr: div(total.clicks, total.impressions), cpc: div(total.spend, total.clicks), cost_per_start: div(total.spend, total.starts), cpl: div(total.spend, total.leads), cac: div(total.spend, total.sales) });
-  for (const r of rows) Object.assign(r, creativeVerdict(r, total));
+  // Kreativ o'z loyihasining o'rtachasi bilan solishtiriladi (loyihalar narxi har xil)
+  const projTotal = {};
+  for (const r of rows) {
+    const t = (projTotal[r.project_id] ||= { impressions: 0, clicks: 0, spend: 0, starts: 0, leads: 0 });
+    for (const k of Object.keys(t)) t[k] += Number(r[k]) || 0;
+  }
+  for (const t of Object.values(projTotal)) Object.assign(t, { ctr: div(t.clicks, t.impressions), cost_per_start: div(t.spend, t.starts), cpl: div(t.spend, t.leads) });
+  for (const r of rows) Object.assign(r, creativeVerdict(r, projTotal[r.project_id]));
   const byPlatform = Object.entries(PLATFORMS).map(([k, label]) => {
     const rs = rows.filter((r) => r.platform === k);
     const spend = rs.reduce((a, r) => a + (r.spend || 0), 0);
@@ -423,17 +455,18 @@ export function recommendations({ from, to }) {
       flags.add('unprofitable');
       actions.push({ type: 'budget_down', owner: 'admin', text: 'Byudjetni qisqartirish', detail: `ROAS ${p.roas.toFixed(2)} — reklama o'zini oqlamayapti` });
     }
-    if (salesIn && p.leads >= 15 && avg.lead_to_sale && p.lead_to_sale != null && p.lead_to_sale < avg.lead_to_sale * 0.6) {
+    const bench = p.bench || {};
+    if (salesIn && p.leads >= 15 && bench.conv && p.lead_to_sale != null && p.lead_to_sale < bench.conv * 0.6) {
       flags.add('sales_issue');
       const top = reasonsFor(from, to, p.id)[0];
-      actions.push({ type: 'sales', owner: 'sales', text: `Sotuvni ko'tarish: ${pct(p.lead_to_sale)} (o'rt. ${pct(avg.lead_to_sale)})`, items: top ? [top.label] : [], detail: `Lid→sotuv past.${top ? ` Asosiy sabab — «${top.label}».` : ''} Qo'ng'iroq tezligi va skriptni tekshirish.` });
+      actions.push({ type: 'sales', owner: 'sales', text: `Sotuvni ko'tarish: ${pct(p.lead_to_sale)} (${bench.conv_src} ${pct(bench.conv)})`, items: top ? [top.label] : [], detail: `Lid→sotuv past.${top ? ` Asosiy sabab — «${top.label}».` : ''} Qo'ng'iroq tezligi va skriptni tekshirish.` });
     }
-    const ctr = p.ctr, cplHigh = p.cpl != null && avg.cpl && p.cpl > avg.cpl * 1.4;
-    if (badCreatives.length || cplHigh || (ctr != null && avg.ctr && ctr < avg.ctr * 0.7)) {
+    const ctr = p.ctr, cplHigh = p.cpl != null && bench.cpl && p.cpl > bench.cpl * 1.4;
+    if (badCreatives.length || cplHigh || (ctr != null && bench.ctr && ctr < bench.ctr * 0.7)) {
       flags.add('creative');
       actions.push(badCreatives.length
         ? { type: 'creative', owner: 'target', text: `${badCreatives.length} ta kreativni almashtirish`, items: badCreatives.slice(0, 3).map((c) => c.name), detail: badCreatives.map((c) => `${c.name}: ${c.verdict_reason}`).join('; ') }
-        : { type: 'creative', owner: 'target', text: `Yangi kreativ sinash: lid $${(p.cpl || 0).toFixed(2)}`, detail: `Lid narxi o'rtachadan ${pct(p.cpl / avg.cpl - 1)} qimmat` });
+        : { type: 'creative', owner: 'target', text: `Yangi kreativ sinash: lid $${(p.cpl || 0).toFixed(2)}`, detail: cplHigh ? `Lid narxi odatdagidan ${pct(p.cpl / bench.cpl - 1)} qimmat` : `CTR ${pct(ctr)} (odatda ${pct(bench.ctr)})` });
     }
     const pl = plan.items.find((i) => i.project_id === p.id)?.metrics.leads;
     if (pl?.plan && plan.elapsed >= 5 && ['behind', 'risk'].includes(pl.status) && remaining > 0) {
@@ -445,7 +478,7 @@ export function recommendations({ from, to }) {
       flags.add('needs_leads');
       actions.push({ type: 'leads', owner: 'target', text: `Lid ${pct(-p.growth.leads)} kamaydi — trafikni tiklash`, detail: "O'tgan 7 kunga nisbatan" });
     }
-    if (!flags.has('unprofitable') && !flags.has('creative') && salesIn && avg.roas && p.roas >= avg.roas * 1.3 && (p.lead_to_sale ?? 0) >= (avg.lead_to_sale ?? 0) * 0.9) {
+    if (!flags.has('unprofitable') && !flags.has('creative') && salesIn && avg.roas && p.roas >= avg.roas * 1.3 && (!bench.conv || (p.lead_to_sale ?? 0) >= bench.conv * 0.9)) {
       flags.add('scale');
       actions.push({ type: 'budget_up', owner: 'admin', text: 'Byudjetni +20–30% oshirish', detail: `ROAS ${p.roas.toFixed(2)} (o'rtacha ${avg.roas.toFixed(2)}), lid narxi $${(p.cpl || 0).toFixed(2)}` });
     }

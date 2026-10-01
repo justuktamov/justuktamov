@@ -30,11 +30,16 @@ Menyu:
 | Sozlamalar | loyihalar, Telegram (hisobot qayerga boradi, eslatma vaqti), oylik reja, import/zaxira |
 
 ### Tavsiyalar qanday hisoblanadi (soʻnggi 7 kun)
+Loyihalar bir-biri bilan solishtirilmaydi: STARPAY doʻkon (chek kichik, konversiya yuqori), VIZART, DIZIPRO va SELFENG esa kurslar. Har bir loyiha **oʻz meʼyori** bilan solishtiriladi:
+- konversiya meʼyori — oylik rejadagi sotuv/lid; reja boʻlmasa — loyihaning oʻzining oldingi 4 haftasi;
+- lid narxi va CTR meʼyori — loyihaning oʻzining oldingi 4 haftasi;
+- kreativ — oʻz loyihasidagi boshqa kreativlarning oʻrtachasi bilan.
+
 - **Zarar:** ROAS < 1 boʻlsa, byudjetni qisqartirish taklif qilinadi.
-- **Sotuvda muammo:** lid→sotuv oʻrtachaning 60% idan past boʻlsa. ROP ga asosiy rad sababi bilan vazifa beriladi.
-- **Kreativ ishlamayapti:** quyidagilardan biri boʻlsa — kreativning CTR i oʻrtachaning 65% idan past, lid narxi 1.5 baravardan qimmat, $20 dan koʻp sarflanib lid yoʻq, yoki loyihaning lid narxi 1.4 baravardan qimmat.
+- **Sotuvda muammo:** lid→sotuv loyiha meʼyorining 60% idan past boʻlsa. ROP ga asosiy rad sababi bilan vazifa beriladi.
+- **Kreativ ishlamayapti:** quyidagilardan biri boʻlsa — kreativning CTR i oʻz loyihasi oʻrtachasining 65% idan past, lid narxi 1.5 baravardan qimmat, $20 dan koʻp sarflanib lid yoʻq, yoki loyihaning lid narxi odatdagidan 1.4 baravar qimmat.
 - **Lid kerak:** oylik lid rejasidan orqada boʻlsa (kuniga qancha lid kerakligi hisoblanadi) yoki lidlar 15% dan koʻp kamaygan boʻlsa.
-- **Oʻstirish mumkin:** ROAS oʻrtachadan 1.3 baravar yuqori va konversiya yaxshi boʻlsa.
+- **Oʻstirish mumkin:** ROAS hamma loyihalar oʻrtachasidan 1.3 baravar yuqori (pul qaytishi — loyihalar oʻrtasida solishtirsa boʻladigan yagona koʻrsatkich) va konversiya meʼyorida boʻlsa.
 - **Byudjet taqsimoti:** hozirgi ulush × (loyiha ROAS i / oʻrtacha ROAS). Koeffitsient 0.5 dan 1.6 gacha cheklanadi.
 
 ## Imkoniyatlar
@@ -64,7 +69,7 @@ Menyu:
 ### «Nega lid koʻp, sotuv past?»
 - Menejerlar har kuni sotib olmaslik sabablarini kiritadi: qimmat, javob bermadi, oʻylab koʻradi, maqsadli emas va boshqalar.
 - Har bir rol izoh qoldiradi.
-- Avtomatik ogohlantirishlar chiqadi: konversiya oʻrtachadan past, ROAS < 1, lid narxi oshdi, sifatli lidlar kam, lid oʻsdi-yu sotuv oʻsmadi.
+- Avtomatik ogohlantirishlar chiqadi: konversiya meʼyordan past, ROAS < 1, lid narxi oshdi, sifatli lidlar kam, lid oʻsdi-yu sotuv oʻsmadi.
 
 ### Maʼlumotlar tarixi
 - Har bir oʻzgarish tarixga yoziladi: kim, qachon, eski va yangi qiymat.

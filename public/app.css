@@ -619,3 +619,7 @@ input[type="file"]::file-selector-button { font: inherit; font-weight: 700; font
   .grid-entry .cell-in { width: 100%; }
   tbody tr:hover td { background: none; }
 }
+
+.onb-list { list-style: none; padding: 0; margin: 0 0 16px; display: grid; gap: 8px; }
+.onb-list li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--border); border-radius: 12px; }
+.onb-list .muted { font-size: 13px; }

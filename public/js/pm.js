@@ -134,8 +134,8 @@ export async function renderToday() {
       <div class="step-head"><span class="eyebrow">4-qadam</span><h2>${STEPS[3].head}</h2><p>${STEPS[3].hint}</p></div>
       <div class="grid g2">
         <div class="stack">
-          <label class="field">Bugun qisqacha (ixtiyoriy)<textarea id="rSummary" rows="3" placeholder="Masalan: SMM da sotuv past, sabab — lidlar sifatsiz">${esc(report?.summary || '')}</textarea></label>
-          <label class="field">Ertaga nima qilamiz (ixtiyoriy)<textarea id="rTomorrow" rows="3" placeholder="Masalan: Python uchun yangi video qo'yamiz">${esc(report?.tomorrow || '')}</textarea></label>
+          <label class="field">Bugun qisqacha (ixtiyoriy)<textarea id="rSummary" rows="3" placeholder="Masalan: DIZIPRO da sotuv past, sabab — lidlar sifatsiz">${esc(report?.summary || '')}</textarea></label>
+          <label class="field">Ertaga nima qilamiz (ixtiyoriy)<textarea id="rTomorrow" rows="3" placeholder="Masalan: VIZART uchun yangi video qo'yamiz">${esc(report?.tomorrow || '')}</textarea></label>
           ${!tg.enabled || !tg.reportChat ? `<div class="insight warning"><span class="ic">Eslatma</span><span>Telegram ${tg.enabled ? 'chat ID si' : 'bot'} sozlanmagan — hisobot faqat tizimda saqlanadi. <a href="#/sozlamalar?tab=telegram">Sozlash</a></span></div>` : ''}
         </div>
         <div class="stack"><span class="eyebrow">Direktor ko'radigan xabar</span><pre class="tg" id="preview">Yuklanmoqda…</pre></div>
@@ -234,11 +234,32 @@ export async function renderToday() {
   }
 }
 
+// Kompaniya loyihalari — birinchi kirishda bir bosishda qo'shiladi
+const OUR_PROJECTS = [
+  { name: 'STARPAY', kind: 'loyiha', color: '#2a78d6', about: 'Telegram Premium va Stars savdosi' },
+  { name: 'VIZART', kind: 'kurs', color: '#eb6834', about: "interyer va exteryer online o'quv markazi" },
+  { name: 'DIZIPRO', kind: 'kurs', color: '#1baf7a', about: "3D modeling online o'quv markazi" },
+  { name: 'SELFENG', kind: 'kurs', color: '#eda100', about: 'online general ingliz tili' },
+];
+
 function renderOnboarding(box) {
+  const have = new Set(state.projects.map((p) => p.name.toUpperCase()));
   box.innerHTML = `<section class="card step">
-    <div class="step-head"><span class="eyebrow">Boshlash</span><h2>Loyihalaringizni qo'shing</h2><p>Har bir kurs yoki loyihani nomi bilan qo'shing. Keyin har kuni shular bo'yicha hisobot to'ldirasiz.</p></div>
-    <form id="onbForm" class="row"><input name="name" id="onbName" required placeholder="Masalan: IELTS kursi" style="flex:1 1 240px" aria-label="Loyiha nomi"><button class="btn primary">${ICONS.plus} Qo'shish</button></form>
+    <div class="step-head"><span class="eyebrow">Boshlash</span><h2>Loyihalaringizni qo'shing</h2><p>Bir bosishda to'rttala loyiha qo'shiladi. Keyin har kuni shular bo'yicha hisobot to'ldirasiz.</p></div>
+    <ul class="onb-list">${OUR_PROJECTS.map((p) => `<li><span class="dot" style="background:${p.color}"></span><b>${p.name}</b><span class="muted">${p.about}</span></li>`).join('')}</ul>
+    <button class="btn primary" id="onbAll">${ICONS.plus} To'rttasini qo'shish</button>
+    <form id="onbForm" class="row mt"><input name="name" id="onbName" required placeholder="Yoki boshqa loyiha nomi" style="flex:1 1 240px" aria-label="Loyiha nomi"><button class="btn">${ICONS.plus} Qo'shish</button></form>
   </section>`;
+  const allBtn = $('#onbAll');
+  allBtn.onclick = async () => {
+    allBtn.disabled = true;
+    try {
+      for (const { about, ...p } of OUR_PROJECTS) if (!have.has(p.name)) await api('/api/projects', { method: 'POST', body: p });
+      state.projects = await api('/api/projects');
+      toast("Loyihalar qo'shildi — hisobotni boshlang");
+      renderToday();
+    } catch (err) { toast(err.message, true); allBtn.disabled = false; }
+  };
   $('#onbForm').onsubmit = async (e) => {
     e.preventDefault();
     try {
