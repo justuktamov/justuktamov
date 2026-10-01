@@ -4,11 +4,13 @@
   "description": "Menejerlar kunlik hisoboti, voronka analitikasi, Telegram integratsiya va AI tahlil",
   "main": "src/server.js",
   "directories": {
+    "build:demo": "node demo/build.mjs",
     "test": "test"
   },
   "scripts": {
     "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/server.js",
     "demo": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/seed-demo.js",
+    "build:demo": "node demo/build.mjs",
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
   },
   "dependencies": {
@@ -19,5 +21,8 @@
   "type": "module",
   "engines": {
     "node": ">=22.5"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }
