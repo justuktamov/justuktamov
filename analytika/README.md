@@ -1,10 +1,46 @@
 # Loyihalar analitikasi
 
-Menejerlar har kuni raqam kiritadigan, barcha kurs va loyihalarning voronkasini bir joyda koʻrsatadigan va AI yordamida tahlil qiladigan platforma.
+Loyihalar direktori har kuni proekt menejerdan bitta tushunarli hisobot oladigan platforma. Hisobotda bugun qaysi loyihaga targetga qancha sarflangani, nechta klik va lid boʻlgani, qaysi loyiha oqsoqlanayotgani, qayerga koʻproq lid kerakligi va qaysi kreativ ishlamayotgani koʻrinadi.
 
-Topshiriq: «Ovozli xabarlar tahlili va loyiha texnik topshirigʻi» hujjati.
+![Direktor paneli](screenshots/director.png)
 
-![Bosh panel](screenshots/dashboard.png)
+## Kunlik ish jarayoni
+
+1. **Targetolog** har bir loyiha boʻyicha xarajat ($), koʻrishlar va kliklarni kiritadi. Har bir post yoki kreativni ham qoʻshadi: video, rasm, stories.
+2. **ROP** (sotuv boʻlimi boshligʻi) lidlar, sotuvlar, tushum va «nega sotib olmadi» sabablarini kiritadi. Lid operatori lidlarni ROP oʻrniga kiritishi ham mumkin.
+3. **Moliya** kassaga tushgan pul va qayta sotuvlarni kiritadi.
+4. **Proekt menejer (PM)** «PM hisoboti» sahifasida hammasini bitta joyda koʻradi:
+   - kim kiritmaganini koʻradi va yetishmaganini toʻldiradi;
+   - har bir loyihaga holat tanlaydi (tizim oʻzi taklif qiladi) va izoh yozadi;
+   - kun xulosasi va ertangi rejani yozadi;
+   - **«Direktorga yuborish»**ni bosadi. Direktorga Telegram xabari ham boradi.
+5. **Direktor** «Bugun» sahifasini ochadi va quyidagilarni koʻradi:
+   - PM xulosasi;
+   - har bir loyiha kartasi: bugungi xarajat, klik, lid, lid narxi, sotuv, holat (*Yaxshi, Oʻstirish mumkin, Lid kerak, Kreativ ishlamayapti, Sotuvda muammo, Zarar*) va kim nima qilishi kerakligi;
+   - **byudjetni qayta taqsimlash taklifi**: qaysi loyihaga koʻproq, qaysisiga kamroq pul tikish kerak (7 kunlik ROAS asosida, $/kun bilan);
+   - **ishlamayotgan va eng yaxshi kreativlar**.
+
+   Direktor izoh yozib «Koʻrib chiqildi»ni bosadi, PM ga Telegram xabari boradi.
+
+Tizimdagi rollar va har biri nima berib, nima olishi «Jamoa» sahifasida koʻrsatilgan.
+
+| Rol | Nima beradi | Nima oladi |
+|---|---|---|
+| Direktor | oylik reja, byudjet qarorlari, hisobotga izoh | PM hisoboti, tavsiyalar, byudjet taqsimoti |
+| Proekt menejer | kunlik hisobot: holat, izoh, xulosa, ertangi reja | hamma raqamlar, kim kiritmagani, avtomatik tavsiyalar |
+| Targetolog | xarajat, koʻrishlar, kliklar; har bir post/kreativ | qaysi kreativ ishlamayapti, qayerga byudjet qoʻshish kerak |
+| ROP | lidlar, sotuvlar, tushum, rad sabablari | qaysi loyihada lid→sotuv past |
+| Lid operatori | bot startlar, lidlar | — |
+| Moliya | kassaga tushum, qayta sotuvlar | tushum va toʻlovlar farqi |
+| Kreativchi (mobilograf) | video/rasm kreativlar | har bir kreativning CTR va lid narxi |
+
+### Tavsiyalar qanday hisoblanadi (soʻnggi 7 kun)
+- **Zarar:** ROAS < 1 boʻlsa, byudjetni qisqartirish taklif qilinadi.
+- **Sotuvda muammo:** lid→sotuv oʻrtachaning 60% idan past boʻlsa. ROP ga asosiy rad sababi bilan vazifa beriladi.
+- **Kreativ ishlamayapti:** quyidagilardan biri boʻlsa — kreativning CTR i oʻrtachaning 65% idan past, lid narxi 1.5 baravardan qimmat, $20 dan koʻp sarflanib lid yoʻq, yoki loyihaning lid narxi 1.4 baravardan qimmat.
+- **Lid kerak:** oylik lid rejasidan orqada boʻlsa (kuniga qancha lid kerakligi hisoblanadi) yoki lidlar 15% dan koʻp kamaygan boʻlsa.
+- **Oʻstirish mumkin:** ROAS oʻrtachadan 1.3 baravar yuqori va konversiya yaxshi boʻlsa.
+- **Byudjet taqsimoti:** hozirgi ulush × (loyiha ROAS i / oʻrtacha ROAS). Koeffitsient 0.5 dan 1.6 gacha cheklanadi.
 
 ## Imkoniyatlar
 
@@ -70,7 +106,9 @@ Topshiriq: «Ovozli xabarlar tahlili va loyiha texnik topshirigʻi» hujjati.
 - Telefonga moslashgan: pastki menyu bor.
 - Har bir xodim oʻz parolini oʻzgartira oladi.
 
-![Reklama postlari](screenshots/ads.png)
+![PM hisoboti](screenshots/pm-report.png)
+
+![Kreativlar](screenshots/creatives.png)
 
 ## Ishga tushirish (lokal)
 
@@ -85,7 +123,7 @@ npm start                 # http://localhost:3000
 npm test                  # testlar
 ```
 
-Namuna maʼlumot bilan kirish uchun loginlar: `admin`, `target`, `fotima`, `madina`, `anvar`. Hammasining paroli `demo1234`.
+Namuna maʼlumot bilan kirish uchun loginlar: `admin` (direktor), `pm`, `target`, `madina` (ROP), `fotima`, `anvar`, `kreativ`. Hammasining paroli `demo1234`.
 Haqiqiy ishga tushirishda `npm run demo` ni bajarmang. Birinchi ishga tushganda admin paroli konsolga chiqadi yoki `ADMIN_PASSWORD` dan olinadi.
 
 ## Serverga joylash
@@ -134,11 +172,12 @@ Content-Type: application/json
 src/server.js      HTTP server, API, rejalashtiruvchi (hisobot/eslatma)
 src/db.js          SQLite sxema, rollar, maydonlar, platformalar
 src/metrics.js     voronka, konversiya, LTV/ROAS, o'sish, reja/prognoz, postlar, intizom, avto-xulosalar
+src/reports.js     PM hisoboti: qoralama → yuborish → direktor ko'rib chiqadi, Telegram matni
 src/auth.js        parollar, sessiyalar, Telegram Mini App imzosini tekshirish
 src/ai.js          Claude orqali AI tahlil (ko'rsatma: ai-prompt.js)
 src/telegram.js    bot: deep link, kanal a'zolari, hisobot, eslatma, Mini App menyusi
 src/demo-data.js   namuna ma'lumotlar (server va brauzer demosi uchun)
-public/js/         interfeys: core, dashboard, project, entry, campaigns, ai, settings
+public/js/         interfeys: core, today (direktor), report (PM, arxiv, jamoa), dashboard, project, entry, campaigns, ai, settings
 demo/              brauzer demosini yig'ish
 deploy/            systemd, nginx, zaxira nusxa
 test/              testlar — npm test

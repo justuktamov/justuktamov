@@ -1,5 +1,5 @@
 // Voronka hisob-kitoblari: xarajat → klik → bot start (reklama + organik) → lid → sotuv → tushum → LTV
-import { getDb, getSetting, today, FIELDS, LOSS_REASONS, ROLES, PLATFORMS } from './db.js';
+import { getDb, getSetting, today, FIELDS, LOSS_REASONS, ROLES, PLATFORMS, CREATIVE_TYPES } from './db.js';
 
 const SUM_FIELDS = Object.keys(FIELDS);
 
@@ -104,7 +104,7 @@ function pctChange(cur, prev) {
   return (cur - prev) / Math.abs(prev);
 }
 
-function reasonsFor(from, to, projectId) {
+export function reasonsFor(from, to, projectId) {
   const db = getDb();
   const rows = projectId
     ? db.prepare('SELECT reason, SUM(count) AS n FROM loss_reasons WHERE date BETWEEN ? AND ? AND project_id = ? GROUP BY reason').all(from, to, projectId)
@@ -317,15 +317,16 @@ export function campaignStats({ from, to, projectId = null }) {
     const sales = a.sale > 0 ? a.sale : c.sales;
     const organic = starts != null && c.clicks ? Math.max(starts - c.clicks, 0) : null;
     return {
-      ...c, platform_label: PLATFORMS[c.platform] || c.platform,
+      ...c, platform_label: PLATFORMS[c.platform] || c.platform, creative_label: CREATIVE_TYPES[c.creative_type] || null,
       starts, leads, sales, organic, auto: a,
-      cpc: div(c.spend, c.clicks), cost_per_start: div(c.spend, starts), cpl: div(c.spend, leads), cac: div(c.spend, sales),
+      ctr: div(c.clicks, c.impressions), cpc: div(c.spend, c.clicks), cost_per_start: div(c.spend, starts), cpl: div(c.spend, leads), cac: div(c.spend, sales),
       start_to_sale: div(sales, starts),
     };
   });
   const sum = (k) => rows.reduce((a, r) => a + (Number(r[k]) || 0), 0);
-  const total = { count: rows.length, spend: sum('spend'), clicks: sum('clicks'), starts: sum('starts'), leads: sum('leads'), sales: sum('sales') };
-  Object.assign(total, { cpc: div(total.spend, total.clicks), cost_per_start: div(total.spend, total.starts), cpl: div(total.spend, total.leads), cac: div(total.spend, total.sales) });
+  const total = { count: rows.length, spend: sum('spend'), impressions: sum('impressions'), clicks: sum('clicks'), starts: sum('starts'), leads: sum('leads'), sales: sum('sales') };
+  Object.assign(total, { ctr: div(total.clicks, total.impressions), cpc: div(total.spend, total.clicks), cost_per_start: div(total.spend, total.starts), cpl: div(total.spend, total.leads), cac: div(total.spend, total.sales) });
+  for (const r of rows) Object.assign(r, creativeVerdict(r, total));
   const byPlatform = Object.entries(PLATFORMS).map(([k, label]) => {
     const rs = rows.filter((r) => r.platform === k);
     const spend = rs.reduce((a, r) => a + (r.spend || 0), 0);
@@ -333,7 +334,29 @@ export function campaignStats({ from, to, projectId = null }) {
     const leads = rs.reduce((a, r) => a + (r.leads || 0), 0);
     return { platform: k, label, count: rs.length, spend, starts, leads, cost_per_start: div(spend, starts), cpl: div(spend, leads) };
   }).filter((p) => p.count);
-  return { rows, total, byPlatform };
+  const judged = rows.filter((r) => r.verdict === 'good' || r.verdict === 'bad');
+  return {
+    rows, total, byPlatform,
+    best: [...rows].filter((r) => r.verdict === 'good').sort((a, b) => (a.cpl ?? Infinity) - (b.cpl ?? Infinity)).slice(0, 5),
+    worst: [...rows].filter((r) => r.verdict === 'bad').sort((a, b) => (b.spend || 0) - (a.spend || 0)).slice(0, 5),
+    judgedCount: judged.length,
+  };
+}
+
+// Kreativ bahosi: davrdagi o'rtacha CTR / lid narxi / start narxiga nisbatan. Kam pul sarflangan bo'lsa — baho berilmaydi
+export function creativeVerdict(r, avg) {
+  if (!(r.spend >= 10)) return { verdict: 'new', verdict_label: "Ma'lumot kam", verdict_reason: "$10 dan kam sarflangan" };
+  const bad = [];
+  if (r.ctr != null && avg.ctr && r.ctr < avg.ctr * 0.65) bad.push(`CTR ${pct(r.ctr)} (o'rtacha ${pct(avg.ctr)})`);
+  if (r.cpl != null && avg.cpl && r.cpl > avg.cpl * 1.5) bad.push(`lid narxi $${r.cpl.toFixed(2)} (o'rtacha $${avg.cpl.toFixed(2)})`);
+  if (r.leads === 0 && r.spend >= 20) bad.push("birorta ham lid yo'q");
+  if (r.cost_per_start != null && avg.cost_per_start && r.cost_per_start > avg.cost_per_start * 1.6) bad.push(`1 start $${r.cost_per_start.toFixed(3)}`);
+  if (bad.length) return { verdict: 'bad', verdict_label: 'Ishlamayapti', verdict_reason: bad.join(', ') };
+  const good = [];
+  if (r.cpl != null && avg.cpl && r.cpl < avg.cpl * 0.8) good.push(`lid narxi $${r.cpl.toFixed(2)}`);
+  if (r.ctr != null && avg.ctr && r.ctr > avg.ctr * 1.25) good.push(`CTR ${pct(r.ctr)}`);
+  if (good.length) return { verdict: 'good', verdict_label: 'Yaxshi ishlayapti', verdict_reason: good.join(', ') };
+  return { verdict: 'ok', verdict_label: "O'rtacha", verdict_reason: "o'rtacha natija" };
 }
 
 // ---------- Hisobot intizomi ----------
@@ -367,4 +390,95 @@ export function toCsv(projects, rows) {
     lines.push(cols.map((c) => esc(c === 'project' ? pr?.name : r[c])).join(','));
   }
   return `\ufeff${lines.join('\n')}`;
+}
+
+// ---------- Direktor uchun: loyiha holati, tavsiyalar, byudjet taqsimoti ----------
+export const PROJECT_STATUS = {
+  unprofitable: 'Zarar',
+  sales_issue: 'Sotuvda muammo',
+  creative: 'Kreativ ishlamayapti',
+  needs_leads: 'Lid kerak',
+  scale: "O'stirish mumkin",
+  good: 'Yaxshi',
+  nodata: "Ma'lumot kam",
+};
+const STATUS_ORDER = ['unprofitable', 'sales_issue', 'creative', 'needs_leads', 'scale', 'good', 'nodata'];
+
+// Asosni barqaror qilish uchun odatda so'nggi 7 kun olinadi
+export function recommendations({ from, to }) {
+  const s = summary({ from, to });
+  const camps = campaignStats({ from, to });
+  const avg = s.totals;
+  const plan = s.plan;
+  const remaining = plan.days - plan.elapsed;
+  const projects = s.byProject.map((p) => {
+    const actions = [];
+    const flags = new Set();
+    const salesIn = p.reported.sales > 0;
+    const badCreatives = camps.rows.filter((c) => c.project_id === p.id && c.verdict === 'bad');
+    if (p.spend === 0 && p.leads === 0) {
+      return { ...pick(p), status: 'nodata', status_label: PROJECT_STATUS.nodata, actions: [], badCreatives: [] };
+    }
+    if (salesIn && p.spend > 0 && p.roas != null && p.roas < 1) {
+      flags.add('unprofitable');
+      actions.push({ type: 'budget_down', owner: 'admin', text: `Reklama o'zini oqlamayapti: ROAS ${p.roas.toFixed(2)} — byudjetni qisqartirish yoki kreativ/auditoriyani to'liq almashtirish.` });
+    }
+    if (salesIn && p.leads >= 15 && avg.lead_to_sale && p.lead_to_sale != null && p.lead_to_sale < avg.lead_to_sale * 0.6) {
+      flags.add('sales_issue');
+      const top = reasonsFor(from, to, p.id)[0];
+      actions.push({ type: 'sales', owner: 'sales', text: `ROP: lid→sotuv ${pct(p.lead_to_sale)} (o'rtacha ${pct(avg.lead_to_sale)}).${top ? ` Asosiy sabab — «${top.label}».` : ''} Qo'ng'iroq tezligi va skriptni tekshirish.` });
+    }
+    const ctr = p.ctr, cplHigh = p.cpl != null && avg.cpl && p.cpl > avg.cpl * 1.4;
+    if (badCreatives.length || cplHigh || (ctr != null && avg.ctr && ctr < avg.ctr * 0.7)) {
+      flags.add('creative');
+      const names = badCreatives.slice(0, 3).map((c) => `«${c.name}»`).join(', ');
+      actions.push({ type: 'creative', owner: 'target', text: names
+        ? `Kreativlarni almashtirish: ${names} ishlamayapti (${badCreatives[0].verdict_reason}).`
+        : `Lid narxi $${(p.cpl || 0).toFixed(2)} — o'rtachadan ${pct(p.cpl / avg.cpl - 1)} qimmat. Yangi kreativ (video) sinash kerak.` });
+    }
+    const pl = plan.items.find((i) => i.project_id === p.id)?.metrics.leads;
+    if (pl?.plan && plan.elapsed >= 5 && ['behind', 'risk'].includes(pl.status) && remaining > 0) {
+      flags.add('needs_leads');
+      const need = Math.ceil((pl.plan - pl.fact) / remaining);
+      const now = Math.round(pl.fact / plan.elapsed);
+      actions.push({ type: 'leads', owner: 'target', text: `Reja uchun kuniga ~${fmt(need)} lid kerak (hozir ${fmt(now)}). Oylik reja ${pct(pl.pct)} bajarilgan.` });
+    } else if (p.growth.leads != null && p.growth.leads < -0.15) {
+      flags.add('needs_leads');
+      actions.push({ type: 'leads', owner: 'target', text: `Lidlar o'tgan davrga nisbatan ${pct(-p.growth.leads)} kamaydi — trafikni tiklash kerak.` });
+    }
+    if (!flags.has('unprofitable') && !flags.has('creative') && salesIn && avg.roas && p.roas >= avg.roas * 1.3 && (p.lead_to_sale ?? 0) >= (avg.lead_to_sale ?? 0) * 0.9) {
+      flags.add('scale');
+      actions.push({ type: 'budget_up', owner: 'admin', text: `Byudjetni +20–30% oshirish mumkin: ROAS ${p.roas.toFixed(2)} (o'rtacha ${avg.roas.toFixed(2)}), lid narxi $${(p.cpl || 0).toFixed(2)}.` });
+    }
+    const status = STATUS_ORDER.find((k) => flags.has(k)) || 'good';
+    return { ...pick(p), status, status_label: PROJECT_STATUS[status], actions, badCreatives: badCreatives.map((c) => ({ id: c.id, name: c.name, reason: c.verdict_reason })) };
+  });
+  return { from, to, totals: pick(avg), projects, allocation: allocation(s.byProject, avg, s.days), worstCreatives: camps.worst, bestCreatives: camps.best };
+}
+
+function pick(p) {
+  const keys = ['id', 'name', 'color', 'spend', 'impressions', 'clicks', 'starts', 'organic', 'leads', 'qualified', 'sales', 'total_revenue', 'ctr', 'cpc', 'cost_per_start', 'cpl', 'cac', 'lead_to_sale', 'start_to_lead', 'roas', 'roi', 'growth'];
+  return Object.fromEntries(keys.filter((k) => k in p).map((k) => [k, p[k]]));
+}
+
+// Byudjetni qayta taqsimlash taklifi: hozirgi ulush × samaradorlik (ROAS nisbati, 0.5–1.6 oralig'ida)
+export function allocation(byProject, avg, days) {
+  const withSpend = byProject.filter((p) => p.spend > 0);
+  const total = withSpend.reduce((a, p) => a + p.spend, 0);
+  if (!total) return [];
+  const weight = (p) => {
+    if (p.roas == null || !avg.roas) return p.spend * 0.8;
+    return p.spend * Math.min(Math.max(p.roas / avg.roas, 0.5), 1.6);
+  };
+  const wsum = withSpend.reduce((a, p) => a + weight(p), 0);
+  const perDay = total / Math.max(days, 1);
+  return withSpend.map((p) => {
+    const share = p.spend / total;
+    const suggested = weight(p) / wsum;
+    return {
+      id: p.id, name: p.name, color: p.color, spend: p.spend, roas: p.roas, cpl: p.cpl,
+      share, suggested, change: suggested - share,
+      daily_now: share * perDay, daily_suggested: suggested * perDay,
+    };
+  }).sort((a, b) => b.change - a.change);
 }

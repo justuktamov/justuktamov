@@ -3,8 +3,10 @@ import {
   $, esc, api, state, shell, filtersHtml, bindFilters, computePeriod, kpi, fmtN, fmtUsd, fmtP, shortDate,
   toast, modal, ICONS, botLink, copyText, spinnerBlock, chartBase, cssVar,
 } from './core.js';
+import { creativeList } from './today.js';
 
-const canEdit = () => ['admin', 'target'].includes(state.me.user.role);
+const canEdit = () => ['admin', 'pm', 'target'].includes(state.me.user.role);
+const VERDICT_PILL = { good: 'good', bad: 'crit', ok: '', new: 'info' };
 
 function formHtml(c) {
   c ||= {};
@@ -18,9 +20,14 @@ function formHtml(c) {
       <label class="field">Sana<input type="date" name="date" id="cDate" value="${v('date') || state.me.today}" max="${state.me.today}" required></label>
       <label class="field">Platforma<select name="platform" id="cPlatform">${Object.entries(platforms).map(([k, l]) => `<option value="${k}" ${c.platform === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
     </div>
-    <label class="field">Post nomi<input name="name" id="cName" required maxlength="120" value="${v('name')}" placeholder="Masalan: @kanal posti, chegirma kreativi"></label>
+    <label class="field">Post / kreativ nomi<input name="name" id="cName" required maxlength="120" value="${v('name')}" placeholder="Masalan: IELTS — o'quvchi natijasi videosi"></label>
+    <div class="fields">
+      <label class="field">Kreativ turi<select name="creative_type" id="cType"><option value="">—</option>${Object.entries(state.me.creativeTypes || {}).map(([k, l]) => `<option value="${k}" ${c.creative_type === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+      <label class="field" style="grid-column:span 2">Kreativ havolasi<span class="hint">video yoki post (ixtiyoriy)</span><input name="creative_url" id="cUrl" type="url" value="${v('creative_url')}" placeholder="https://t.me/kanal/123"></label>
+    </div>
     <div class="fields">
       <label class="field">Xarajat ($)<input name="spend" id="cSpend" inputmode="decimal" value="${v('spend')}" placeholder="30"></label>
+      <label class="field">Ko'rishlar<span class="hint">CTR uchun</span><input name="impressions" id="cImpr" inputmode="numeric" value="${v('impressions')}" placeholder="50000"></label>
       <label class="field">Kliklar<input name="clicks" id="cClicks" inputmode="numeric" value="${v('clicks')}" placeholder="1000"></label>
       <label class="field">Bot start<span class="hint">havola orqali avtomatik; bo'lmasa qo'lda</span><input name="starts" id="cStarts" inputmode="numeric" value="${v('starts')}"></label>
       <label class="field">Lidlar<input name="leads" id="cLeads" inputmode="numeric" value="${v('leads')}"></label>
@@ -58,7 +65,7 @@ function showLink(c) {
 }
 
 export async function renderCampaigns() {
-  shell(`<div class="page-head"><div><h1>Reklama postlari</h1><div class="sub">Har bir post uchun alohida havola — qaysi post qancha odam va sotuv olib kelganini ko'rasiz</div></div>
+  shell(`<div class="page-head"><div><h1><span class="grad">Reklama</span> va kreativlar</h1><div class="sub">Har bir post va video uchun alohida havola: qaysi kreativ ishlayapti, qaysisini almashtirish kerak — darhol ko'rinadi.</div></div>
     <div class="row">${filtersHtml()}${canEdit() ? `<button class="btn primary" id="addCamp">${ICONS.plus} Post qo'shish</button>` : ''}</div></div>
     <div id="camps">${spinnerBlock()}</div>`);
   bindFilters(renderCampaigns);
@@ -75,20 +82,25 @@ export async function renderCampaigns() {
       ${kpi({ label: 'Postlar', value: fmtN(t.count), sub: `${from} — ${to}` })}
       ${kpi({ label: 'Xarajat', value: fmtUsd(t.spend, 0), sub: `klik narxi ${fmtUsd(t.cpc, 3)}` })}
       ${kpi({ label: 'Bot start', value: fmtN(t.starts), sub: `1 start ${fmtUsd(t.cost_per_start, 3)}` })}
-      ${kpi({ label: 'Lid / sotuv', value: `${fmtN(t.leads)} / ${fmtN(t.sales)}`, sub: `1 lid ${fmtUsd(t.cpl)} · 1 sotuv ${fmtUsd(t.cac)}` })}
+      ${kpi({ label: 'Lid / sotuv', value: `${fmtN(t.leads)} / ${fmtN(t.sales)}`, sub: `1 lid ${fmtUsd(t.cpl)} · CTR ${fmtP(t.ctr, 2)}` })}
     </div>
-    <div class="card"><div class="table-wrap"><table><thead><tr><th>Sana</th><th>Post</th><th>Loyiha</th><th>Platforma</th><th>Havola</th>
-      <th class="n">Xarajat</th><th class="n">Klik</th><th class="n">Start</th><th class="n">Organik</th><th class="n">1 start</th><th class="n">Lid</th><th class="n">1 lid</th><th class="n">Sotuv</th><th class="n">Start→sotuv</th>${canEdit() ? '<th></th>' : ''}</tr></thead>
+    <div class="grid g2" style="margin-bottom:16px">
+      <div class="card"><div class="card-head"><h2>Ishlamayotgan kreativlar</h2><span class="pill crit">${data.worst.length}</span></div>${creativeList(data.worst, "Yomon natijali kreativ yo'q — zo'r!")}</div>
+      <div class="card"><div class="card-head"><h2>Eng yaxshi kreativlar</h2><span class="pill good">${data.best.length}</span></div>${creativeList(data.best, 'Hali aniqlanmadi — ko\'proq ma\'lumot kerak.')}</div>
+    </div>
+    <div class="card"><div class="table-wrap"><table><thead><tr><th>Sana</th><th>Post / kreativ</th><th>Baho</th><th>Loyiha</th><th>Platforma</th><th>Havola</th>
+      <th class="n">Xarajat</th><th class="n">CTR</th><th class="n">Klik</th><th class="n">Start</th><th class="n">Organik</th><th class="n">1 start</th><th class="n">Lid</th><th class="n">1 lid</th><th class="n">Sotuv</th><th class="n">Start→sotuv</th>${canEdit() ? '<th></th>' : ''}</tr></thead>
       <tbody>${data.rows.map((c) => `<tr data-id="${c.id}">
-        <td>${shortDate(c.date)}</td><td><b>${esc(c.name)}</b>${c.note ? `<div class="tiny muted" style="white-space:normal;max-width:260px">${esc(c.note)}</div>` : ''}</td>
+        <td>${shortDate(c.date)}</td><td><b>${esc(c.name)}</b>${c.creative_label ? ` <span class="tiny muted">· ${esc(c.creative_label)}</span>` : ''}${c.creative_url ? ` <a class="tiny" href="${esc(c.creative_url)}" target="_blank" rel="noopener">↗</a>` : ''}${c.note ? `<div class="tiny muted" style="white-space:normal;max-width:260px">${esc(c.note)}</div>` : ''}</td>
+        <td><span class="pill ${VERDICT_PILL[c.verdict]}" title="${esc(c.verdict_reason)}">${esc(c.verdict_label)}</span></td>
         <td><span class="dot" style="background:${esc(c.project_color || 'var(--series-1)')}"></span>${esc(c.project_name)}</td>
         <td><span class="pill">${esc(c.platform_label)}</span></td>
         <td><button class="btn small ghost" data-a="copy" title="${esc(botLink(c.project_slug, c.tag))}">${ICONS.copy} ${esc(c.tag)}</button></td>
-        <td class="n">${fmtUsd(c.spend, 0)}</td><td class="n">${fmtN(c.clicks)}</td>
+        <td class="n">${fmtUsd(c.spend, 0)}</td><td class="n">${fmtP(c.ctr, 2)}</td><td class="n">${fmtN(c.clicks)}</td>
         <td class="n">${fmtN(c.starts)}${c.auto.start ? '<span class="tag-auto">bot</span>' : ''}</td><td class="n">${fmtN(c.organic)}</td>
         <td class="n">${fmtUsd(c.cost_per_start, 3)}</td><td class="n">${fmtN(c.leads)}</td><td class="n">${fmtUsd(c.cpl)}</td><td class="n">${fmtN(c.sales)}</td><td class="n">${fmtP(c.start_to_sale)}</td>
         ${canEdit() ? `<td><button class="btn small ghost" data-a="edit" aria-label="Tahrirlash">${ICONS.edit}</button><button class="btn small ghost danger" data-a="del" aria-label="O'chirish">${ICONS.trash}</button></td>` : ''}
-      </tr>`).join('') || `<tr><td colspan="15" class="empty">Bu davrda post yo'q.${canEdit() ? ' «Post qo\'shish» tugmasini bosing — har bir post uchun alohida bot havolasi beriladi.' : ''}</td></tr>`}</tbody>
+      </tr>`).join('') || `<tr><td colspan="17" class="empty">Bu davrda post yo'q.${canEdit() ? ' «Post qo\'shish» tugmasini bosing — har bir post uchun alohida bot havolasi beriladi.' : ''}</td></tr>`}</tbody>
     </table></div></div>
     ${data.byPlatform.length ? `<div class="grid g2 mt">
       <div class="card"><div class="card-head"><h2>1 start narxi platformalar bo'yicha</h2><span class="muted">past — yaxshi</span></div><div class="chart-box"><canvas id="chPlat" aria-label="Platformalar bo'yicha bitta start narxi"></canvas></div></div>

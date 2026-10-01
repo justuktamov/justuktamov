@@ -12,7 +12,7 @@ export async function renderSettings() {
   if (state.me.user.role !== 'admin') { location.hash = '#/profil'; return; }
   const qTab = new URLSearchParams(location.hash.split('?')[1] || '').get('tab');
   if (qTab && TABS.some(([k]) => k === qTab)) settingsTab = qTab;
-  shell(`<div class="page-head"><div><h1>Sozlamalar</h1><div class="sub">Loyihalar, rejalar, xodimlar va Telegram</div></div></div>
+  shell(`<div class="page-head"><div><h1><span class="grad">Sozlamalar</span></h1><div class="sub">Loyihalar, rejalar, xodimlar va Telegram</div></div></div>
     <div class="tabs" id="sTabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-k="${k}" class="${settingsTab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
     <div id="sBody">${spinnerBlock()}</div>`);
   $('#sTabs').onclick = (e) => {
@@ -122,7 +122,7 @@ async function tabUsers(body) {
       <td>${u.active ? '<span class="pill good">Faol</span>' : '<span class="pill">O\'chirilgan</span>'}</td>
       <td><button class="btn small" data-a="save">Saqlash</button> <button class="btn small ghost" data-a="toggle">${u.active ? "O'chirish" : 'Yoqish'}</button></td></tr>`).join('')}
     </tbody></table></div>
-    <p class="muted small" style="margin:12px 0 0"><b>Rollar:</b> Targetolog — xarajat, kliklar va reklama postlari · Lid menejeri — startlar, lidlar va rad sabablari · Sotuv menejeri — sotuv, tushum va sabablar · Moliya — kassaga tushum va qayta sotuvlar (LTV) · Rahbar — hammasi.</p></div>`;
+    <p class="muted small" style="margin:12px 0 0">Har bir rol nimani kiritishi va nimani olishi — <a href="#/jamoa">Jamoa</a> sahifasida.</p></div>`;
   $('#newUser').onsubmit = async (e) => {
     e.preventDefault();
     try { await api('/api/users', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); toast("Xodim qo'shildi"); renderSettings(); } catch (err) { toast(err.message, true); }
@@ -198,13 +198,13 @@ async function tabAudit(body) {
 export function renderProfile() {
   const u = state.me.user;
   const theme = getTheme();
-  shell(`<div class="page-head"><div><h1>Profil</h1><div class="sub">Shaxsiy sozlamalar</div></div></div>
+  shell(`<div class="page-head"><div><h1><span class="grad">Profil</span></h1><div class="sub">Shaxsiy sozlamalar</div></div></div>
     <div class="grid g2">
       <div class="card stack">
         <div class="row"><span class="avatar" style="width:48px;height:48px;font-size:16px;background:var(--brand-soft);color:var(--brand)">${esc(initials(u.name))}</span>
           <div><h2>${esc(u.name)}</h2><div class="muted small">${esc(state.me.roles[u.role])} · login: ${esc(u.login)}</div></div></div>
         <div><span class="eyebrow">Mavzu</span>
-          <div class="seg" id="themeSeg" style="margin-top:6px">${[['system', 'Tizim'], ['light', "Yorug'"], ['dark', 'Tungi']].map(([k, l]) => `<button data-t="${k}" class="${theme === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+          <div class="seg" id="themeSeg" style="margin-top:6px">${[['dark', 'Tungi (standart)'], ['light', "Yorug'"]].map(([k, l]) => `<button data-t="${k}" class="${theme === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
         <div><span class="eyebrow">Telegram</span>
           <p class="small" style="margin:6px 0 0;color:var(--text-2)">${u.telegram_id ? `Bog'langan: <span class="code">${esc(u.telegram_id)}</span>. Eslatmalar va hisobotlar Telegramga keladi.` : 'Telegram bog\'lanmagan. Botga <span class="code">/id</span> yozing va chiqqan raqamni rahbarga yuboring — eslatmalar va Mini App shundan keyin ishlaydi.'}</p></div>
       </div>

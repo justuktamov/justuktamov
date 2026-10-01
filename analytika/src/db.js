@@ -6,11 +6,24 @@ import { dirname } from 'node:path';
 const DB_PATH = process.env.DB_PATH || './data/analytika.db';
 
 export const ROLES = {
-  admin: 'Rahbar (admin)',
+  admin: 'Direktor',
+  pm: 'Proekt menejer',
   target: 'Targetolog',
-  lead: 'Lid menejeri',
-  sales: 'Sotuv menejeri',
+  sales: 'ROP — sotuv bo\'limi',
+  lead: 'Lid operatori',
   finance: 'Moliya',
+  creative: 'Kreativchi (mobilograf)',
+};
+
+// Kim tizimda nima uchun javob beradi — «Jamoa» sahifasida ko'rsatiladi
+export const ROLE_DUTIES = {
+  admin: { gives: "Oylik reja, byudjet qarorlari, hisobotga izoh", gets: "PM ning kunlik hisoboti, tavsiyalar, byudjet taqsimoti" },
+  pm: { gives: "Kunlik hisobotni yig'adi, har bir loyihaga holat va izoh yozadi, direktorga yuboradi", gets: "Targetolog va ROP raqamlari, kim kiritmagani, avtomatik tavsiyalar" },
+  target: { gives: "Har bir loyiha bo'yicha xarajat ($), ko'rishlar, kliklar; har bir post/kreativ natijasi", gets: "Qaysi kreativ ishlamayapti, qaysi loyihaga byudjet oshirish kerak" },
+  sales: { gives: "Lidlar soni, sifatli lidlar, sotuvlar, tushum, nega sotib olmaganlar", gets: "Qaysi loyihada lid→sotuv past, lid sifati" },
+  lead: { gives: "Bot startlar va lidlar (ROP o'rniga kiritishi mumkin)", gets: "Kunlik vazifalar ro'yxati" },
+  finance: { gives: "Kassaga tushgan pul, qayta sotuvlar (LTV)", gets: "Tushum va to'lovlar farqi" },
+  creative: { gives: "Kreativlar (video/rasm) — targetolog bilan birga", gets: "Har bir kreativning CTR va lid narxi, qaysisi ishlamayapti" },
 };
 
 // Har bir rol qaysi maydonlarni kiritadi (PDF dagi mas'ullar jadvaliga mos)
@@ -34,6 +47,11 @@ export const NOTE_FIELDS = {
   note_sales: 'sales',
   note_finance: 'finance',
 };
+
+// ROP lid operatori maydonlarini ham kirita oladi; direktor va PM — hammasini
+const EXTRA_EDIT = { sales: ['lead'] };
+
+export const CREATIVE_TYPES = { video: 'Video', image: 'Rasm / banner', stories: 'Stories / Reels', text: 'Matnli post' };
 
 // "Nimaga lid ko'p, sotuv past?" — sotib olmaslik sabablari
 export const LOSS_REASONS = {
@@ -66,10 +84,17 @@ export const PLAN_FIELDS = {
 };
 
 export function canEdit(role, field) {
-  if (role === 'admin') return true;
-  if (FIELDS[field]) return FIELDS[field].role === role;
-  if (NOTE_FIELDS[field]) return NOTE_FIELDS[field] === role;
-  return false;
+  if (role === 'admin' || role === 'pm') return true;
+  const owner = FIELDS[field]?.role || NOTE_FIELDS[field];
+  if (!owner) return false;
+  return owner === role || (EXTRA_EDIT[role] || []).includes(owner);
+}
+
+// Rolning kiritish sahifasida ko'rinadigan bo'limlari
+export function entryRoles(role) {
+  if (role === 'admin' || role === 'pm') return ['target', 'lead', 'sales', 'finance'];
+  const mine = [role, ...(EXTRA_EDIT[role] || [])];
+  return ['target', 'lead', 'sales', 'finance'].filter((r) => mine.includes(r)); // voronka tartibida
 }
 
 let db;
@@ -190,11 +215,30 @@ function migrate(db) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE (project_id, tag)
     );
+    -- PM ning direktorga kunlik hisoboti (kuniga bitta)
+    CREATE TABLE IF NOT EXISTS daily_reports (
+      date TEXT PRIMARY KEY,
+      author_id INTEGER,
+      status TEXT NOT NULL DEFAULT 'draft',
+      summary TEXT,
+      tomorrow TEXT,
+      project_notes TEXT,
+      submitted_at TEXT,
+      reviewed_by INTEGER,
+      reviewed_at TEXT,
+      director_comment TEXT,
+      updated_at TEXT
+    );
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT
     );
   `);
+  // Eski bazalarga yangi ustunlar
+  const cols = db.prepare('PRAGMA table_info(campaigns)').all().map((c) => c.name);
+  for (const [c, t] of [['impressions', 'REAL'], ['creative_type', 'TEXT'], ['creative_url', 'TEXT']]) {
+    if (cols.length && !cols.includes(c)) db.exec(`ALTER TABLE campaigns ADD COLUMN ${c} ${t}`);
+  }
 }
 
 export function getSetting(key, fallback = null) {

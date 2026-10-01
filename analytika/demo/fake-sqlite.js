@@ -1,6 +1,6 @@
 // Brauzer demosi uchun node:sqlite o'rnini bosuvchi: metrics.js, db.js va telegram.js ishlatadigan
 // so'rovlarni xotiradagi massivlar ustida bajaradi.
-export const store = { projects: [], daily: [], reasons: [], events: [], campaigns: [], plans: [], users: [], settings: {} };
+export const store = { projects: [], daily: [], reasons: [], events: [], campaigns: [], plans: [], users: [], reports: [], settings: {} };
 
 const inRange = (d, from, to) => d >= from && d <= to;
 
@@ -25,6 +25,22 @@ const QUERIES = [
     }).sort((a, b) => (a.date === b.date ? b.id - a.id : a.date < b.date ? 1 : -1)),
   }],
   [/^SELECT id, name, role FROM users WHERE active = 1$/, { all: () => store.users.filter((u) => u.active).map(({ id, name, role }) => ({ id, name, role })) }],
+  [/^PRAGMA table_info/, { all: () => [] }],
+  [/^SELECT \* FROM daily_reports WHERE date = \?$/, { get: (d) => { const r = store.reports.find((x) => x.date === d); return r && { ...r }; } }],
+  [/^SELECT status FROM daily_reports WHERE date = \?$/, { get: (d) => store.reports.find((x) => x.date === d) }],
+  [/^SELECT date FROM daily_reports ORDER BY date DESC LIMIT \?$/, { all: (n) => [...store.reports].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, n).map((r) => ({ date: r.date })) }],
+  [/^INSERT INTO daily_reports \(date, author_id, status, summary, tomorrow, project_notes, updated_at\)/, {
+    run: (date, author_id, summary, tomorrow, project_notes, updated_at) => {
+      const r = store.reports.find((x) => x.date === date);
+      if (r) Object.assign(r, { author_id, summary, tomorrow, project_notes, updated_at });
+      else store.reports.push({ date, author_id, status: 'draft', summary, tomorrow, project_notes, updated_at });
+      return {};
+    },
+  }],
+  [/^UPDATE daily_reports SET status = 'submitted'/, { run: (at, uid, date) => { Object.assign(store.reports.find((x) => x.date === date), { status: 'submitted', submitted_at: at, author_id: uid }); return {}; } }],
+  [/^UPDATE daily_reports SET status = 'reviewed'/, { run: (uid, at, comment, date) => { Object.assign(store.reports.find((x) => x.date === date), { status: 'reviewed', reviewed_by: uid, reviewed_at: at, director_comment: comment }); return {}; } }],
+  [/^SELECT id, name FROM users$/, { all: () => store.users.map(({ id, name }) => ({ id, name })) }],
+  [/^SELECT name, role FROM users WHERE active = 1 ORDER BY id$/, { all: () => store.users.filter((u) => u.active).map(({ name, role }) => ({ name, role })) }],
   [/^SELECT value FROM settings WHERE key = \?$/, { get: (k) => (k in store.settings ? { value: store.settings[k] } : undefined) }],
 ];
 
@@ -40,6 +56,6 @@ export class DatabaseSync {
     const s = sql.replace(/\s+/g, ' ').trim();
     const hit = QUERIES.find(([re]) => re.test(s));
     if (!hit) throw new Error(`Demo: qo'llab-quvvatlanmagan so'rov: ${s.slice(0, 80)}`);
-    return { all: (...a) => hit[1].all(...a), get: (...a) => hit[1].get?.(...a), run: () => ({}) };
+    return { all: (...a) => hit[1].all(...a), get: (...a) => hit[1].get?.(...a), run: (...a) => (hit[1].run ? hit[1].run(...a) : {}) };
   }
 }
