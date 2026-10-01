@@ -38,7 +38,7 @@ export async function renderProject(id) {
       <div class="card"><div class="card-head"><h2>Nega sotib olmadi?</h2></div>${reasonsHtml(s.reasons)}</div>
     </div>
     ${chartCards()}
-    <div class="card mt"><div class="card-head"><h2>Kunma-kun</h2><span class="row"><a class="btn small" href="#/kiritish">${ICONS.edit} Kiritish</a><button class="btn small" id="csvBtn">${ICONS.dl} CSV</button></span></div>
+    <div class="card mt"><div class="card-head"><h2>Kunma-kun</h2><span class="row"><a class="btn small" href="#/">${ICONS.edit} Kiritish</a><button class="btn small" id="csvBtn">${ICONS.dl} CSV</button></span></div>
       <div class="table-wrap"><table><thead><tr><th>Sana</th><th class="n">Xarajat</th><th class="n">Klik</th><th class="n">Start</th><th class="n">Lid</th><th class="n">Sotuv</th><th class="n">Lid→sotuv</th><th class="n">Tushum</th><th class="n">Rad sabablari</th><th>Izoh</th></tr></thead>
       <tbody>${rows.rows.map((r) => {
         const conv = r.leads ? r.sales / r.leads : null;

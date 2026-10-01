@@ -560,3 +560,62 @@ a.ptitle:hover { text-decoration: none; color: var(--accent); }
 
 input[type="file"] { padding: 6px; }
 input[type="file"]::file-selector-button { font: inherit; font-weight: 700; font-size: 13px; border: 0; border-radius: 999px; padding: 7px 14px; margin-right: 10px; background: var(--surface-3); color: var(--text); cursor: pointer; }
+
+/* ---------- PM: 4 qadamli kunlik hisobot ---------- */
+.stepper { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.stepper button { display: inline-flex; align-items: center; gap: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font: inherit; font-weight: 700; font-size: 14px; padding: 6px 14px 6px 6px; border-radius: 999px; cursor: pointer; white-space: nowrap; backdrop-filter: var(--blur); }
+.stepper .num { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-3); font-size: 13px; }
+.stepper .num svg { width: 15px; height: 15px; }
+.stepper button.ok .num { background: var(--good-bg); color: var(--good); }
+.stepper button.on { color: var(--text); border-color: transparent; background: linear-gradient(135deg, rgba(91,140,255,.45), rgba(49,89,232,.25)); }
+.stepper button.on .num { background: var(--accent); color: var(--accent-ink); }
+.stepper i { flex: 1 0 16px; max-width: 48px; height: 2px; background: var(--border-strong); border-radius: 2px; }
+.step { display: grid; gap: 18px; padding: 24px; }
+.step-head { display: grid; gap: 6px; }
+.step-head h2 { font-size: 22px; }
+.step-head p { margin: 0; color: var(--text-2); font-size: 15px; max-width: 70ch; }
+.step-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 16px; }
+.btn.big { padding: 13px 22px; font-size: 15px; }
+.grid-entry .cell-in { width: 130px; font-size: 16px; padding: 10px 12px; }
+.checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.check { background: var(--surface-2); border: 1px solid var(--border); border-radius: 18px; padding: 14px 16px; display: grid; gap: 8px; }
+.check-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.check-top b { font-size: 15.5px; display: inline-flex; align-items: center; }
+.meaning { margin: 0; font-size: 14px; color: var(--text); }
+.nums { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.check details { display: grid; gap: 8px; }
+.check details[open] { gap: 8px; }
+.check details summary { font-size: 13px; color: var(--text-3); }
+.check details .status-chips { margin: 8px 0; }
+.done-card { text-align: center; justify-items: center; padding: 40px 24px; }
+.done-icon { width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); box-shadow: 0 0 40px rgba(198, 245, 90, .35); }
+.done-icon svg { width: 34px; height: 34px; }
+.done-card h2 { font-size: 24px; }
+.done-card p { margin: 0; }
+.big-nums { justify-content: center; gap: 12px; }
+.big-nums span { display: grid; gap: 2px; min-width: 110px; padding: 12px 16px; background: var(--surface-2); border-radius: 16px; font-size: 12px; color: var(--text-3); }
+.big-nums b { font-size: 22px; font-weight: 600; color: var(--text); }
+.citem.arch { width: 100%; border: 1px solid var(--border); cursor: pointer; font: inherit; color: inherit; text-align: left; grid-template-columns: minmax(0, 1fr) auto auto; padding: 14px 16px; }
+.citem.arch:hover { background: var(--surface-3); }
+@media (max-width: 860px) {
+  .checks { grid-template-columns: minmax(0, 1fr); }
+  .step { padding: 18px 16px; }
+  .stepper button { padding: 5px 10px 5px 5px; font-size: 13px; }
+  .stepper button:not(.on) span:not(.num) { display: none; }
+  .grid-entry .cell-in { width: 92px; }
+  .step-foot .btn.primary { flex: 1 1 auto; justify-content: center; }
+}
+
+/* Telefonda: har bir loyiha — kichik karta, maydon nomi ustida */
+@media (max-width: 860px) {
+  .grid-entry thead { display: none; }
+  .grid-entry, .grid-entry tbody { display: block; }
+  .grid-entry tr { display: grid; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .grid-entry tr:last-child { border-bottom: 0; }
+  .grid-entry td { display: block; padding: 0; border: 0; }
+  .grid-entry td:first-child { grid-column: 1 / -1; font-weight: 700; }
+  .grid-entry td:last-child:not(.n) { display: none; }
+  .grid-entry td.n::before { content: attr(data-label); display: block; font-size: 11px; font-weight: 700; color: var(--text-3); text-align: left; margin-bottom: 4px; }
+  .grid-entry .cell-in { width: 100%; }
+  tbody tr:hover td { background: none; }
+}

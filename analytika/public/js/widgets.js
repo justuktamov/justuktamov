@@ -44,7 +44,7 @@ export function planBar(k, m) {
 export function planCard(plan, { title = 'Oylik reja', single = false } = {}) {
   const head = `<div class="card-head"><h2>${title}</h2><span class="muted">${monthLabel(plan.month)} · ${plan.elapsed}/${plan.days} kun</span></div>`;
   if (!plan.hasPlans) {
-    const admin = state.me.user.role === 'admin';
+    const admin = ['admin', 'pm'].includes(state.me.user.role);
     return `<div class="card">${head}<div class="plan-empty"><span>Bu oyga reja yo'q</span>
       ${admin ? '<a class="btn small" href="#/sozlamalar?tab=plans">Reja kiritish</a>' : ''}</div></div>`;
   }

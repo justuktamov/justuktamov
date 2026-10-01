@@ -4,7 +4,7 @@
 import { store } from './fake-sqlite.js';
 import { today, canEdit, FIELDS, NOTE_FIELDS, LOSS_REASONS, ROLES, PLATFORMS, PLAN_FIELDS, ROLE_DUTIES, CREATIVE_TYPES, entryRoles, EXPENSE_CATEGORIES, TASK_STATUS } from '../src/db.js';
 import { listTasks, createTask, updateTask, deleteTask, addExpense, deleteExpense, profitAndLoss, anomalies, weeklyReportText, parseCsv } from '../src/extras.js';
-import { reportBundle, saveDraft, submitReport, reviewReport, listReports } from '../src/reports.js';
+import { reportBundle, saveDraft, submitReport, reviewReport, listReports, reportText } from '../src/reports.js';
 import {
   summary, missingReport, loadRows, addDays, planProgress, campaignStats, discipline, toCsv,
 } from '../src/metrics.js';
@@ -13,7 +13,7 @@ import { generateDemo, DEMO_USERS } from '../src/demo-data.js';
 import { SYSTEM, compact, userPrompt } from '../src/ai-prompt.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v4';
+const SAVE_KEY = 'analitika-demo-v5';
 let audit = [];
 let reports = [];
 let me = null;
@@ -74,7 +74,7 @@ function num(v) {
   return x;
 }
 const needUser = () => { if (!me) throw new HttpError(401, 'Tizimga kiring'); return me; };
-const needAdmin = () => { if (needUser().role !== 'admin') throw new HttpError(403, 'Faqat rahbar uchun'); return me; };
+const needAdmin = () => { if (!['admin', 'pm'].includes(needUser().role)) throw new HttpError(403, 'Faqat rahbar uchun'); return me; };
 const needMoney = () => { if (!['admin', 'pm', 'finance'].includes(needUser().role)) throw new HttpError(403, "Foyda hisobini direktor, PM va moliya ko'radi"); return me; };
 const wrap = (fn) => { try { return fn(); } catch (e) { throw new HttpError(e.status || 400, e.message); } };
 const needTarget = () => { if (!['admin', 'pm', 'target'].includes(needUser().role)) throw new HttpError(403, "Postlarni targetolog yoki rahbar boshqaradi"); return me; };
@@ -132,10 +132,10 @@ const routes = {
       pendingToday: missingReport(TODAY).filter((m) => !m.filled && entryRoles(u.role).includes(m.role) && (!u.project_ids || u.project_ids.includes(m.project_id))).length,
       reportStatus: store.reports.find((r) => r.date === TODAY)?.status || null,
       openTasks: listTasks({ userId: u.id, status: 'active' }).length, expenseCategories: EXPENSE_CATEGORIES, taskStatus: TASK_STATUS,
-      ai: Boolean(window.claude?.use), telegram: { enabled: false, bot: null, miniApp: false }, usdRate: Number(store.settings.usd_rate),
+      ai: Boolean(window.claude?.use), telegram: { enabled: true, bot: 'demo_bot', miniApp: false, reportChat: true }, usdRate: Number(store.settings.usd_rate),
     };
   },
-  'GET /api/projects': () => { needUser(); return store.projects.map((p) => (me.role === 'admin' ? p : { ...p, track_key: undefined })); },
+  'GET /api/projects': () => { needUser(); return store.projects.map((p) => (['admin', 'pm'].includes(me.role) ? p : { ...p, track_key: undefined })); },
   'POST /api/projects': (b) => {
     needAdmin();
     if (!b.name?.trim()) throw new HttpError(400, 'Loyiha nomini kiriting');
@@ -291,6 +291,7 @@ const routes = {
     return { ok: true };
   },
   'GET /api/team': () => { needUser(); return store.users.filter((u) => u.active).map(({ name, role }) => ({ name, role })); },
+  'GET /api/report/preview': (_b, _p, q) => { needUser(); return { text: reportText(isDate(q.get('date')) ? q.get('date') : TODAY) }; },
   'GET /api/report': (_b, _p, q) => { needUser(); return reportBundle(isDate(q.get('date')) ? q.get('date') : TODAY); },
   'PUT /api/report': (b) => {
     const u = needUser();
@@ -418,4 +419,4 @@ window.__demoReset = () => {
 };
 
 window.DEMO = true;
-me = store.users.find((u) => u.login === 'admin');
+me = store.users.find((u) => u.login === 'pm');

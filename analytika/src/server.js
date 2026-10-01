@@ -23,7 +23,7 @@ import {
 } from './metrics.js';
 import { analyze, aiAvailable } from './ai.js';
 import {
-  startPolling, telegramStatus, recordEvent, sendMessage, dailyReportText, remindMissing,
+  startPolling, telegramStatus, recordEvent, sendMessage, dailyReportText,
 } from './telegram.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -71,9 +71,10 @@ function requireUser(req) {
   if (!req.user) throw new HttpError(401, 'Tizimga kiring');
   return req.user;
 }
+// Ilova proekt menejer uchun: PM ham to'liq boshqaradi (loyihalar, sozlamalar, import)
 function requireAdmin(req) {
   const u = requireUser(req);
-  if (u.role !== 'admin') throw new HttpError(403, 'Faqat rahbar uchun');
+  if (u.role !== 'admin' && u.role !== 'pm') throw new HttpError(403, 'Faqat rahbar yoki proekt menejer uchun');
   return u;
 }
 
@@ -131,7 +132,7 @@ route('GET', '/api/me', async (req, res) => {
     reportStatus: getDb().prepare('SELECT status FROM daily_reports WHERE date = ?').get(today())?.status || null,
     openTasks: listTasks({ userId: user.id, status: 'active' }).length,
     expenseCategories: EXPENSE_CATEGORIES, taskStatus: TASK_STATUS,
-    ai: aiAvailable(), telegram: { enabled: telegramStatus().enabled, bot: telegramStatus().bot, miniApp: Boolean(process.env.APP_URL) },
+    ai: aiAvailable(), telegram: { enabled: telegramStatus().enabled, bot: telegramStatus().bot, miniApp: Boolean(process.env.APP_URL), reportChat: Boolean(getSetting('report_chat_id')) },
     usdRate: Number(getSetting('usd_rate', process.env.USD_RATE || 12800)),
   });
 });
@@ -140,7 +141,7 @@ route('GET', '/api/me', async (req, res) => {
 route('GET', '/api/projects', async (req, res) => {
   const u = requireUser(req);
   const rows = getDb().prepare('SELECT * FROM projects ORDER BY active DESC, id').all();
-  send(res, 200, rows.map((p) => (u.role === 'admin' ? p : { ...p, track_key: undefined })));
+  send(res, 200, rows.map((p) => (isManager(u) ? p : { ...p, track_key: undefined })));
 });
 route('POST', '/api/projects', async (req, res) => {
   requireAdmin(req);
@@ -424,6 +425,11 @@ route('POST', '/api/report/submit', async (req, res) => {
   for (const chat of targets) sendMessage(chat, text).catch((e) => console.error('Telegram:', e.message));
   send(res, 200, { ...r, notified: targets.size });
 });
+// Direktor Telegramda nimani ko'rishi — yuborishdan oldin
+route('GET', '/api/report/preview', async (req, res, _p, q) => {
+  requireUser(req);
+  send(res, 200, { text: reportText(isDate(q.get('date')) ? q.get('date') : today()) });
+});
 route('POST', '/api/report/review', async (req, res) => {
   const u = requireAdmin(req);
   const b = await readBody(req);
@@ -623,8 +629,10 @@ function startScheduler() {
       if (hm === reportTime && getSetting('last_report') !== d) {
         setSetting('last_report', d);
         const chat = getSetting('report_chat_id');
-        if (chat) {
-          await sendMessage(chat, dailyReportText(d));
+        // PM o'zi yuborgan bo'lsa — direktorga ikkinchi xabar ketmaydi
+        const submitted = ['submitted', 'reviewed'].includes(getDb().prepare('SELECT status FROM daily_reports WHERE date = ?').get(d)?.status);
+        if (chat && !submitted) {
+          await sendMessage(chat, `⚠️ <i>PM hisobotni yubormadi — avtomatik hisobot</i>\n\n${dailyReportText(d)}`);
           if (getSetting('ai_daily') === '1' && aiAvailable()) {
             const r = await analyze({ from: addDays(d, -6), to: d, kind: 'daily' });
             await sendMessage(chat, `🤖 <b>AI tahlil (7 kun)</b>\n\n${r.content.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]))}`);
@@ -651,7 +659,12 @@ function startScheduler() {
       const reminderTime = getSetting('reminder_time', '19:00');
       if (hm === reminderTime && getSetting('last_reminder') !== d) {
         setSetting('last_reminder', d);
-        await remindMissing(d);
+        // PM ga eslatma: bugungi hisobot hali yuborilmagan bo'lsa
+        const st = getDb().prepare('SELECT status FROM daily_reports WHERE date = ?').get(d)?.status;
+        if (!['submitted', 'reviewed'].includes(st)) {
+          const pms = getDb().prepare("SELECT telegram_id FROM users WHERE role IN ('pm', 'admin') AND active = 1 AND telegram_id IS NOT NULL").all();
+          for (const x of pms) await sendMessage(x.telegram_id, '⏰ Bugungi hisobot hali yuborilmagan. Ilovada «Bugun» bo\'limini oching — 4 qadam, 5 daqiqa.');
+        }
       }
     } catch (e) {
       console.error('Scheduler:', e.message);
