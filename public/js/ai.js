@@ -11,7 +11,7 @@ const SUGGESTED = [
 
 export async function renderAI() {
   const ai = state.me.ai;
-  shell(`<div class="page-head"><div><h1>AI tahlil</h1><div class="sub">Voronka, reja, sabablar va izohlar asosida xulosa va tavsiyalar</div></div>${filtersHtml()}</div>
+  shell(`<div class="page-head"><div><h1><span class="grad">AI</span> tahlil</h1><div class="sub">Voronka, reja, sabablar va izohlar asosida xulosa va tavsiyalar</div></div>${filtersHtml()}</div>
     <div class="grid g-wide">
       <div class="stack">
         <div class="card stack">

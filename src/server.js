@@ -5,7 +5,9 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import {
   getDb, getSetting, setSetting, today, canEdit, FIELDS, NOTE_FIELDS, LOSS_REASONS, ROLES, PLATFORMS, PLAN_FIELDS,
+  ROLE_DUTIES, CREATIVE_TYPES, entryRoles,
 } from './db.js';
+import { reportBundle, saveDraft, submitReport, reviewReport, listReports, reportText } from './reports.js';
 import {
   login, logout, userFromToken, createUser, hashPassword, ensureAdmin, publicUser,
   createSession, changePassword, verifyTelegramInitData, userByTelegramId,
@@ -118,8 +120,9 @@ route('GET', '/api/me', async (req, res) => {
   const user = requireUser(req);
   send(res, 200, {
     user, today: today(), roles: ROLES, fields: FIELDS, noteFields: NOTE_FIELDS, reasons: LOSS_REASONS,
-    platforms: PLATFORMS, planFields: PLAN_FIELDS,
-    pendingToday: missingReport(today()).filter((m) => !m.filled && (user.role === 'admin' || m.role === user.role)).length,
+    platforms: PLATFORMS, planFields: PLAN_FIELDS, duties: ROLE_DUTIES, creativeTypes: CREATIVE_TYPES, entryRoles: entryRoles(user.role),
+    pendingToday: missingReport(today()).filter((m) => !m.filled && entryRoles(user.role).includes(m.role)).length,
+    reportStatus: getDb().prepare('SELECT status FROM daily_reports WHERE date = ?').get(today())?.status || null,
     ai: aiAvailable(), telegram: { enabled: telegramStatus().enabled, bot: telegramStatus().bot, miniApp: Boolean(process.env.APP_URL) },
     usdRate: Number(getSetting('usd_rate', process.env.USD_RATE || 12800)),
   });
@@ -301,7 +304,8 @@ route('GET', '/api/plans', async (req, res, _p, q) => {
   send(res, 200, { month, rows: getDb().prepare('SELECT * FROM plans WHERE month = ?').all(month) });
 });
 route('PUT', '/api/plans', async (req, res) => {
-  requireAdmin(req);
+  const pu = requireUser(req);
+  if (!['admin', 'pm'].includes(pu.role)) throw new HttpError(403, 'Rejani direktor yoki proekt menejer kiritadi');
   const b = await readBody(req);
   if (!isMonth(b.month)) throw new HttpError(400, "Oy noto'g'ri (YYYY-MM)");
   const p = getDb().prepare('SELECT id FROM projects WHERE id = ?').get(b.project_id);
@@ -328,11 +332,17 @@ function campaignBody(b, partial = false) {
   if (!partial || 'name' in b) { if (!String(b.name || '').trim()) throw new HttpError(400, 'Post nomini kiriting'); out.name = String(b.name).trim().slice(0, 120); }
   if (!partial || 'date' in b) { if (!isDate(b.date)) throw new HttpError(400, "Sana noto'g'ri"); out.date = b.date; }
   if (!partial || 'platform' in b) { if (!PLATFORMS[b.platform]) throw new HttpError(400, "Platforma noto'g'ri"); out.platform = b.platform; }
-  for (const k of ['spend', 'clicks', 'starts', 'leads', 'sales']) if (!partial || k in b) out[k] = num(b[k]);
+  for (const k of ['spend', 'impressions', 'clicks', 'starts', 'leads', 'sales']) if (!partial || k in b) out[k] = num(b[k]);
   if (!partial || 'note' in b) out.note = String(b.note || '').trim().slice(0, 500) || null;
+  if (!partial || 'creative_type' in b) out.creative_type = CREATIVE_TYPES[b.creative_type] ? b.creative_type : null;
+  if (!partial || 'creative_url' in b) {
+    const url = String(b.creative_url || '').trim();
+    if (url && !/^https?:\/\//.test(url)) throw new HttpError(400, 'Kreativ havolasi http(s):// bilan boshlanishi kerak');
+    out.creative_url = url.slice(0, 500) || null;
+  }
   return out;
 }
-const canCampaign = (u) => u.role === 'admin' || u.role === 'target';
+const canCampaign = (u) => ['admin', 'pm', 'target'].includes(u.role);
 route('GET', '/api/campaigns', async (req, res, _p, q) => {
   requireUser(req);
   const to = isDate(q.get('to')) ? q.get('to') : today();
@@ -350,8 +360,8 @@ route('POST', '/api/campaigns', async (req, res) => {
   let tag = slugify(b.tag || c.name).replace(/-/g, '_').slice(0, 20) || `p${Date.now() % 1e6}`;
   const taken = (t) => getDb().prepare('SELECT 1 FROM campaigns WHERE project_id = ? AND tag = ?').get(project.id, t);
   for (let i = 2; taken(tag); i++) tag = `${tag.slice(0, 17)}_${i}`;
-  const info = getDb().prepare(`INSERT INTO campaigns (project_id, date, name, platform, tag, spend, clicks, starts, leads, sales, note, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(project.id, c.date, c.name, c.platform, tag, c.spend, c.clicks, c.starts, c.leads, c.sales, c.note, u.id);
+  const info = getDb().prepare(`INSERT INTO campaigns (project_id, date, name, platform, tag, spend, impressions, clicks, starts, leads, sales, note, creative_type, creative_url, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(project.id, c.date, c.name, c.platform, tag, c.spend, c.impressions, c.clicks, c.starts, c.leads, c.sales, c.note, c.creative_type, c.creative_url, u.id);
   send(res, 201, getDb().prepare('SELECT * FROM campaigns WHERE id = ?').get(info.lastInsertRowid));
 });
 route('PUT', '/api/campaigns/:id', async (req, res, { id }) => {
@@ -369,6 +379,51 @@ route('DELETE', '/api/campaigns/:id', async (req, res, { id }) => {
   if (!canCampaign(u)) throw new HttpError(403, "Postni targetolog yoki rahbar o'chiradi");
   getDb().prepare('DELETE FROM campaigns WHERE id = ?').run(id);
   send(res, 200, { ok: true });
+});
+
+route('GET', '/api/team', async (req, res) => {
+  requireUser(req);
+  send(res, 200, getDb().prepare('SELECT name, role FROM users WHERE active = 1 ORDER BY id').all());
+});
+
+// ---- PM hisoboti va direktor paneli ----
+const canReport = (u) => u.role === 'admin' || u.role === 'pm';
+route('GET', '/api/report', async (req, res, _p, q) => {
+  requireUser(req);
+  send(res, 200, reportBundle(isDate(q.get('date')) ? q.get('date') : today()));
+});
+route('PUT', '/api/report', async (req, res) => {
+  const u = requireUser(req);
+  if (!canReport(u)) throw new HttpError(403, 'Hisobotni proekt menejer tayyorlaydi');
+  const b = await readBody(req);
+  if (!isDate(b.date) || b.date > today()) throw new HttpError(400, "Sana noto'g'ri");
+  send(res, 200, saveDraft(b.date, u.id, b));
+});
+route('POST', '/api/report/submit', async (req, res) => {
+  const u = requireUser(req);
+  if (!canReport(u)) throw new HttpError(403, 'Hisobotni proekt menejer yuboradi');
+  const b = await readBody(req);
+  if (!isDate(b.date) || b.date > today()) throw new HttpError(400, "Sana noto'g'ri");
+  if (b.summary !== undefined || b.project_notes !== undefined) saveDraft(b.date, u.id, b);
+  const r = submitReport(b.date, u.id);
+  // Direktor(lar)ga va hisobot guruhiga Telegram xabari
+  const text = reportText(b.date);
+  const targets = new Set([getSetting('report_chat_id'), ...getDb().prepare("SELECT telegram_id FROM users WHERE role = 'admin' AND active = 1 AND telegram_id IS NOT NULL").all().map((x) => x.telegram_id)].filter(Boolean));
+  for (const chat of targets) sendMessage(chat, text).catch((e) => console.error('Telegram:', e.message));
+  send(res, 200, { ...r, notified: targets.size });
+});
+route('POST', '/api/report/review', async (req, res) => {
+  const u = requireAdmin(req);
+  const b = await readBody(req);
+  if (!isDate(b.date)) throw new HttpError(400, "Sana noto'g'ri");
+  const r = reviewReport(b.date, u.id, b.comment);
+  const pm = getDb().prepare('SELECT telegram_id FROM users WHERE id = ?').get(r.author_id)?.telegram_id;
+  if (pm) sendMessage(pm, `✅ ${b.date} hisobotingizni direktor ko'rib chiqdi.${r.director_comment ? `\n💬 ${r.director_comment.replace(/[<>&]/g, '')}` : ''}`).catch(() => {});
+  send(res, 200, r);
+});
+route('GET', '/api/reports', async (req, res, _p, q) => {
+  requireUser(req);
+  send(res, 200, listReports(Math.min(Number(q.get('limit')) || 30, 120)));
 });
 
 // ---- AI ----

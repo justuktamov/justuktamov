@@ -2,11 +2,13 @@
 import { addDays } from './metrics.js';
 
 export const DEMO_USERS = [
-  ['Rahbar', 'admin', 'admin'],
-  ['Targetolog', 'target', 'target'],
-  ['Fotima', 'fotima', 'lead'],
+  ['Direktor', 'admin', 'admin'],
+  ['Dilshod', 'pm', 'pm'],
+  ['Jasur', 'target', 'target'],
   ['Madina', 'madina', 'sales'],
+  ['Fotima', 'fotima', 'lead'],
   ['Anvar', 'anvar', 'finance'],
+  ['Sardor', 'kreativ', 'creative'],
 ];
 
 // [nom, slug, CPC $, organik koef., start→lid, lid→sotuv, o'rtacha chek so'm, kunlik byudjet $]
@@ -82,9 +84,14 @@ export function generateDemo(end, days = 45) {
       const spend = Math.round(r.spend * share * 3 * 100) / 100;
       const clicks = Math.round(r.clicks * share * 3 * pk);
       const starts = Math.round(clicks * jitter(organicK, 0.2));
-      const leads = Math.round(starts * jitter(s2l, 0.25));
+      // Ba'zi kreativlar ataylab yomon: past CTR va qimmat lid (direktor panelida «ishlamayapti» chiqadi)
+      const weak = (slug === 'python' && platform === 'instagram') || (slug === 'smm' && n % 3 === 0) || (slug === 'kids' && n === 2);
+      const ctr = weak ? jitter(0.006, 0.2) : jitter(0.018, 0.3);
+      const leads = Math.round(starts * jitter(s2l, 0.25) * (weak ? 0.35 : 1));
+      const ctype = ['video', 'video', 'image', 'stories'][(n + i) % 4];
       campaigns.push({
-        project_id: id, date: r.date, platform, spend, clicks, starts, leads, sales: Math.round(leads * jitter(l2s, 0.4)),
+        project_id: id, date: r.date, platform, spend, impressions: Math.round(clicks / ctr), clicks, starts, leads, sales: Math.round(leads * jitter(l2s, 0.4)),
+        creative_type: ctype, creative_url: null,
         name: platform === 'blogger' ? `Bloger integratsiyasi #${n}` : platform === 'channel_post' ? `${CHANNELS[(n + i) % CHANNELS.length]} posti` : `${slug.toUpperCase()} kreativ #${n}`,
         tag: `${platform === 'channel_post' ? 'kanal' : platform === 'telegram_ads' ? 'tgads' : platform === 'instagram' ? 'insta' : 'bloger'}_${n}`,
         note: null,
@@ -107,5 +114,24 @@ export function generateDemo(end, days = 45) {
       revenue: round(perDay('revenue') * dim * k, 1_000_000),
     });
   });
-  return { projects, daily, reasons, campaigns, plans };
+  // PM hisobotlari: o'tgan kunlar — ko'rib chiqilgan, bugungi — yuborilgan
+  const reports = [];
+  const notesFor = (k) => ({
+    1: { status: 'scale', comment: k === 0 ? "Video kreativ yaxshi ishlayapti, byudjetni oshirishni taklif qilaman" : null },
+    2: { status: 'creative', comment: "Instagram kreativi qimmat lid beryapti — Sardor yangi video tayyorlayapti" },
+    3: { status: 'sales_issue', comment: "Lid ko'p, lekin sotuv past. Madina bilan skriptni qayta ko'rib chiqdik" },
+    4: { status: 'needs_leads', comment: k === 0 ? 'Lidlar hali kiritilmagan (Fotima kechqurun kiritadi)' : "Trafik kam, Telegram Ads ni qayta yoqish kerak" },
+  });
+  for (let k = 3; k >= 0; k--) {
+    reports.push({
+      date: addDays(end, -k), author_login: 'pm', status: k === 0 ? 'submitted' : 'reviewed',
+      summary: k === 0
+        ? "Umumiy lid reja bo'yicha. SMM Pro da sotuv past — sabab: lidlar maqsadli emas. Python Instagram kreativini almashtiramiz."
+        : 'Kun rejadagidek o\'tdi, asosiy muammo — SMM Pro konversiyasi.',
+      tomorrow: k === 0 ? "Python uchun 2 ta yangi video kreativ, SMM uchun targeting auditoriyasini toraytirish." : null,
+      project_notes: notesFor(k),
+      director_comment: k === 0 ? null : k === 1 ? "IELTS byudjetini 20% oshiringlar. SMM bo'yicha ertaga uchrashamiz." : "Qabul qilindi.",
+    });
+  }
+  return { projects, daily, reasons, campaigns, plans, reports };
 }

@@ -27,7 +27,7 @@ export async function renderEntry() {
   entryDate ||= state.me.today;
   const role = state.me.user.role;
   const isToday = entryDate === state.me.today;
-  shell(`<div class="page-head"><div><h1>Kunlik hisobot</h1><div class="sub">${isToday ? 'Bugungi' : `${entryDate} kungi`} raqamlar · faqat o'z maydonlaringizni ko'rasiz</div></div>
+  shell(`<div class="page-head"><div><h1><span class="grad">Kunlik</span> kiritish</h1><div class="sub">${isToday ? 'Bugungi' : `${entryDate} kungi`} raqamlar · faqat o'z maydonlaringizni ko'rasiz</div></div>
     <div class="filters"><button class="btn small" id="prevDay" aria-label="Oldingi kun">←</button><input type="date" id="eDate" value="${entryDate}" max="${state.me.today}" aria-label="Sana"><button class="btn small" id="nextDay" aria-label="Keyingi kun" ${isToday ? 'disabled' : ''}>→</button>
     ${isToday ? '' : '<button class="btn small" id="toToday">Bugun</button>'}</div></div>
     <div id="entry">${spinnerBlock()}</div>`);
@@ -38,7 +38,7 @@ export async function renderEntry() {
 
   const data = await api(`/api/daily?date=${entryDate}`);
   const { fields, noteFields, reasons, roles } = state.me;
-  const myRoles = role === 'admin' ? ['target', 'lead', 'sales', 'finance'] : [role];
+  const myRoles = state.me.entryRoles || [];
   const mine = data.missing.filter((m) => myRoles.includes(m.role));
   const pending = mine.filter((m) => !m.filled);
 
@@ -60,7 +60,7 @@ export async function renderEntry() {
       <label class="field">Izoh${r === 'sales' || r === 'lead' ? ' — nega sotuv past yoki yuqori bo\'ldi?' : ''}<textarea name="${note}" id="f-${p.id}-${note}" rows="2" placeholder="Ixtiyoriy">${esc(p.row[note] ?? '')}</textarea></label></div>`;
   };
   const reasonsBlock = (p) => {
-    if (!['admin', 'lead', 'sales'].includes(role)) return '';
+    if (!['admin', 'pm', 'lead', 'sales'].includes(role)) return '';
     const total = Object.values(p.reasons).reduce((a, b) => a + b, 0);
     const lost = p.row.leads != null && p.row.sales != null ? Math.max(p.row.leads - p.row.sales, 0) : null;
     return `<details ${total ? 'open' : ''}><summary>Sotib olmaslik sabablari · ${total} ta${lost != null ? ` <span class="muted small">(sotib olmagan lidlar: ${fmtN(lost)})</span>` : ''}</summary>
@@ -72,7 +72,7 @@ export async function renderEntry() {
   if (!box) return;
   box.innerHTML = `
     <div class="card" style="margin-bottom:14px"><div class="card-head"><h2>${pending.length ? `Kiritilmagan: ${pending.length}` : 'Hammasi kiritilgan ✓'}</h2><span class="muted">${entryDate}</span></div>
-      <div class="checklist">${mine.map((m) => `<button type="button" class="pill ${m.filled ? 'good' : 'warn'}" data-scroll="p-${m.project_id}" style="border:0;cursor:pointer;font-family:inherit">${m.filled ? '✓' : '⏳'} ${esc(m.project)}${role === 'admin' ? ` · ${esc(m.role_label)}` : ''}</button>`).join('') || '<span class="muted">Loyihalar yo\'q</span>'}</div></div>
+      <div class="checklist">${mine.map((m) => `<button type="button" class="pill ${m.filled ? 'good' : 'warn'}" data-scroll="p-${m.project_id}" style="border:0;cursor:pointer;font-family:inherit">${m.filled ? '✓' : '⏳'} ${esc(m.project)}${myRoles.length > 1 ? ` · ${esc(m.role_label)}` : ''}</button>`).join('') || '<span class="muted">Loyihalar yo\'q</span>'}</div></div>
     <div class="stack">${data.projects.map((p) => `
       <form class="card entry-card" data-id="${p.id}" id="p-${p.id}">
         <div class="head"><h2><span class="dot" style="background:${esc(p.color || 'var(--series-1)')}"></span>${esc(p.name)}</h2><a class="small" href="#/loyiha/${p.id}">Loyiha sahifasi →</a></div>

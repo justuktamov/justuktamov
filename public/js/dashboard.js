@@ -24,7 +24,7 @@ export function kpiRow(s) {
 
 export async function renderDashboard() {
   const admin = state.me.user.role === 'admin';
-  shell(`<div class="page-head"><div><h1>Bosh panel</h1><div class="sub" id="periodSub">&nbsp;</div></div>${filtersHtml()}</div><div id="dash">${spinnerBlock()}</div>`);
+  shell(`<div class="page-head"><div><h1><span class="grad">Analitika</span></h1><div class="sub" id="periodSub">&nbsp;</div></div>${filtersHtml()}</div><div id="dash">${spinnerBlock()}</div>`);
   bindFilters(renderDashboard);
   const { from, to } = computePeriod();
   const q = new URLSearchParams({ from, to, ...(state.project ? { project: state.project } : {}) });

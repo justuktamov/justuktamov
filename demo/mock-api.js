@@ -2,7 +2,8 @@
 // Hisob-kitoblar serverdagi kod bilan bir xil (metrics.js, db.js, telegram.js hisobot matni).
 // Kiritilgan ma'lumotlar shu brauzerning localStorage xotirasida saqlanadi.
 import { store } from './fake-sqlite.js';
-import { today, canEdit, FIELDS, NOTE_FIELDS, LOSS_REASONS, ROLES, PLATFORMS, PLAN_FIELDS } from '../src/db.js';
+import { today, canEdit, FIELDS, NOTE_FIELDS, LOSS_REASONS, ROLES, PLATFORMS, PLAN_FIELDS, ROLE_DUTIES, CREATIVE_TYPES, entryRoles } from '../src/db.js';
+import { reportBundle, saveDraft, submitReport, reviewReport, listReports } from '../src/reports.js';
 import {
   summary, missingReport, loadRows, addDays, planProgress, campaignStats, discipline, toCsv,
 } from '../src/metrics.js';
@@ -11,7 +12,7 @@ import { generateDemo, DEMO_USERS } from '../src/demo-data.js';
 import { SYSTEM, compact, userPrompt } from '../src/ai-prompt.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v2';
+const SAVE_KEY = 'analitika-demo-v3';
 let audit = [];
 let reports = [];
 let me = null;
@@ -24,6 +25,13 @@ function seed() {
   store.campaigns = demo.campaigns.map((c, i) => ({ ...c, id: i + 1 }));
   store.plans = demo.plans;
   store.users = DEMO_USERS.map(([name, login, role], i) => ({ id: i + 1, name, login, role, telegram_id: null, active: true, password: 'demo1234' }));
+  const uid = (login) => store.users.find((u) => u.login === login)?.id ?? null;
+  store.reports = demo.reports.map((r) => ({
+    date: r.date, author_id: uid(r.author_login), status: r.status, summary: r.summary, tomorrow: r.tomorrow,
+    project_notes: JSON.stringify(r.project_notes), submitted_at: `${r.date} 19:30:00`,
+    reviewed_by: r.status === 'reviewed' ? uid('admin') : null, reviewed_at: r.status === 'reviewed' ? `${r.date} 21:05:00` : null,
+    director_comment: r.director_comment, updated_at: `${r.date} 19:30:00`,
+  }));
   store.settings = { usd_rate: '12800', report_time: '21:00', reminder_time: '19:00' };
   audit = [];
   reports = [];
@@ -64,7 +72,7 @@ function num(v) {
 }
 const needUser = () => { if (!me) throw new HttpError(401, 'Tizimga kiring'); return me; };
 const needAdmin = () => { if (needUser().role !== 'admin') throw new HttpError(403, 'Faqat rahbar uchun'); return me; };
-const needTarget = () => { if (!['admin', 'target'].includes(needUser().role)) throw new HttpError(403, "Postlarni targetolog yoki rahbar boshqaradi"); return me; };
+const needTarget = () => { if (!['admin', 'pm', 'target'].includes(needUser().role)) throw new HttpError(403, "Postlarni targetolog yoki rahbar boshqaradi"); return me; };
 function period(q, back = 6) {
   const to = isDate(q.get('to')) ? q.get('to') : TODAY;
   const from = isDate(q.get('from')) ? q.get('from') : addDays(to, -back);
@@ -85,8 +93,14 @@ function campaignBody(b, partial = false) {
   if (!partial || 'name' in b) { if (!String(b.name || '').trim()) throw new HttpError(400, 'Post nomini kiriting'); out.name = String(b.name).trim().slice(0, 120); }
   if (!partial || 'date' in b) { if (!isDate(b.date)) throw new HttpError(400, "Sana noto'g'ri"); out.date = b.date; }
   if (!partial || 'platform' in b) { if (!PLATFORMS[b.platform]) throw new HttpError(400, "Platforma noto'g'ri"); out.platform = b.platform; }
-  for (const k of ['spend', 'clicks', 'starts', 'leads', 'sales']) if (!partial || k in b) out[k] = num(b[k]);
+  for (const k of ['spend', 'impressions', 'clicks', 'starts', 'leads', 'sales']) if (!partial || k in b) out[k] = num(b[k]);
   if (!partial || 'note' in b) out.note = String(b.note || '').trim().slice(0, 500) || null;
+  if (!partial || 'creative_type' in b) out.creative_type = CREATIVE_TYPES[b.creative_type] ? b.creative_type : null;
+  if (!partial || 'creative_url' in b) {
+    const url = String(b.creative_url || '').trim();
+    if (url && !/^https?:\/\//.test(url)) throw new HttpError(400, 'Kreativ havolasi http(s):// bilan boshlanishi kerak');
+    out.creative_url = url.slice(0, 500) || null;
+  }
   return out;
 }
 
@@ -109,8 +123,9 @@ const routes = {
     const u = needUser();
     return {
       user: publicUser(u), today: TODAY, roles: ROLES, fields: FIELDS, noteFields: NOTE_FIELDS, reasons: LOSS_REASONS,
-      platforms: PLATFORMS, planFields: PLAN_FIELDS,
-      pendingToday: missingReport(TODAY).filter((m) => !m.filled && (u.role === 'admin' || m.role === u.role)).length,
+      platforms: PLATFORMS, planFields: PLAN_FIELDS, duties: ROLE_DUTIES, creativeTypes: CREATIVE_TYPES, entryRoles: entryRoles(u.role),
+      pendingToday: missingReport(TODAY).filter((m) => !m.filled && entryRoles(u.role).includes(m.role)).length,
+      reportStatus: store.reports.find((r) => r.date === TODAY)?.status || null,
       ai: Boolean(window.claude?.use), telegram: { enabled: false, bot: null, miniApp: false }, usdRate: Number(store.settings.usd_rate),
     };
   },
@@ -229,7 +244,7 @@ const routes = {
     return { month, rows: store.plans.filter((p) => p.month === month) };
   },
   'PUT /api/plans': (b) => {
-    needAdmin();
+    if (!['admin', 'pm'].includes(needUser().role)) throw new HttpError(403, 'Rejani direktor yoki proekt menejer kiritadi');
     if (!isMonth(b.month)) throw new HttpError(400, "Oy noto'g'ri (YYYY-MM)");
     const pid = Number(b.project_id);
     if (!store.projects.some((p) => p.id === pid)) throw new HttpError(404, 'Loyiha topilmadi');
@@ -268,6 +283,28 @@ const routes = {
     store.campaigns = store.campaigns.filter((x) => x.id !== Number(id));
     return { ok: true };
   },
+  'GET /api/team': () => { needUser(); return store.users.filter((u) => u.active).map(({ name, role }) => ({ name, role })); },
+  'GET /api/report': (_b, _p, q) => { needUser(); return reportBundle(isDate(q.get('date')) ? q.get('date') : TODAY); },
+  'PUT /api/report': (b) => {
+    const u = needUser();
+    if (!['admin', 'pm'].includes(u.role)) throw new HttpError(403, 'Hisobotni proekt menejer tayyorlaydi');
+    if (!isDate(b.date) || b.date > TODAY) throw new HttpError(400, "Sana noto'g'ri");
+    try { return saveDraft(b.date, u.id, b); } catch (e) { throw new HttpError(e.status || 400, e.message); }
+  },
+  'POST /api/report/submit': (b) => {
+    const u = needUser();
+    if (!['admin', 'pm'].includes(u.role)) throw new HttpError(403, 'Hisobotni proekt menejer yuboradi');
+    if (!isDate(b.date) || b.date > TODAY) throw new HttpError(400, "Sana noto'g'ri");
+    try {
+      if (b.summary !== undefined || b.project_notes !== undefined) saveDraft(b.date, u.id, b);
+      return { ...submitReport(b.date, u.id), notified: 0 };
+    } catch (e) { throw new HttpError(e.status || 400, e.message); }
+  },
+  'POST /api/report/review': (b) => {
+    const u = needAdmin();
+    try { return reviewReport(b.date, u.id, b.comment); } catch (e) { throw new HttpError(e.status || 400, e.message); }
+  },
+  'GET /api/reports': () => { needUser(); return listReports(90); },
   'GET /api/audit': () => { needAdmin(); return audit.slice(0, 200); },
   'GET /api/report-preview': (_b, _p, q) => { needUser(); return { text: dailyReportText(isDate(q.get('date')) ? q.get('date') : TODAY) }; },
   'POST /api/ai/analyze': async (b) => {

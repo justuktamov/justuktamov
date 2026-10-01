@@ -108,13 +108,25 @@ export const ICONS = {
   sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
   x: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
   tg: svg('<path d="m22 3-20 8 7 2 2 7 4-5 5 4z"/><path d="m9 13 13-10"/>'),
+  home: svg('<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/>'),
+  report: svg('<path d="M9 4h6l1 2h3v15H5V6h3z"/><path d="M9 12l2 2 4-4"/>'),
+  chart: svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
+  team: svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>'),
+  archive: svg('<rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v11h14V9M10 13h4"/>'),
+  bell: svg('<path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>'),
+  check: svg('<path d="m5 12 5 5 9-10"/>'),
+  clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  send: svg('<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>'),
+  play: svg('<circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4z"/>'),
+  cal: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
 };
 
 // ---------- Mavzu (tizim / yorug' / tungi) ----------
-export function getTheme() { try { return localStorage.getItem('theme') || 'system'; } catch { return 'system'; } }
+// Qorong'i rejim — standart (dizayn shunga qurilgan); yorug' rejim — profilda tanlanadi
+export function getTheme() { try { return localStorage.getItem('theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; } }
 export function applyTheme(t = getTheme()) {
   const root = document.documentElement;
-  if (t === 'light' || t === 'dark') root.dataset.theme = t;
+  if (t === 'light') root.dataset.theme = 'light';
   else delete root.dataset.theme;
 }
 export function setTheme(t) {
@@ -122,10 +134,7 @@ export function setTheme(t) {
   applyTheme(t);
   rerender();
 }
-export const isDark = () => {
-  const t = document.documentElement.dataset.theme;
-  return t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-};
+export const isDark = () => document.documentElement.dataset.theme !== 'light';
 
 // ---------- Grafiklar ----------
 export const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -263,56 +272,91 @@ let routerFn = () => {};
 export function setRouter(fn) { routerFn = fn; }
 export function rerender() { if (state.me) routerFn(); }
 
-const DEMO_LOGINS = [['admin', 'Rahbar'], ['target', 'Targetolog'], ['fotima', 'Fotima — lid menejeri'], ['madina', 'Madina — sotuv'], ['anvar', 'Anvar — moliya']];
+const DEMO_LOGINS = [['admin', 'Direktor'], ['pm', 'Dilshod — proekt menejer'], ['target', 'Jasur — targetolog'], ['madina', 'Madina — ROP'], ['fotima', 'Fotima — lid operatori'], ['anvar', 'Anvar — moliya'], ['kreativ', 'Sardor — kreativchi']];
 function demoBar() {
   return `<div class="demo-bar"><span><b>Demo</b> · namuna ma'lumotlar; kiritganlaringiz shu brauzerda saqlanadi</span>
     <span class="row"><label>Kim sifatida: <select id="demoRole">${DEMO_LOGINS.map(([l, n]) => `<option value="${l}" ${state.me.user.login === l ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
     <button class="btn small" id="demoReset">Boshlang'ich holat</button></span></div>`;
 }
 
+// Har bir rolning bosh sahifasi
+export function homeRoute(role) {
+  return { admin: '#/', pm: '#/hisobot', creative: '#/reklama' }[role] || '#/kiritish';
+}
+
 function navItems() {
   const role = state.me.user.role;
-  const items = [
-    ['#/', 'Bosh panel', ICONS.dash],
-    ['#/kiritish', 'Kunlik hisobot', ICONS.entry, state.me.pendingToday],
-    ['#/reklama', 'Reklama postlari', ICONS.ads],
-    ['#/ai', 'AI tahlil', ICONS.ai],
-  ];
-  const bottom = role === 'admin' ? [['#/sozlamalar', 'Sozlamalar', ICONS.set], ['#/profil', 'Profil', ICONS.user]] : [['#/profil', 'Profil', ICONS.user]];
-  return { items, bottom };
+  const pending = state.me.pendingToday;
+  const reportBadge = role === 'admin' && state.me.reportStatus === 'submitted' ? '1' : null;
+  const all = {
+    today: ['#/', 'Bugun', ICONS.home, reportBadge],
+    report: ['#/hisobot', 'PM hisoboti', ICONS.report, role === 'pm' && state.me.reportStatus !== 'submitted' && state.me.reportStatus !== 'reviewed' ? '!' : null],
+    entry: ['#/kiritish', 'Kunlik kiritish', ICONS.entry, pending],
+    ads: ['#/reklama', 'Reklama va kreativlar', ICONS.ads],
+    analytics: ['#/analitika', 'Analitika', ICONS.chart],
+    ai: ['#/ai', 'AI tahlil', ICONS.ai],
+    archive: ['#/hisobotlar', 'Hisobotlar arxivi', ICONS.archive],
+    team: ['#/jamoa', 'Jamoa', ICONS.team],
+    settings: ['#/sozlamalar', 'Sozlamalar', ICONS.set],
+    profile: ['#/profil', 'Profil', ICONS.user],
+  };
+  const byRole = {
+    admin: [['today', 'analytics', 'ads', 'ai', 'archive'], ['team', 'settings', 'profile']],
+    pm: [['report', 'entry', 'today', 'analytics', 'ads', 'ai', 'archive'], ['team', 'profile']],
+    target: [['entry', 'ads', 'analytics'], ['team', 'profile']],
+    creative: [['ads', 'analytics'], ['team', 'profile']],
+  };
+  const [main, bottom] = byRole[role] || [['entry', 'analytics'], ['team', 'profile']];
+  return { items: main.map((k) => all[k]), bottom: bottom.map((k) => all[k]) };
 }
+
+const NAV_TITLES = { '#/': 'Bugun', '#/hisobot': 'PM hisoboti', '#/kiritish': 'Kunlik kiritish', '#/reklama': 'Reklama va kreativlar', '#/analitika': 'Analitika', '#/ai': 'AI tahlil', '#/hisobotlar': 'Hisobotlar arxivi', '#/jamoa': 'Jamoa', '#/sozlamalar': 'Sozlamalar', '#/profil': 'Profil' };
+const WEEKDAYS = ['yakshanba', 'dushanba', 'seshanba', 'chorshanba', 'payshanba', 'juma', 'shanba'];
+export const dayLabel = (d) => `${Number(d.slice(8, 10))}-${MONTHS[Number(d.slice(5, 7)) - 1]}, ${WEEKDAYS[new Date(`${d}T00:00:00Z`).getUTCDay()]}`;
 
 export function shell(content) {
   destroyCharts();
   const route = location.hash.split('?')[0] || '#/';
   const { items, bottom } = navItems();
   const active = (href) => route === href || (href !== '#/' && route.startsWith(href));
-  const link = ([href, label, icon, badge]) => `<a href="${href}" class="${active(href) ? 'active' : ''}">${icon}<span>${label}</span>${badge ? `<span class="badge" title="Bugun kiritilmagan">${badge}</span>` : ''}</a>`;
+  const link = ([href, label, icon, badge]) => `<a href="${href}" class="${active(href) ? 'active' : ''}"><span class="ic">${icon}</span><span>${label}</span>${badge ? `<span class="badge">${badge}</span>` : ''}</a>`;
   const u = state.me.user;
   const projects = state.projects.filter((p) => p.active);
   const dark = isDark();
-  const mobileItems = [...items, bottom[0]];
+  const mobileItems = [...items.slice(0, 4), bottom[bottom.length - 1]];
+  const pageTitle = route.startsWith('#/loyiha/') ? (state.projects.find((p) => `#/loyiha/${p.id}` === route)?.name || 'Loyiha') : NAV_TITLES[route] || '';
+  const bell = u.role === 'admin' ? state.me.reportStatus === 'submitted' : state.me.pendingToday > 0;
   app().innerHTML = `
     <div class="mobile-top"><span class="logo"><span class="logo-mark">${ICONS.logo}</span>Analitika</span>
       <button id="themeBtnM" aria-label="Mavzuni almashtirish">${dark ? ICONS.sun.replace('<svg', '<svg width="18" height="18"') : ICONS.moon.replace('<svg', '<svg width="18" height="18"')}</button></div>
     <div class="layout">
       <aside class="sidebar">
-        <div class="logo"><span class="logo-mark">${ICONS.logo}</span><span>Analitika<small>loyihalar voronkasi</small></span></div>
+        <div class="logo"><span class="logo-mark">${ICONS.logo}</span><span>Analitika<small>loyihalar boshqaruvi</small></span></div>
         <nav class="nav" aria-label="Asosiy">${items.map(link).join('')}</nav>
-        ${projects.length ? `<div class="nav-label">Loyihalar</div><nav class="nav" aria-label="Loyihalar">${projects.map((p) => `<a href="#/loyiha/${p.id}" class="${route === `#/loyiha/${p.id}` ? 'active' : ''}"><span class="dot" style="background:${esc(p.color || '#2a78d6')};margin:0 4px"></span><span>${esc(p.name)}</span></a>`).join('')}</nav>` : ''}
-        <div class="nav-label">Boshqaruv</div>
-        <nav class="nav">${bottom.map(link).join('')}</nav>
+        ${projects.length ? `<div class="nav-label">Loyihalar</div><nav class="nav" aria-label="Loyihalar">${projects.map((p) => `<a href="#/loyiha/${p.id}" class="${route === `#/loyiha/${p.id}` ? 'active' : ''}"><span class="dotic"><span class="dot" style="background:${esc(p.color || '#4c86ff')};color:${esc(p.color || '#4c86ff')};margin:0"></span></span><span>${esc(p.name)}</span></a>`).join('')}</nav>` : ''}
         <div class="side-foot">
+          <nav class="nav">${bottom.map(link).join('')}</nav>
           <div class="side-user"><span class="avatar">${esc(initials(u.name))}</span><span>${esc(u.name)}<small>${esc(state.me.roles[u.role])}</small></span></div>
           <div class="side-actions"><button id="themeBtn">${dark ? 'Yorug\' rejim' : 'Tungi rejim'}</button><button id="logout">Chiqish</button></div>
         </div>
       </aside>
-      <main class="main" id="main">${window.DEMO ? demoBar() : ''}${content}</main>
+      <main class="main" id="main">
+        <div class="topbar">
+          <div class="crumbs"><span>${ICONS.home.replace('<svg', '<svg width="15" height="15" style="vertical-align:-2px"')} Bosh</span><span class="sep">/</span><b>${esc(pageTitle)}</b><span class="sep">/</span><span class="pill">${ICONS.cal.replace('<svg', '<svg width="13" height="13"')} ${dayLabel(state.me.today)}</span></div>
+          <div class="top-actions">
+            <a class="circle-btn" href="${u.role === 'admin' ? '#/' : homeRoute(u.role)}" title="${u.role === 'admin' ? 'Yangi PM hisoboti' : 'Bugun kiritilmaganlar'}">${ICONS.bell}${bell ? '<span class="ping"></span>' : ''}</a>
+            <button class="circle-btn" id="themeBtnTop" aria-label="Mavzuni almashtirish">${dark ? ICONS.sun : ICONS.moon}</button>
+            <a class="avatar" href="#/profil" style="width:42px;height:42px;text-decoration:none" title="Profil">${esc(initials(u.name))}</a>
+          </div>
+        </div>
+        ${window.DEMO ? demoBar() : ''}${content}
+      </main>
     </div>
     <nav class="mobile-nav" style="--n:${mobileItems.length}">${mobileItems.map(link).join('')}</nav>`;
   const toggle = () => setTheme(isDark() ? 'light' : 'dark');
   $('#themeBtn').onclick = toggle;
   $('#themeBtnM').onclick = toggle;
+  $('#themeBtnTop').onclick = toggle;
   $('#logout').onclick = async () => {
     await api('/api/logout', { method: 'POST', body: {} }).catch(() => {});
     token = null;
@@ -324,7 +368,7 @@ export function shell(content) {
   if (sw) {
     sw.onchange = async () => {
       await api('/api/login', { method: 'POST', body: { login: sw.value, password: 'demo1234' } });
-      location.hash = sw.value === 'admin' ? '#/' : '#/kiritish';
+      location.hash = '';
       await boot();
     };
     $('#demoReset').onclick = () => { window.__demoReset?.(); };
@@ -340,7 +384,7 @@ export function renderLogin(message = '') {
         <div class="logo" style="padding:0"><span class="logo-mark">${ICONS.logo}</span><span>Analitika<small>loyihalar voronkasi</small></span></div>
         <div style="display:grid;gap:22px">
           <h2>Har bir so'm qayerga ketyapti va qancha sotuv olib kelyapti</h2>
-          <div class="flow">
+          <div class="flow-demo">
             <div><span>Xarajat</span><i style="width:100%"></i><span class="num">$30</span></div>
             <div><span>Kliklar</span><i style="width:80%"></i><span class="num">1000</span></div>
             <div><span>Bot start</span><i style="width:100%"></i><span class="num">2500</span></div>
@@ -348,14 +392,14 @@ export function renderLogin(message = '') {
             <div><span>Sotuvlar</span><i style="width:6%"></i><span class="num">25</span></div>
           </div>
         </div>
-        <p class="small" style="margin:0">Targetolog, lid va sotuv menejerlari raqam kiritadi — platforma voronkani, rejani va sabablarni hisoblaydi.</p>
+        <p class="small" style="margin:0;color:#c9d4f5">Targetolog va ROP raqam kiritadi, proekt menejer hisobotni yig'adi, direktor esa qaysi loyihaga pul tikish kerakligini bir qarashda ko'radi.</p>
       </div>
       <div class="login-form"><form id="loginForm">
         <h1>Kirish</h1>
         <p class="muted small" style="margin:-6px 0 0">Login va parolni rahbardan oling.</p>
         <label class="field">Login<input name="login" id="loginName" autocomplete="username" required autofocus></label>
         <label class="field">Parol<input name="password" id="loginPass" type="password" autocomplete="current-password" required></label>
-        ${window.DEMO ? '<p class="small muted" style="margin:0">Demo loginlar: <b>admin</b>, <b>target</b>, <b>fotima</b>, <b>madina</b>, <b>anvar</b> · parol: <b>demo1234</b></p>' : ''}
+        ${window.DEMO ? '<p class="small muted" style="margin:0">Demo loginlar: <b>admin</b> (direktor), <b>pm</b>, <b>target</b>, <b>madina</b> (ROP), <b>kreativ</b> · parol: <b>demo1234</b></p>' : ''}
         <div class="error" id="loginErr">${esc(message)}</div>
         <button class="btn primary" style="justify-content:center">Kirish</button>
       </form></div>
@@ -376,7 +420,7 @@ async function telegramLogin() {
   if (!wa?.initData) return null;
   wa.ready();
   wa.expand();
-  if (getTheme() === 'system' && wa.colorScheme) applyTheme(wa.colorScheme);
+  try { if (!localStorage.getItem('theme') && wa.colorScheme) applyTheme(wa.colorScheme); } catch { /* */ }
   try {
     const r = await api('/api/tg-login', { method: 'POST', body: { initData: wa.initData } });
     token = r.token;
@@ -398,7 +442,7 @@ export async function boot() {
   if (!me) return renderLogin();
   state.me = me;
   state.projects = await api('/api/projects');
-  if (!location.hash && me.user.role !== 'admin') location.hash = '#/kiritish';
+  if (!location.hash || location.hash === '#') location.hash = homeRoute(me.user.role);
   rerender();
 }
 
