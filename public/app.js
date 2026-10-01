@@ -57,6 +57,7 @@ function renderLogin() {
       <p class="muted small" style="margin:0">Kunlik hisobot va voronka tahlili. Tizimga kiring.</p>
       <label class="field">Login<input name="login" autocomplete="username" required autofocus></label>
       <label class="field">Parol<input name="password" type="password" autocomplete="current-password" required></label>
+      ${window.DEMO ? '<p class="small muted" style="margin:0">Demo loginlar: <b>admin</b>, <b>target</b>, <b>fotima</b>, <b>madina</b>, <b>anvar</b> · parol: <b>demo1234</b></p>' : ''}
       <div class="error" id="loginErr"></div>
       <button class="btn primary" style="justify-content:center">Kirish</button>
     </form></div>`;
@@ -95,10 +96,19 @@ function shell(content) {
         <div class="me"><b>${esc(u.name)}</b><span class="muted">${esc(state.me.roles[u.role])}</span>
           <div style="margin-top:8px"><button class="btn small ghost" id="logout" style="padding-left:0">Chiqish</button></div></div>
       </aside>
-      <main class="main" id="main">${content}</main>
+      <main class="main" id="main">${window.DEMO ? demoBar() : ''}${content}</main>
     </div>
     <nav class="mobile-nav" style="--n:${items.length}">${items.map(link).join('')}</nav>`;
   $('#logout').onclick = async () => { await api('/api/logout', { method: 'POST', body: {} }); renderLogin(); };
+  const sw = $('#demoRole');
+  if (sw) sw.onchange = async () => { await api('/api/login', { method: 'POST', body: { login: sw.value, password: 'demo1234' } }); location.hash = sw.value === 'admin' ? '#/' : '#/kiritish'; await boot(); };
+}
+
+// Demo rejimi: namuna ma'lumotlar, istalgan xodim ko'zi bilan ko'rish
+const DEMO_LOGINS = [['admin', 'Rahbar'], ['target', 'Targetolog'], ['fotima', 'Fotima — lid menejeri'], ['madina', 'Madina — sotuv'], ['anvar', 'Anvar — moliya']];
+function demoBar() {
+  return `<div class="demo-bar"><span><b>Demo</b> · namuna ma'lumotlar, o'zgarishlar sahifa yangilanganda tiklanadi</span>
+    <label>Kim sifatida: <select id="demoRole">${DEMO_LOGINS.map(([l, n]) => `<option value="${l}" ${state.me.user.login === l ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>`;
 }
 
 // ---------- Davr tanlash ----------
@@ -230,7 +240,7 @@ async function renderDashboard() {
         <div class="insights">${s.insights.map((i) => `<div class="insight ${i.level}"><span class="ic">${ins[i.level]}</span><span>${esc(i.text)}</span></div>`).join('') || '<div class="muted">Hozircha ogohlantirish yo\'q.</div>'}</div></div>
     </div>
     <div class="card" style="margin-top:14px"><div class="card-head"><h2>Loyihalar taqqoslash</h2>
-      <a class="btn small" href="/api/export.csv?${q}">CSV yuklab olish</a></div>${projectTable(s.byProject)}</div>
+      ${window.DEMO ? '' : `<a class="btn small" href="/api/export.csv?${q}">CSV yuklab olish</a>`}</div>${projectTable(s.byProject)}</div>
     <div class="grid g3" style="margin-top:14px">
       <div class="card"><div class="card-head"><h2>Kliklar va organik startlar</h2></div><div class="chart-box"><canvas id="chTraffic" aria-label="Kunlik reklama kliklari va organik startlar"></canvas></div></div>
       <div class="card"><div class="card-head"><h2>Lidlar</h2><span class="muted small">kunlik</span></div><div class="chart-box"><canvas id="chLeads" aria-label="Kunlik lidlar"></canvas></div></div>
@@ -405,7 +415,7 @@ async function renderAI() {
     <div class="grid g3">
       <div class="span2 stack">
         <div class="card stack">
-          ${state.me.ai ? '' : '<div class="insight warning"><span class="ic">Diqqat</span><span>AI ulanmagan. Serverda <span class="code">ANTHROPIC_API_KEY</span> o\'rnatilishi kerak (README ga qarang). Qoidaga asoslangan xulosalar Bosh panelda ishlayveradi.</span></div>'}
+          ${state.me.ai ? '' : window.DEMO ? '<div class="insight warning"><span class="ic">Diqqat</span><span>AI tahlil bu demoni claude.ai ichida ochganda ishlaydi.</span></div>' : '<div class="insight warning"><span class="ic">Diqqat</span><span>AI ulanmagan. Serverda <span class="code">ANTHROPIC_API_KEY</span> o\'rnatilishi kerak (README ga qarang). Qoidaga asoslangan xulosalar Bosh panelda ishlayveradi.</span></div>'}
           <label class="field">Savol (ixtiyoriy)<textarea id="aiQ" rows="3" placeholder="Masalan: Nega SMM kursida lid ko'p, sotuv past? Qaysi kursga byudjetni oshirish kerak?"></textarea></label>
           <div class="filters"><button class="btn primary" id="aiRun" ${state.me.ai ? '' : 'disabled'}>${ICONS.ai.replace('<svg', '<svg width="16" height="16"')} Tahlil qilish</button>
             <span class="muted small">Tanlangan davr va loyiha bo'yicha voronka, o'sish, sabablar va izohlar tahlil qilinadi.</span></div>

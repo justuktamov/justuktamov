@@ -253,3 +253,5 @@ details summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var
   .filters select, .filters input { flex: 1; }
 }
 input[type="color"] { padding: 4px; height: 42px; cursor: pointer; }
+.demo-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px 16px; flex-wrap: wrap; background: var(--info-bg); color: var(--info); border-radius: 10px; padding: 8px 12px; font-size: 13px; margin-bottom: 16px; }
+.demo-bar select { width: auto; padding: 5px 8px; font-size: 13px; margin-left: 6px; }
