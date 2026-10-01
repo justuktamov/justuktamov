@@ -1,6 +1,6 @@
 // Proekt menejerning direktorga kunlik hisoboti: qoralama → yuborildi → ko'rib chiqildi
 import { getDb } from './db.js';
-import { summary, recommendations, missingReport, addDays, PROJECT_STATUS } from './metrics.js';
+import { summary, recommendations, missingReport, addDays, dailyAdvice, PROJECT_STATUS, ADVICE_WHO } from './metrics.js';
 
 const nowIso = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
 
@@ -18,9 +18,14 @@ export function getReport(date) {
 export function reportBundle(date) {
   const day = summary({ from: date, to: date });
   const rec = recommendations({ from: addDays(date, -6), to: date });
+  // Direktorning oxirgi javobi (kechagi yoki undan oldingi hisobotga) — PM bugun shuni bajaradi
+  const prev = getDb().prepare('SELECT date, director_comment FROM daily_reports WHERE date < ? AND director_comment IS NOT NULL ORDER BY date DESC LIMIT 1').get(date);
   return {
     date,
     report: getReport(date),
+    advice: dailyAdvice(date, day, rec),
+    adviceWho: ADVICE_WHO,
+    prevReply: prev && prev.date >= addDays(date, -3) ? { date: prev.date, text: prev.director_comment } : null,
     day: { totals: day.totals, byProject: day.byProject, delta: day.delta, prevFrom: day.prevFrom },
     rec,
     plan: day.plan,
@@ -74,6 +79,21 @@ export function reviewReport(date, userId, comment) {
   return getReport(date);
 }
 
+// Direktor Telegramda hisobotga javob (reply) yozsa — yechim sifatida saqlanadi va PM ga ko'rinadi
+export function addDirectorReply(date, text, userId = null) {
+  const cur = getReport(date);
+  const msg = String(text ?? '').trim().slice(0, 2000);
+  if (!cur || cur.status === 'draft' || !msg) return null;
+  const comment = [cur.director_comment, msg].filter(Boolean).join('\n').slice(0, 4000);
+  getDb().prepare("UPDATE daily_reports SET status = 'reviewed', reviewed_by = ?, reviewed_at = ?, director_comment = ? WHERE date = ?")
+    .run(userId, nowIso(), comment, date);
+  return getReport(date);
+}
+
+export function latestSentDate() {
+  return getDb().prepare("SELECT date FROM daily_reports WHERE status != 'draft' ORDER BY date DESC LIMIT 1").get()?.date || null;
+}
+
 export function listReports(limit = 30) {
   const rows = getDb().prepare('SELECT date FROM daily_reports ORDER BY date DESC LIMIT ?').all(limit);
   return rows.map((r) => {
@@ -88,30 +108,41 @@ const p = (x) => (x == null ? '—' : `${(x * 100).toFixed(1)}%`);
 const esc = (s) => String(s ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
 const ICON = { unprofitable: '🔴', sales_issue: '🟠', creative: '🟠', needs_leads: '🟡', scale: '🟢', good: '🟢', nodata: '⚪' };
 
+const usd = (x) => (x == null ? '—' : `$${x.toFixed(2)}`);
+const sum = (x) => (x >= 1e6 ? `${(x / 1e6).toFixed(1).replace('.0', '')} mln` : n(x));
+export const REPORT_HEAD = 'PM hisoboti —';
+
 export function reportText(date) {
   const b = reportBundle(date);
   const r = b.report || {};
   const t = b.day.totals;
   const lines = [
-    `<b>📋 PM hisoboti — ${date}</b>${r.author_name ? `\nTayyorladi: ${esc(r.author_name)}` : ''}`,
+    `<b>📋 ${REPORT_HEAD} ${date}</b>${r.author_name ? `\nTayyorladi: ${esc(r.author_name)}` : ''}`,
     '',
-    `💸 Target: <b>$${t.spend.toFixed(0)}</b> · klik <b>${n(t.clicks)}</b> · lid <b>${n(t.leads)}</b> · lid narxi <b>${t.cpl == null ? '—' : `$${t.cpl.toFixed(2)}`}</b>`,
-    `💰 Sotuv <b>${n(t.sales)}</b> · tushum <b>${n(t.total_revenue)} so'm</b> · lid→sotuv <b>${p(t.lead_to_sale)}</b>`,
-    '',
+    `💸 Target: <b>$${t.spend.toFixed(0)}</b> · klik <b>${n(t.clicks)}</b> · lid <b>${n(t.leads)}</b> · 1 lid <b>${usd(t.cpl)}</b>`,
+    `💰 Sotuv <b>${n(t.sales)}</b> · <b>${sum(t.total_revenue)} so'm</b> · lid→sotuv <b>${p(t.lead_to_sale)}</b>`,
   ];
   for (const pr of b.day.byProject) {
     const rec = b.rec.projects.find((x) => x.id === pr.id);
     const note = r.project_notes?.[pr.id] || {};
-    const status = note.status || rec?.status || 'nodata';
-    lines.push(`${ICON[status]} <b>${esc(pr.name)}</b> — ${esc(PROJECT_STATUS[status])}`);
-    lines.push(`   $${pr.spend.toFixed(0)} · ${n(pr.clicks)} klik · ${n(pr.leads)} lid · ${n(pr.sales)} sotuv${pr.cpl != null ? ` · lid $${pr.cpl.toFixed(2)}` : ''}`);
-    if (note.comment) lines.push(`   💬 ${esc(note.comment)}`);
+    const adv = b.advice[pr.id] || { problems: [], proposals: [] };
+    const status = note.status || adv.status || rec?.status || 'nodata';
+    const q = [['sifatli', pr.qualified, 'qualified'], ['potensial', pr.potential, 'potential'], ['sifatsiz', pr.unqualified, 'unqualified']]
+      .filter(([, , f]) => pr.reported[f]).map(([l, v]) => `${l} ${n(v)}`);
+    lines.push('', `${ICON[status]} <b>${esc(pr.name)}</b> — ${esc(PROJECT_STATUS[status])}`);
+    lines.push(`   $${pr.spend.toFixed(0)} · ${n(pr.clicks)} klik · 1 lid ${usd(pr.cpl)}`);
+    lines.push(`   ${n(pr.leads)} lid${q.length ? ` (${q.join(' · ')})` : ''} · ${n(pr.sales)} sotuv · ${sum(pr.total_revenue)} so'm`);
+    if (adv.best) lines.push(`   ⭐ Yaxshi kreativ: ${esc(adv.best)}`);
+    if (adv.worst) lines.push(`   👎 Ishlamayotgan: ${esc(adv.worst)}`);
+    for (const pb of adv.problems) lines.push(`   ⚠️ ${esc(pb.text)}`);
+    const proposal = note.comment || adv.proposals.join('\n');
+    for (const l of proposal.split('\n').map((x) => x.replace(/^[•\-\s]+/, '').trim()).filter(Boolean)) lines.push(`   💡 ${esc(l)}`);
   }
   if (r.summary) lines.push('', `<b>Xulosa:</b> ${esc(r.summary)}`);
   if (r.tomorrow) lines.push(`<b>Ertaga:</b> ${esc(r.tomorrow)}`);
   const up = b.rec.allocation.filter((a) => a.change > 0.02).map((a) => esc(a.name));
   const down = b.rec.allocation.filter((a) => a.change < -0.02).map((a) => esc(a.name));
   if (up.length || down.length) lines.push('', `<b>Byudjet (7 kun asosida):</b>${up.length ? ` ↑ ${up.join(', ')}` : ''}${down.length ? ` · ↓ ${down.join(', ')}` : ''}`);
-  if (b.rec.worstCreatives.length) lines.push(`<b>Ishlamayotgan kreativlar:</b> ${b.rec.worstCreatives.slice(0, 3).map((c) => `«${esc(c.name)}»`).join(', ')}`);
+  lines.push('', '↩️ <i>Yechimingizni shu xabarga javob (reply) qilib yozing — PM ga yetkaziladi.</i>');
   return lines.join('\n');
 }

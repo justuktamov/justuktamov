@@ -31,9 +31,12 @@ export const FIELDS = {
   spend:          { label: 'Reklama xarajati ($)', role: 'target' },
   impressions:    { label: "Ko'rishlar (impressions)", role: 'target' },
   clicks:         { label: 'Kliklar', role: 'target' },
+  new_creatives:  { label: 'Yangi kreativlar soni', role: 'target' },
   bot_starts:     { label: 'Bot /start (qo\'lda)', role: 'lead' },
   leads:          { label: 'Lidlar', role: 'lead' },
   qualified:      { label: 'Sifatli lidlar', role: 'lead' },
+  potential:      { label: 'Potensial lidlar', role: 'lead' },
+  unqualified:    { label: 'Sifatsiz lidlar', role: 'lead' },
   sales:          { label: 'Sotuvlar soni', role: 'sales' },
   revenue:        { label: "Tushum (so'm)", role: 'sales' },
   payments:       { label: "Kassaga tushgan pul (so'm)", role: 'finance' },
@@ -43,6 +46,8 @@ export const FIELDS = {
 
 export const NOTE_FIELDS = {
   note_target: 'target',
+  creative_best: 'target',
+  creative_worst: 'target',
   note_lead: 'lead',
   note_sales: 'sales',
   note_finance: 'finance',
@@ -274,6 +279,9 @@ function migrate(db) {
   // Eski bazalarga yangi ustunlar
   const ucols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
   if (ucols.length && !ucols.includes('project_ids')) db.exec('ALTER TABLE users ADD COLUMN project_ids TEXT');
+  const dcols = db.prepare('PRAGMA table_info(daily)').all().map((c) => c.name);
+  for (const f of Object.keys(FIELDS)) if (dcols.length && !dcols.includes(f)) db.exec(`ALTER TABLE daily ADD COLUMN ${f} REAL`);
+  for (const f of Object.keys(NOTE_FIELDS)) if (dcols.length && !dcols.includes(f)) db.exec(`ALTER TABLE daily ADD COLUMN ${f} TEXT`);
   const cols = db.prepare('PRAGMA table_info(campaigns)').all().map((c) => c.name);
   for (const [c, t] of [['impressions', 'REAL'], ['creative_type', 'TEXT'], ['creative_url', 'TEXT']]) {
     if (cols.length && !cols.includes(c)) db.exec(`ALTER TABLE campaigns ADD COLUMN ${c} ${t}`);

@@ -1,6 +1,6 @@
 // Proekt menejerning kunlik ishi — 4 qadam: target raqamlari → sotuv raqamlari → tekshirish → direktorga yuborish
 import {
-  $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtUzs, fmtP, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, shortDate,
+  $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtUzs, fmtP, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, shortDate, copyText,
 } from './core.js';
 
 export const STATUS_PILL = { unprofitable: 'crit', sales_issue: 'crit', creative: 'warn', needs_leads: 'info', scale: 'lime', good: 'good', nodata: '' };
@@ -16,16 +16,23 @@ const MEANING = {
 };
 
 const STEPS = [
-  { key: 'target', title: 'Target', head: "Targetologdan raqamlarni oling",
-    hint: "Har bir loyihaga bugun reklamaga qancha pul ketdi va nechta klik bo'ldi — targetologdan so'rang va yozing.",
-    fields: [['spend', 'Xarajat, $'], ['clicks', 'Klik']] },
-  { key: 'sales', title: 'Sotuv', head: "ROP dan sotuv raqamlarini oling",
-    hint: "Bugun nechta lid (so'rov) keldi, nechtasi sotib oldi va qancha pul tushdi — ROP dan so'rang va yozing.",
-    fields: [['leads', 'Lid'], ['sales', 'Sotuv'], ['revenue', "Tushum, so'm"]] },
-  { key: 'check', title: 'Tekshirish', head: 'Natijani tekshiring',
-    hint: "Tizim har bir loyihani baholadi. Rozi bo'lmasangiz — boshqa holatni tanlang. Kerak bo'lsa bir og'iz izoh yozing." },
+  { key: 'target', title: 'Target', head: "Targetologdan so'rang",
+    hint: "Har bir loyiha bo'yicha raqamlarni yozing. Lid narxini tizim o'zi hisoblaydi (xarajat ÷ lid).",
+    ask: ['Qaysi loyihaga qancha pul sarflandi ($)?', "Nechta ko'rish va nechta klik bo'ldi?", 'Bugun nechta yangi kreativ chiqdi?',
+      'Qaysi kreativ yaxshi ishladi, qaysi biri ishlamadi?', "Reklamada muammo bo'ldimi (akkaunt, moderatsiya, to'lov)?"],
+    fields: [['spend', 'Xarajat, $'], ['impressions', "Ko'rish"], ['clicks', 'Klik'], ['new_creatives', 'Yangi kreativ']],
+    required: ['spend', 'clicks'],
+    texts: [['creative_best', 'Yaxshi ishlagan kreativ', 'nomi yoki havola'], ['creative_worst', 'Ishlamayotgan kreativ', 'nomi yoki havola'], ['note_target', 'Muammo', "akkaunt, moderatsiya, to'lov…"]] },
+  { key: 'sales', title: 'Sotuv', head: "Sotuv bo'limi rahbaridan (ROP) so'rang",
+    hint: "Sifatli — sotib olishga tayyor. Potensial — qiziqdi, keyinroq olishi mumkin. Sifatsiz — maqsadli emas yoki javob bermadi.",
+    ask: ['Har bir loyihaga nechta lid tushdi?', 'Nechtasi sifatli, nechtasi potensial, nechtasi sifatsiz?', "Nechta sotuv bo'ldi va summa qancha?", 'Sotib olmaganlar nega olmadi (asosiy sabab)?'],
+    fields: [['leads', 'Jami lid'], ['qualified', 'Sifatli'], ['potential', 'Potensial'], ['unqualified', 'Sifatsiz'], ['sales', 'Sotuv'], ['revenue', "Summa, so'm"]],
+    required: ['leads', 'sales', 'revenue'],
+    texts: [['note_sales', 'ROP izohi', "nega sotib olmayapti, nima xalaqit beryapti…"]] },
+  { key: 'check', title: 'Tahlil', head: 'Tahlil qiling va taklif yozing',
+    hint: "Tizim har bir loyihada muammoni topdi va taklif yozib qo'ydi. O'zingizcha tahrirlang — direktor shu takliflarni o'qib, yechim beradi." },
   { key: 'send', title: 'Yuborish', head: 'Direktorga yuboring',
-    hint: 'Direktor Telegramda aynan shu xabarni oladi. Tekshiring va yuboring.' },
+    hint: 'Direktor Telegramda aynan shu xabarni oladi va javob (reply) qilib yechim yozadi — javob sizga keladi.' },
 ];
 
 export function dateNav(date, onChange) {
@@ -49,13 +56,19 @@ export function creativeList(list, empty) {
     ${c.creative_url ? `<a class="circle-btn sm" href="${esc(c.creative_url)}" target="_blank" rel="noopener" aria-label="Kreativni ochish">${ICONS.play}</a>` : ''}</div>`).join('')}</div>`;
 }
 
-const filled = (row, fields) => fields.every(([f]) => row[f] != null);
+const filled = (row, fields) => fields.every((f) => row[f] != null);
+const dot = (c) => `<span class="dot" style="background:${esc(c || '#4c86ff')};color:${esc(c || '#4c86ff')}"></span>`;
 
 function stepDone(key, daily, report) {
-  if (key === 'target') return daily.projects.length > 0 && daily.projects.every((p) => filled(p.row, STEPS[0].fields));
-  if (key === 'sales') return daily.projects.length > 0 && daily.projects.every((p) => filled(p.row, STEPS[1].fields));
+  if (key === 'target') return daily.projects.length > 0 && daily.projects.every((p) => filled(p.row, STEPS[0].required));
+  if (key === 'sales') return daily.projects.length > 0 && daily.projects.every((p) => filled(p.row, STEPS[1].required));
   if (key === 'check') return Boolean(report && Object.keys(report.project_notes || {}).length);
   return Boolean(report && report.status !== 'draft');
+}
+
+// Targetolog/ROP ga Telegramda yuborish uchun tayyor savollar
+function askText(s, projects) {
+  return `Salom! Bugungi hisobot uchun har bir loyiha (${projects.map((p) => p.name).join(', ')}) bo'yicha yozib bering:\n${s.ask.map((q, i) => `${i + 1}) ${q}`).join('\n')}`;
 }
 
 export async function renderToday() {
@@ -82,48 +95,69 @@ export async function renderToday() {
 
   const stepper = `<nav class="stepper" aria-label="Qadamlar">${STEPS.map((s, i) => `<button data-step="${s.key}" class="${step === s.key ? 'on' : ''} ${done[s.key] ? 'ok' : ''}">
       <span class="num">${done[s.key] ? ICONS.check : i + 1}</span><span>${s.title}</span></button>${i < STEPS.length - 1 ? '<i></i>' : ''}`).join('')}</nav>`;
+  // Direktorning oxirgi yechimi — PM bugun shuni bajarishi kerak
+  const reply = bundle.prevReply && step !== 'done'
+    ? `<div class="reply-banner"><span class="eyebrow">Direktor yechimi · ${shortDate(bundle.prevReply.date)}</span><p>${esc(bundle.prevReply.text).replace(/\n/g, '<br>')}</p></div>` : '';
 
   const toStep = (k) => { state.pmStep = k; renderToday(); };
   const body = { target: () => entryStep(0), sales: () => entryStep(1), check: checkStep, send: sendStep, done: doneStep }[step]();
-  box.innerHTML = stepper + body;
+  box.innerHTML = stepper + reply + body;
   box.querySelector('.stepper').onclick = (e) => { const b = e.target.closest('[data-step]'); if (b) toStep(b.dataset.step); };
   bindStep();
 
-  // ---------- 1-2: raqamlarni kiritish ----------
+  // ---------- 1-2: targetolog va ROP raqamlari ----------
   function entryStep(i) {
     const s = STEPS[i];
+    const calc = s.key === 'sales'; // jonli hisob: lid narxi va lid turlari yig'indisi
     return `<section class="card step">
-      <div class="step-head"><span class="eyebrow">${i + 1}-qadam</span><h2>${s.head}</h2><p>${s.hint}</p></div>
-      <div class="table-wrap"><table class="grid-entry" style="--cols:${s.fields.length}"><thead><tr><th>Loyiha</th>${s.fields.map(([, l]) => `<th class="n">${l}</th>`).join('')}<th></th></tr></thead>
-      <tbody>${daily.projects.map((p) => `<tr data-id="${p.id}"><td><span class="dot" style="background:${esc(p.color || '#4c86ff')};color:${esc(p.color || '#4c86ff')}"></span>${esc(p.name)}</td>
+      <div class="step-top">
+        <div class="step-head"><span class="eyebrow">${i + 1}-qadam</span><h2>${s.head}</h2><p>${s.hint}</p></div>
+        <div class="ask"><b>So'raladigan savollar</b><ol>${s.ask.map((q) => `<li>${esc(q)}</li>`).join('')}</ol>
+          <button class="btn small" data-copy-ask>${ICONS.copy} Nusxalash — Telegramda yuborish uchun</button></div>
+      </div>
+      <div class="table-wrap"><table class="grid-entry ${s.fields.length > 4 ? 'wide' : ''}" style="--cols:${s.fields.length % 3 ? 2 : 3}"><thead><tr><th>Loyiha</th>${s.fields.map(([, l]) => `<th class="n">${l}</th>`).join('')}${calc ? '<th class="n">1 lid</th>' : ''}<th></th></tr></thead>
+      <tbody>${daily.projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
         ${s.fields.map(([f, l]) => `<td class="n" data-label="${l}"><input class="cell-in" inputmode="decimal" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}
-        <td>${filled(p.row, s.fields) ? '<span class="pill good">✓</span>' : ''}</td></tr>`).join('')}</tbody></table></div>
-      <div class="step-foot"><span class="muted small">Kulrang raqam — kechagi qiymat. Enter — keyingi qator.</span><span class="spacer"></span>
+        ${calc ? `<td class="n calc" data-label="1 lid narxi" data-cpl>${cplText(p.row.spend, p.row.leads)}</td>` : ''}
+        <td data-state>${filled(p.row, s.required) ? '<span class="pill good">✓</span>' : ''}</td></tr>`).join('')}</tbody></table></div>
+      <details class="extra" ${daily.projects.some((p) => s.texts.some(([f]) => p.row[f])) ? 'open' : ''}><summary>${s.key === 'target' ? 'Kreativlar va muammolar' : 'ROP izohlari'} <span class="muted">(ixtiyoriy)</span></summary>
+        <div class="table-wrap"><table class="grid-entry text-entry" style="--cols:1"><thead><tr><th>Loyiha</th>${s.texts.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead>
+        <tbody>${daily.projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
+          ${s.texts.map(([f, l, ph]) => `<td class="n" data-label="${l}"><input class="cell-in txt" name="${f}" maxlength="300" value="${esc(p.row[f] ?? '')}" placeholder="${esc(ph)}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      </details>
+      <div class="step-foot"><span class="muted small">${calc ? "Jami lid bo'sh qolsa — uch turi qo'shiladi." : 'Kulrang raqam — kechagi qiymat. Enter — keyingi qator.'}</span><span class="spacer"></span>
         <button class="btn ghost" data-skip>O'tkazib yuborish</button><button class="btn primary" data-save>Saqlash va davom etish →</button></div>
     </section>`;
   }
 
-  // ---------- 3: tekshirish ----------
+  // ---------- 3: tahlil va takliflar ----------
   function checkStep() {
     const notes = report?.project_notes || {};
     const statuses = Object.entries(bundle.statuses).filter(([k]) => k !== 'nodata');
+    const WHO = bundle.adviceWho || {};
     return `<section class="card step">
       <div class="step-head"><span class="eyebrow">3-qadam</span><h2>${STEPS[2].head}</h2><p>${STEPS[2].hint}</p></div>
       <div class="checks">${bundle.day.byProject.map((p) => {
-        const rec = bundle.rec.projects.find((x) => x.id === p.id) || { status: 'nodata', actions: [] };
-        const cur = notes[p.id]?.status || (rec.status === 'nodata' ? null : rec.status);
+        const adv = bundle.advice?.[p.id] || { status: 'nodata', problems: [], proposals: [] };
+        const auto = adv.status || 'nodata';
+        const cur = notes[p.id]?.status || (auto === 'nodata' ? null : auto);
+        const proposal = notes[p.id]?.comment ?? adv.proposals.map((x) => `• ${x}`).join('\n');
+        const q = [['sifatli', 'qualified'], ['potensial', 'potential'], ['sifatsiz', 'unqualified']].filter(([, f]) => p.reported[f]).map(([l, f]) => `${l} ${fmtN(p[f])}`);
         return `<article class="check" data-pid="${p.id}">
-          <div class="check-top"><b><span class="dot" style="background:${esc(p.color || '#4c86ff')};color:${esc(p.color || '#4c86ff')}"></span>${esc(p.name)}</b>
-            <span class="pill ${STATUS_PILL[rec.status]}">${esc(rec.status_label)}</span></div>
-          <p class="meaning">${esc(MEANING[rec.status])}${rec.actions[0] ? ` <span class="muted" title="${esc(rec.actions[0].detail || '')}">· ${esc(rec.actions[0].text)}</span>` : ''}</p>
-          <div class="nums"><span>${fmtUsd(p.spend, 0)}</span><span>${fmtN(p.clicks)} klik</span><span>${fmtN(p.leads)} lid</span><span>${fmtN(p.sales)} sotuv</span><span>1 lid ${fmtUsd(p.cpl)}</span></div>
-          <details ${notes[p.id]?.comment || (notes[p.id]?.status && notes[p.id].status !== rec.status) ? 'open' : ''}><summary>Baho yoki izohni o'zgartirish</summary>
-            <div class="status-chips">${statuses.map(([k, l]) => `<button type="button" data-st="${k}" class="${cur === k ? 'on' : ''} ${rec.status === k ? 'auto' : ''}">${esc(l)}</button>`).join('')}</div>
-            <input data-comment value="${esc(notes[p.id]?.comment || '')}" placeholder="Izoh direktorga (ixtiyoriy)" aria-label="${esc(p.name)} izohi">
+          <div class="check-top"><b>${dot(p.color)}${esc(p.name)}</b>
+            <span class="pill ${STATUS_PILL[cur || auto]}" data-pill>${esc(bundle.statuses[cur || auto])}</span></div>
+          <div class="nums"><span>${fmtUsd(p.spend, 0)}</span><span>${fmtN(p.clicks)} klik</span><span><b>1 lid ${fmtUsd(p.cpl)}</b></span>
+            <span>${fmtN(p.leads)} lid${q.length ? ` (${q.join(', ')})` : ''}</span><span>${fmtN(p.sales)} sotuv</span><span>${fmtUzs(p.total_revenue)} so'm</span></div>
+          ${adv.best || adv.worst ? `<div class="nums">${adv.best ? `<span>⭐ ${esc(adv.best)}</span>` : ''}${adv.worst ? `<span>👎 ${esc(adv.worst)}</span>` : ''}</div>` : ''}
+          ${adv.problems.length ? `<ul class="problems">${adv.problems.map((x) => `<li><span class="who ${x.who}">${esc(WHO[x.who] || '')}</span>${esc(x.text)}</li>`).join('')}</ul>`
+            : `<p class="meaning">${esc(MEANING[auto])}</p>`}
+          <label class="field">Taklifim direktorga<textarea data-comment rows="${Math.max(2, proposal.split('\n').length)}" aria-label="${esc(p.name)} — taklif">${esc(proposal)}</textarea></label>
+          <details><summary>Holatni o'zgartirish</summary>
+            <div class="status-chips">${statuses.map(([k, l]) => `<button type="button" data-st="${k}" class="${cur === k ? 'on' : ''} ${auto === k ? 'auto' : ''}">${esc(l)}</button>`).join('')}</div>
           </details>
         </article>`;
       }).join('')}</div>
-      <div class="step-foot"><span class="spacer"></span><button class="btn primary" data-save>Hammasi to'g'ri, davom etish →</button></div>
+      <div class="step-foot"><span class="spacer"></span><button class="btn primary" data-save>Saqlash va davom etish →</button></div>
     </section>`;
   }
 
@@ -134,8 +168,8 @@ export async function renderToday() {
       <div class="step-head"><span class="eyebrow">4-qadam</span><h2>${STEPS[3].head}</h2><p>${STEPS[3].hint}</p></div>
       <div class="grid g2">
         <div class="stack">
-          <label class="field">Bugun qisqacha (ixtiyoriy)<textarea id="rSummary" rows="3" placeholder="Masalan: DIZIPRO da sotuv past, sabab — lidlar sifatsiz">${esc(report?.summary || '')}</textarea></label>
-          <label class="field">Ertaga nima qilamiz (ixtiyoriy)<textarea id="rTomorrow" rows="3" placeholder="Masalan: VIZART uchun yangi video qo'yamiz">${esc(report?.tomorrow || '')}</textarea></label>
+          <label class="field">Kun xulosasi (ixtiyoriy)<textarea id="rSummary" rows="3" placeholder="Masalan: DIZIPRO da lid ko'p, sotuv kam — ROP bilan gaplashdim">${esc(report?.summary || '')}</textarea></label>
+          <label class="field">Ertaga nima qilamiz (ixtiyoriy)<textarea id="rTomorrow" rows="3" placeholder="Masalan: VIZART uchun 2 ta yangi video qo'yamiz">${esc(report?.tomorrow || '')}</textarea></label>
           ${!tg.enabled || !tg.reportChat ? `<div class="insight warning"><span class="ic">Eslatma</span><span>Telegram ${tg.enabled ? 'chat ID si' : 'bot'} sozlanmagan — hisobot faqat tizimda saqlanadi. <a href="#/sozlamalar?tab=telegram">Sozlash</a></span></div>` : ''}
         </div>
         <div class="stack"><span class="eyebrow">Direktor ko'radigan xabar</span><pre class="tg" id="preview">Yuklanmoqda…</pre></div>
@@ -150,9 +184,9 @@ export async function renderToday() {
     return `<section class="card step done-card">
       <div class="done-icon">${ICONS.check}</div>
       <h2>${date === state.me.today ? 'Bugungi hisobot yuborildi' : 'Hisobot yuborilgan'}</h2>
-      <p class="muted">${String(report.submitted_at || '').slice(11, 16)} da yuborildi${report.status === 'reviewed' ? ' · direktor ko\'rib chiqdi' : ''}</p>
-      ${report.director_comment ? `<div class="quote accent" style="text-align:left"><b>Direktor:</b> ${esc(report.director_comment)}</div>` : ''}
-      <div class="nums big-nums"><span><b>${fmtUsd(t.spend, 0)}</b>xarajat</span><span><b>${fmtN(t.leads)}</b>lid</span><span><b>${fmtN(t.sales)}</b>sotuv</span><span><b>${fmtUzs(t.total_revenue)}</b>tushum</span></div>
+      <p class="muted">${String(report.submitted_at || '').slice(11, 16)} da yuborildi${report.status === 'reviewed' ? ' · direktor javob berdi' : ' · direktor javobini kutyapmiz'}</p>
+      ${report.director_comment ? `<div class="reply-banner" style="text-align:left"><span class="eyebrow">Direktor yechimi</span><p>${esc(report.director_comment).replace(/\n/g, '<br>')}</p></div>` : ''}
+      <div class="nums big-nums"><span><b>${fmtUsd(t.spend, 0)}</b>xarajat</span><span><b>${fmtUsd(t.cpl)}</b>1 lid</span><span><b>${fmtN(t.leads)}</b>lid</span><span><b>${fmtN(t.sales)}</b>sotuv</span><span><b>${fmtUzs(t.total_revenue)}</b>tushum</span></div>
       <div class="row" style="justify-content:center"><button class="btn" data-step-go="send">Xabarni ko'rish</button><button class="btn ghost" data-step-go="target">Raqamlarni o'zgartirish</button></div>
       <p class="small muted">Ertaga shu yerda yangi hisobot boshlanadi.</p>
     </section>`;
@@ -160,17 +194,43 @@ export async function renderToday() {
 
   function bindStep() {
     // Enter — pastki qatordagi shu ustun
-    box.querySelector('tbody')?.addEventListener('keydown', (e) => {
+    box.querySelectorAll('tbody').forEach((tb) => tb.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' || !e.target.matches('input')) return;
       e.preventDefault();
       const td = e.target.closest('td');
       const next = td.parentElement.nextElementSibling?.children[td.cellIndex]?.querySelector('input');
       (next || box.querySelector('[data-save]')).focus();
-    });
+    }));
+    const cur = STEPS.find((s) => s.key === step);
+    // Taklif maydoni matnga qarab cho'ziladi
+    const fit = (t) => { t.style.height = 'auto'; t.style.height = `${t.scrollHeight + 2}px`; };
+    box.querySelectorAll('.check textarea').forEach((t) => { fit(t); t.addEventListener('input', () => fit(t)); });
+    const copyAsk = box.querySelector('[data-copy-ask]');
+    if (copyAsk) copyAsk.onclick = () => copyText(askText(cur, daily.projects));
+    // Sotuv qadami: lid narxi va lid turlari yig'indisi yozish paytida
+    if (step === 'sales') {
+      box.querySelector('.grid-entry tbody').addEventListener('input', (e) => {
+        const tr = e.target.closest('tr[data-id]');
+        if (!tr) return;
+        const p = daily.projects.find((x) => String(x.id) === tr.dataset.id);
+        const v = (f) => { const el = $(`input[name="${f}"]`, tr); return el.value === '' ? null : Number(String(el.value).replace(/\s/g, '').replace(',', '.')); };
+        const parts = ['qualified', 'potential', 'unqualified'].map(v);
+        const total = v('leads') ?? (parts.some((x) => x != null) ? parts.reduce((a, x) => a + (x || 0), 0) : null);
+        $('[data-cpl]', tr).textContent = cplText(p.row.spend, total);
+        const sumParts = parts.reduce((a, x) => a + (x || 0), 0);
+        $('[data-state]', tr).innerHTML = v('leads') != null && parts.some((x) => x != null) && sumParts !== v('leads')
+          ? `<span class="pill warn" title="Sifatli + potensial + sifatsiz = ${sumParts}">≠ ${sumParts}</span>` : '';
+      });
+    }
     box.querySelectorAll('[data-step-go]').forEach((b) => { b.onclick = () => toStep(b.dataset.stepGo); });
     box.querySelector('.checks')?.addEventListener('click', (e) => {
       const b = e.target.closest('[data-st]');
-      if (b) $$('[data-st]', b.closest('.check')).forEach((x) => x.classList.toggle('on', x === b));
+      if (!b) return;
+      const card = b.closest('.check');
+      $$('[data-st]', card).forEach((x) => x.classList.toggle('on', x === b));
+      const pill = $('[data-pill]', card);
+      pill.className = `pill ${STATUS_PILL[b.dataset.st]}`;
+      pill.textContent = bundle.statuses[b.dataset.st];
     });
     const idx = STEPS.findIndex((s) => s.key === step);
     const next = () => toStep(STEPS[idx + 1]?.key || 'send');
@@ -183,14 +243,23 @@ export async function renderToday() {
       save.disabled = true;
       try {
         if (step === 'target' || step === 'sales') {
-          let changed = 0;
-          for (const tr of box.querySelectorAll('tbody tr[data-id]')) {
-            const p = daily.projects.find((x) => String(x.id) === tr.dataset.id);
-            const values = {};
-            tr.querySelectorAll('input[name]').forEach((el) => { if (el.value !== String(p.row[el.name] ?? '')) values[el.name] = el.value; });
-            if (Object.keys(values).length) changed += (await api('/api/daily', { method: 'PUT', body: { project_id: p.id, date, values } })).changed;
+          // Bir loyihaning raqam va izoh maydonlari — bitta so'rovda
+          const byProject = {};
+          for (const el of box.querySelectorAll('tr[data-id] input[name]')) {
+            const p = daily.projects.find((x) => String(x.id) === el.closest('tr').dataset.id);
+            if (el.value.trim() !== String(p.row[el.name] ?? '')) (byProject[p.id] ||= {})[el.name] = el.value.trim();
           }
-          if (changed) toast(`Saqlandi ✓`);
+          if (step === 'sales') {
+            for (const p of daily.projects) {
+              const tr = box.querySelector(`tr[data-id="${p.id}"]`);
+              const val = (f) => $(`input[name="${f}"]`, tr).value.trim();
+              const parts = ['qualified', 'potential', 'unqualified'].map(val).filter(Boolean);
+              if (!val('leads') && parts.length) (byProject[p.id] ||= {}).leads = String(parts.reduce((a, x) => a + Number(x.replace(/\s/g, '').replace(',', '.')), 0));
+            }
+          }
+          let changed = 0;
+          for (const [id, values] of Object.entries(byProject)) changed += (await api('/api/daily', { method: 'PUT', body: { project_id: Number(id), date, values } })).changed;
+          if (changed) toast('Saqlandi ✓');
         } else if (step === 'check') {
           await api('/api/report', { method: 'PUT', body: { date, ...collectDraft() } });
         }
@@ -218,20 +287,24 @@ export async function renderToday() {
     }
   }
 
-  // Hozirgi baho/izohlar + xulosa — bir joydan
+  // Holat va takliflar + xulosa — bir joydan
   function collectDraft() {
     const project_notes = { ...(report?.project_notes || {}) };
     $$('.check[data-pid]', box).forEach((c) => {
       project_notes[c.dataset.pid] = { status: $('[data-st].on', c)?.dataset.st || null, comment: $('[data-comment]', c).value };
     });
-    // Tekshirish qadamida baho tanlanmagan bo'lsa — tizim bahosi saqlanadi
-    for (const p of bundle.rec.projects) if (!project_notes[p.id] && p.status !== 'nodata') project_notes[p.id] = { status: p.status, comment: null };
+    // Tahlil qadami o'tkazib yuborilsa — tizim holati saqlanadi, taklif xabarda avtomatik chiqadi
+    for (const [id, a] of Object.entries(bundle.advice || {})) if (!project_notes[id] && a.status !== 'nodata') project_notes[id] = { status: a.status, comment: null };
     return {
       project_notes,
       summary: $('#rSummary')?.value ?? report?.summary ?? '',
       tomorrow: $('#rTomorrow')?.value ?? report?.tomorrow ?? '',
     };
   }
+}
+
+function cplText(spend, leads) {
+  return spend != null && leads > 0 ? fmtUsd(spend / leads) : '—';
 }
 
 // Kompaniya loyihalari — birinchi kirishda bir bosishda qo'shiladi

@@ -27,6 +27,13 @@ const REASONS_MIX = {
 // end — oxirgi kun (bugun); oxirgi kunda ba'zi rollar hali kiritmagan bo'lib ko'rinadi
 const CHANNELS = ['@dizayn_uz', '@interyer_goyalar', '@3d_uz', '@ingliz_tili_uz', '@telegram_yangiliklar', '@talabalar_uz'];
 const PLATFORM_CYCLE = ['channel_post', 'telegram_ads', 'instagram', 'channel_post', 'blogger'];
+// Targetolog aytgan eng yaxshi / ishlamayotgan kreativ
+const CREATIVES = {
+  starpay: ['Stars −20% chegirma stories', 'Premium banner (oq fon)'],
+  vizart: ['Oshxona interyeri: oldin/keyin video', 'Instagram banner #3'],
+  dizipro: ["3ds Max dars parchasi (reels)", 'Kurs narxi yozilgan rasm'],
+  selfeng: ["O'quvchi natijasi — video", 'Grammatika test posti'],
+};
 // Oylik reja koeffitsienti: joriy sur'atga nisbatan (>1 — reja qiyinroq)
 const PLAN_K = { starpay: 1.0, vizart: 1.05, dizipro: 1.6, selfeng: 1.25 };
 // Sotuv rejasi alohida: DIZIPRO da reja konversiyasi ~3.5%, hozir ~1.5% — «lid ko'p, sotuv past»
@@ -48,21 +55,26 @@ export function generateDemo(end, days = 45) {
       const spend = Math.round(jitter(budget * growth * weekend) * 100) / 100;
       const clicks = Math.round(spend / jitter(cpc, 0.15));
       const starts = Math.round(clicks * jitter(organicK, 0.15));
-      const leads = Math.round(starts * jitter(s2l, 0.2));
+      // Bugun VIZART da lid narxi keskin oshgan (kreativ charchagan) — PM tahlilida chiqadi
+      const leads = Math.round(starts * jitter(s2l, 0.2) * (k === 0 && slug === 'vizart' ? 0.5 : 1));
       const sales = Math.round(leads * jitter(l2s, 0.35));
       const revenue = Math.round(sales * jitter(check, 0.1) / 1000) * 1000;
       const repeat = rand() < 0.25 ? Math.max(1, Math.round(sales * 0.15)) : 0;
       const today0 = k === 0;
+      const qualified = Math.round(leads * jitter(slug === 'dizipro' ? 0.22 : 0.5, 0.15));
+      const potential = Math.min(Math.round(leads * jitter(0.22, 0.2)), leads - qualified);
       const noLeads = today0 && slug === 'selfeng';
       const noTarget = today0 && slug === 'selfeng';
       const noSales = today0 && i % 2 === 1;
       daily.push({
         project_id: id, date, spend: noTarget ? null : spend, impressions: noTarget ? null : Math.round(clicks * jitter(55)), clicks: noTarget ? null : clicks, bot_starts: starts,
-        leads: noLeads ? null : leads, qualified: noLeads ? null : Math.round(leads * jitter(slug === 'dizipro' ? 0.25 : 0.55)),
+        leads: noLeads ? null : leads, qualified: noLeads ? null : qualified, potential: noLeads ? null : potential, unqualified: noLeads ? null : leads - qualified - potential,
+        new_creatives: noTarget ? null : slug === 'vizart' && k < 9 ? 0 : (k + i) % 3 === 0 ? 1 : 0,
+        creative_best: k > 2 || noTarget ? null : CREATIVES[slug][0], creative_worst: k > 2 || noTarget ? null : CREATIVES[slug][1],
         sales: noSales ? null : sales, revenue: noSales ? null : revenue,
         payments: today0 ? null : Math.round(revenue * 0.85), repeat_sales: repeat || null,
         repeat_revenue: repeat ? repeat * Math.round(check * 0.6) : null,
-        note_target: k === 3 && slug === 'dizipro' ? 'Yangi kreativ ishga tushdi, klik arzonlashdi' : null,
+        note_target: k === 3 && slug === 'dizipro' ? 'Yangi kreativ ishga tushdi, klik arzonlashdi' : k === 0 && slug === 'vizart' ? "Instagramda 1 ta reklama moderatsiyadan o'tmadi" : null,
         note_lead: k === 2 && slug === 'dizipro' ? "Lidlarning ko'pi tasodifiy, kurs nima ekanini bilmaydi" : null,
         note_sales: k === 1 && slug === 'dizipro' ? "Qo'ng'iroqlarga javob bermayapti, narxni eshitib o'ylab ko'raman deyishyapti" : null,
         note_finance: null,

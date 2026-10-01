@@ -90,6 +90,8 @@ export function derive(t, rate = usdRate()) {
     lead_to_sale: div(t.sales, t.leads),
     start_to_sale: div(t.sales, t.starts),
     qualified_share: div(t.qualified, t.leads),
+    potential_share: div(t.potential, t.leads),
+    unqualified_share: div(t.unqualified, t.leads),
     avg_check: div(t.revenue, t.sales),
     ltv: div(totalRevenue, t.sales),
     roas: div(totalRevenue, spendUzs),
@@ -414,7 +416,7 @@ export function discipline(days = 14, asOf = today()) {
 
 // Excel to'g'ri ochishi uchun BOM bilan CSV
 export function toCsv(projects, rows) {
-  const cols = ['date', 'project', 'spend', 'impressions', 'clicks', 'starts', 'starts_source', 'joins', 'leads', 'qualified', 'sales', 'revenue', 'payments', 'repeat_sales', 'repeat_revenue', 'note_target', 'note_lead', 'note_sales', 'note_finance'];
+  const cols = ['date', 'project', 'spend', 'impressions', 'clicks', 'starts', 'starts_source', 'joins', 'leads', 'qualified', 'potential', 'unqualified', 'sales', 'revenue', 'payments', 'repeat_sales', 'repeat_revenue', 'new_creatives', 'creative_best', 'creative_worst', 'note_target', 'note_lead', 'note_sales', 'note_finance'];
   const esc = (v) => (v == null ? '' : /[",\n;]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
   const lines = [cols.join(',')];
   for (const r of [...rows].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.project_id - b.project_id))) {
@@ -447,7 +449,9 @@ export function recommendations({ from, to }) {
     const actions = [];
     const flags = new Set();
     const salesIn = p.reported.sales > 0;
-    const badCreatives = camps.rows.filter((c) => c.project_id === p.id && c.verdict === 'bad');
+    // Zaif kreativ loyiha byudjetining sezilarli qismini (25%+) yegan bo'lsagina holatga ta'sir qiladi
+    const badAll = camps.rows.filter((c) => c.project_id === p.id && c.verdict === 'bad');
+    const badCreatives = badAll.reduce((a, c) => a + (c.spend || 0), 0) >= p.spend * 0.25 ? badAll : [];
     if (p.spend === 0 && p.leads === 0) {
       return { ...pick(p), status: 'nodata', status_label: PROJECT_STATUS.nodata, actions: [], badCreatives: [] };
     }
@@ -489,7 +493,7 @@ export function recommendations({ from, to }) {
 }
 
 function pick(p) {
-  const keys = ['id', 'name', 'color', 'spend', 'impressions', 'clicks', 'starts', 'organic', 'leads', 'qualified', 'sales', 'total_revenue', 'ctr', 'cpc', 'cost_per_start', 'cpl', 'cac', 'lead_to_sale', 'start_to_lead', 'roas', 'roi', 'growth'];
+  const keys = ['id', 'name', 'color', 'spend', 'impressions', 'clicks', 'starts', 'organic', 'leads', 'qualified', 'potential', 'unqualified', 'sales', 'total_revenue', 'ctr', 'cpc', 'cost_per_start', 'cpl', 'cac', 'lead_to_sale', 'start_to_lead', 'roas', 'roi', 'growth'];
   return Object.fromEntries(keys.filter((k) => k in p).map((k) => [k, p[k]]));
 }
 
@@ -513,4 +517,75 @@ export function allocation(byProject, avg, days) {
       daily_now: share * perDay, daily_suggested: suggested * perDay,
     };
   }).sort((a, b) => b.change - a.change);
+}
+
+// ---------- PM uchun kunlik tahlil ----------
+// Har bir loyiha bo'yicha: bugungi muammolar (fakt) va tayyor takliflar (PM tahrirlab direktorga yuboradi).
+// who: kim bilan hal qilinadi — targetolog, sotuv bo'limi yoki direktor qarori
+export const ADVICE_WHO = { target: 'Targetolog', sales: "Sotuv bo'limi", director: 'Direktor qarori' };
+
+export function dailyAdvice(date, day, rec) {
+  const { rows } = loadRows(addDays(date, -6), date);
+  const plan = day.plan;
+  const remaining = plan.days - plan.elapsed;
+  const out = {};
+  for (const p of day.byProject) {
+    const b = p.bench || {};
+    const r = rec.projects.find((x) => x.id === p.id) || {};
+    const row = rows.find((x) => x.project_id === p.id && x.date === date) || {};
+    const week = rows.filter((x) => x.project_id === p.id);
+    const newWeek = week.reduce((a, x) => a + (Number(x.new_creatives) || 0), 0);
+    const newReported = week.some((x) => x.new_creatives != null);
+    const items = [];
+    const add = (who, problem, fix, kind) => items.push({ who, problem, fix, kind });
+    if (!p.reported.spend && !p.reported.leads) { out[p.id] = { status: r.status || 'nodata', problems: [], proposals: [], best: row.creative_best || null, worst: row.creative_worst || null }; continue; }
+
+    // Target: lid narxi, CTR, lid sifati, lid rejasi
+    if (p.cpl != null && b.cpl && p.leads >= 3 && p.cpl > b.cpl * 1.3) {
+      add('target', `Lid narxi ko'tarildi: $${p.cpl.toFixed(2)} (odatda $${b.cpl.toFixed(2)}, +${Math.round((p.cpl / b.cpl - 1) * 100)}%)`,
+        `Kreativlarni yangilash kerak${row.creative_worst ? ` — «${row.creative_worst}» ni to'xtatish` : ''}${newReported && !newWeek ? "; 7 kundan beri yangi kreativ chiqmagan" : ''}`, 'creative');
+    } else if (p.ctr != null && b.ctr && p.impressions >= 1000 && p.ctr < b.ctr * 0.7) {
+      add('target', `Reklamani kam bosishyapti: CTR ${pct(p.ctr)} (odatda ${pct(b.ctr)})`, 'Kreativ va sarlavhani almashtirish kerak', 'creative');
+    }
+    if (p.unqualified_share != null && p.leads >= 5 && p.unqualified_share >= 0.4) {
+      add('target', `Lidlarning ${Math.round(p.unqualified_share * 100)}% sifatsiz (${fmt(p.unqualified)} ta)`,
+        "Targetolog bilan auditoriyani qayta sozlash kerak — reklama noto'g'ri odamlarga ketyapti", 'creative');
+    }
+    const pl = plan.items.find((i) => i.project_id === p.id)?.metrics.leads;
+    if (pl?.plan && plan.elapsed >= 5 && remaining > 0 && ['behind', 'risk'].includes(pl.status) && p.reported.leads) {
+      const need = Math.ceil((pl.plan - pl.fact) / remaining);
+      if (p.leads < need) add('target', `Lid rejadan orqada: kuniga ${fmt(need)} ta kerak, bugun ${fmt(p.leads)} ta`, "Byudjetni oshirish yoki yangi reklama kanalini qo'shish kerak", 'needs_leads');
+    }
+
+    // Sotuv bo'limi: konversiya, potensial lidlar
+    const salesIn = p.reported.sales > 0;
+    const reason = salesIn ? reasonsFor(date, date, p.id)[0] : null;
+    if (salesIn && p.leads >= 10 && p.sales === 0) {
+      add('sales', `${fmt(p.leads)} ta lid, birorta ham sotuv yo'q`, "Sotuv bo'limi rahbari bilan gaplashish kerak: lidlarga qachon va qanday qo'ng'iroq qilinyapti", 'sales_issue');
+    } else if (salesIn && p.leads >= 8 && b.conv && p.lead_to_sale != null && p.lead_to_sale < b.conv * 0.6) {
+      add('sales', `Lid ko'p, sotuv kam: ${pct(p.lead_to_sale)} (${b.conv_src} ${pct(b.conv)})${reason ? ` · asosiy sabab — «${reason.label}»` : ''}`,
+        "Sotuv bo'limi rahbari bilan gaplashish kerak: qo'ng'iroq tezligi va sotuv skriptini tekshirish", 'sales_issue');
+    }
+    if (p.potential >= 5 || (p.potential >= 3 && p.potential_share >= 0.3)) {
+      add('sales', `${fmt(p.potential)} ta potensial lid javob kutyapti`, "ROP ularga ertaga qayta qo'ng'iroq qilsin (follow-up)");
+    }
+
+    // Direktor qarori: 7 kunlik zarar yoki o'stirish imkoni
+    if (r.status === 'unprofitable') {
+      add('director', `7 kunda reklama o'zini oqlamayapti (ROAS ${r.roas?.toFixed(2) ?? '—'})`, "Byudjetni qisqartirish yoki taklif/narxni o'zgartirish kerak");
+    } else if (r.status === 'scale' && !items.length) {
+      add('director', `7 kunda eng yaxshi natija (ROAS ${r.roas?.toFixed(2) ?? '—'})`, `Byudjetni +20% oshirishni taklif qilaman${row.creative_best ? ` — «${row.creative_best}» kreativiga` : ''}`);
+    }
+
+    const problems = items.map((i) => ({ who: i.who, text: i.problem }));
+    if (row.note_target) problems.push({ who: 'target', text: `Targetolog: ${row.note_target}` });
+    if (row.note_sales) problems.push({ who: 'sales', text: `ROP: ${row.note_sales}` });
+    const proposals = items.map((i) => i.fix);
+    if (!proposals.length) proposals.push('Hammasi joyida, shu tarzda davom etamiz');
+    // Holat: 7 kunlik holat va bugungi muammolardan eng jiddiysi
+    const rank = (k) => (STATUS_ORDER.indexOf(k) < 0 ? 99 : STATUS_ORDER.indexOf(k));
+    const status = [r.status || 'good', ...items.map((i) => i.kind).filter(Boolean)].sort((a, b) => rank(a) - rank(b))[0];
+    out[p.id] = { status, problems, proposals, best: row.creative_best || null, worst: row.creative_worst || null };
+  }
+  return out;
 }

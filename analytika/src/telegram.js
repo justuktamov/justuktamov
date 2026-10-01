@@ -4,6 +4,7 @@
 //  3) Kunlik hisobot va eslatmalarni Telegramga yuboradi
 import { getDb, getSetting, setSetting, today, ROLES } from './db.js';
 import { summary, missingReport, addDays } from './metrics.js';
+import { addDirectorReply, latestSentDate, REPORT_HEAD } from './reports.js';
 
 const APP_URL = process.env.APP_URL; // HTTPS manzil — Telegram Mini App uchun
 
@@ -66,6 +67,8 @@ function userByTelegram(tgId) {
 async function handleUpdate(u) {
   if (u.message?.text) {
     const m = u.message;
+    // Direktor PM hisobotiga javob (reply) yozdi — bu yechim: saqlanadi va PM ga yuboriladi
+    if (m.reply_to_message?.from?.is_bot && !m.text.startsWith('/')) return handleDirectorReply(m);
     const [cmd, payload] = m.text.trim().split(/\s+/, 2);
     if (cmd === '/start') {
       // Deep link: https://t.me/<bot>?start=<slug> yoki <slug>__<manba>
@@ -112,6 +115,22 @@ async function handleUpdate(u) {
     if (!wasIn && isIn) recordEvent(project.id, 'join', newM.user.id, via);
     if (wasIn && !isIn) recordEvent(project.id, 'leave', newM.user.id, via);
   }
+}
+
+const escHtml = (x) => String(x ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+const headRe = new RegExp(`${REPORT_HEAD} (\\d{4}-\\d{2}-\\d{2})`);
+
+async function handleDirectorReply(m) {
+  const user = userByTelegram(m.from.id);
+  const inReportChat = String(m.chat.id) === String(getSetting('report_chat_id') || '');
+  if (!inReportChat && user?.role !== 'admin') return;
+  const date = (m.reply_to_message.text || '').match(headRe)?.[1] || latestSentDate();
+  const who = m.chat.type === 'private' ? '' : `${m.from.first_name || 'Direktor'}: `;
+  const r = date && addDirectorReply(date, who + m.text, user?.id ?? null);
+  if (!r) return sendMessage(m.chat.id, 'Javob saqlanmadi: yuborilgan hisobot topilmadi.');
+  await call('sendMessage', { chat_id: m.chat.id, text: '✅ Saqlandi va PM ga yetkazildi', reply_to_message_id: m.message_id }).catch(() => {});
+  const pm = r.author_id && getDb().prepare('SELECT telegram_id FROM users WHERE id = ?').get(r.author_id)?.telegram_id;
+  if (pm && String(pm) !== String(m.chat.id)) await sendMessage(pm, `💬 <b>Direktor javobi</b> (${date} hisobot):\n${escHtml(m.text)}`);
 }
 
 export async function startPolling() {

@@ -10,12 +10,37 @@ Dasturda bitta foydalanuvchi bor: **proekt menejer (PM)**. Targetolog va ROP tiz
 
 ## Kunlik ish: 4 qadam
 
-PM kirganda «Bugun» sahifasi ochiladi va qaysi qadamda turgani yuqorida koʻrinadi. Har bir qadamda bitta ish va bitta tugma bor.
+PM kirganda «Bugun» sahifasi ochiladi va qaysi qadamda turgani yuqorida koʻrinadi. 1 va 2-qadamda soʻraladigan savollar roʻyxati bor. «Nusxalash» tugmasi ularni tayyor xabar qilib beradi — targetolog yoki ROP ga Telegramda yuborasiz.
 
-1. **Target.** Targetologdan har bir loyiha boʻyicha xarajat ($) va kliklarni oling va jadvalga yozing. Kulrang raqam — kechagi qiymat, Enter — keyingi qator.
-2. **Sotuv.** ROP dan lidlar, sotuvlar va tushumni oling va yozing.
-3. **Tekshirish.** Tizim har bir loyihaga holat beradi (*Yaxshi, Oʻstirish mumkin, Lid kerak, Kreativ ishlamayapti, Sotuvda muammo, Zarar*), uni oddiy soʻz bilan tushuntiradi va birinchi qilinadigan ishni koʻrsatadi. Kerak boʻlsa holatni oʻzgartirib, izoh yozasiz.
-4. **Yuborish.** Bir-ikki gap xulosa va ertangi reja yozasiz, direktorga boradigan xabarni oʻsha yerning oʻzida koʻrasiz va **«Direktorga yuborish»**ni bosasiz.
+1. **Targetologdan soʻrang** (har bir loyiha boʻyicha):
+   - qancha pul sarflandi ($), nechta koʻrish va klik boʻldi;
+   - bugun nechta yangi kreativ chiqdi;
+   - qaysi kreativ yaxshi ishladi, qaysi biri ishlamadi;
+   - reklamada muammo boʻldimi (akkaunt, moderatsiya, toʻlov).
+
+   **Lid narxi** soʻralmaydi — tizim oʻzi hisoblaydi: xarajat ÷ lid.
+2. **Sotuv boʻlimi rahbaridan (ROP) soʻrang:**
+   - jami lid, shundan **sifatli** (sotib olishga tayyor), **potensial** (qiziqdi, keyinroq oladi) va **sifatsiz** (maqsadli emas);
+   - nechta sotuv va qancha summa;
+   - nega sotib olmayapti (izoh).
+
+   Jami lid boʻsh qolsa, uch turi qoʻshib yoziladi. Yigʻindi mos kelmasa, ogohlantirish chiqadi.
+3. **Tahlil.** Tizim har bir loyihada bugungi muammoni topadi va tayyor taklif yozib qoʻyadi. PM uni tahrirlaydi:
+
+| Muammo (tizim aniqlaydi) | Taklif (PM direktorga) | Kim bilan hal qilinadi |
+|---|---|---|
+| Lid narxi odatdagidan 30%+ qimmat | Kreativlarni yangilash, ishlamayotganini toʻxtatish (7 kun yangi kreativ chiqmagan boʻlsa, bu ham aytiladi) | Targetolog |
+| CTR odatdagidan past | Kreativ va sarlavhani almashtirish | Targetolog |
+| Lidlarning 40%+ sifatsiz | Auditoriyani qayta sozlash | Targetolog |
+| Lid rejadan orqada | Byudjetni oshirish yoki yangi kanal | Targetolog |
+| Lid koʻp, sotuv kam (meʼyorning 60% idan past) yoki sotuv umuman yoʻq | Sotuv boʻlimi rahbari bilan gaplashish: qoʻngʻiroq tezligi, skript | Sotuv boʻlimi |
+| Potensial lidlar koʻp | Ertaga qayta qoʻngʻiroq (follow-up) | Sotuv boʻlimi |
+| 7 kunda zarar | Byudjetni qisqartirish yoki taklifni oʻzgartirish | Direktor qarori |
+| 7 kunda eng yaxshi natija | Byudjetni +20% oshirish | Direktor qarori |
+
+4. **Yuborish.** Direktor Telegramda har bir loyiha boʻyicha raqamlar, muammolar (⚠️) va PM takliflarini (💡) oladi.
+   - Direktor shu xabarga **javob (reply)** qilib yechim yozadi. Javob hisobotga saqlanadi va PM ga Telegramda boradi.
+   - Ertasi kuni «Bugun» sahifasining tepasida «Direktor yechimi» boʻlib turadi.
 
 Har qadamni «Oʻtkazib yuborish» mumkin. Belgilangan vaqtgacha hisobot yuborilmasa, PM ga Telegramda eslatma boradi; avto-hisobot vaqtigacha ham yuborilmasa, direktorga «PM hisobotni yubormadi» belgisi bilan avtomatik hisobot ketadi.
 
