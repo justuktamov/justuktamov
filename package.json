@@ -1,0 +1,23 @@
+{
+  "name": "loyihalar-analitika",
+  "version": "1.0.0",
+  "description": "Menejerlar kunlik hisoboti, voronka analitikasi, Telegram integratsiya va AI tahlil",
+  "main": "src/server.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/server.js",
+    "demo": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/seed-demo.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "chart.js": "^4.5.1"
+  },
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.5"
+  }
+}
