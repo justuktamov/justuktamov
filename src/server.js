@@ -90,6 +90,12 @@ function num(v) {
 const routes = [];
 const route = (method, path, fn) => routes.push({ method, re: new RegExp(`^${path.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), fn });
 
+// ---- Holat (Coolify / Docker health check): kirishsiz, bazani tekshiradi ----
+route('GET', '/api/health', async (req, res) => {
+  getDb().prepare('SELECT 1').get();
+  send(res, 200, { ok: true });
+});
+
 // ---- Kirish va profil ----
 route('POST', '/api/login', async (req, res) => {
   const { login: l, password } = await readBody(req);

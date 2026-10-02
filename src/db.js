@@ -1,6 +1,6 @@
 // SQLite ma'lumotlar bazasi (Node 22+ ichidagi node:sqlite, qo'shimcha paket kerak emas)
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, existsSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 const DB_PATH = process.env.DB_PATH || './data/analytika.db';
@@ -87,7 +87,11 @@ let db;
 
 export function getDb() {
   if (db) return db;
-  if (DB_PATH !== ':memory:') mkdirSync(dirname(DB_PATH), { recursive: true });
+  if (DB_PATH !== ':memory:') {
+    mkdirSync(dirname(DB_PATH), { recursive: true });
+    // Serverda har yangi versiyada bo'sh baza chiqsa — doimiy disk (volume) ulanmagan: logda darhol ko'rinsin
+    if (!existsSync(DB_PATH)) console.log(`Yangi ma'lumotlar bazasi yaratildi: ${DB_PATH}`);
+  }
   db = new DatabaseSync(DB_PATH);
   db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   migrate(db);

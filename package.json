@@ -11,6 +11,7 @@
     "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/server.js",
     "demo": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/seed-demo.js",
     "build:demo": "node demo/build.mjs",
+    "backup": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/backup.js",
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
   },
   "dependencies": {

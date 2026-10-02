@@ -156,6 +156,12 @@ test('parol almashsa boshqa qurilmalardagi sessiyalar yopiladi', async () => {
   assert.equal(getDb().prepare("SELECT COUNT(*) AS n FROM sessions WHERE token = 'eski'").get().n, 0);
 });
 
+test('health check: kirishsiz /api/health — 200', async () => {
+  const r = await fetch(`${base}/api/health`);
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true });
+});
+
 test("CSV: = + - @ bilan boshlangan matn formula bo'lib ishlamaydi", () => {
   const csv = toCsv([{ id: 1, name: '=1+1' }], [{ project_id: 1, date: '2026-09-01', spend: 5, creative_best: '=HYPERLINK("http://x")', note_sales: '@ROP', creative_worst: 'oddiy' }]);
   assert.match(csv, /'=1\+1/);
