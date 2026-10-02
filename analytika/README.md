@@ -21,6 +21,22 @@ Kirganda — **doska**, CRM dagi kabi: har bir loyiha alohida rangli ustun, yonm
 - **Narx** tavsiyasi (1 sotuvdan sof foyda, zararsizlik narxi) va **Xulosa** (zarar sababi, past konversiya, qimmatlashgan lid, targetolog va ROP izohlari);
 - oylik reja va kunma-kun jadval.
 
+### Oylik reja
+Oy boshida **Sozlamalar → Oylik reja** da har bir loyiha uchun maqsad qo'yiladi: reklama byudjeti ($), lidlar, sotuvlar, tushum (so'm). Har kartada o'tgan oy fakti mo'ljal sifatida turadi («↺ … faktini qo'yish» bir bosishda yozib beradi). Raqam yozilishi bilan rejadan chiqadigan ko'rsatkichlar (1 lid narxi, konversiya, 1 mijoz narxi, o'rtacha chek) o'tgan oy bilan solishtirib ko'rsatiladi — reja realmi, darhol ko'rinadi.
+
+Oy davomida:
+- doskada har ustunda **«Oylik reja»** kartasi: tushum, sotuv, lid — bajarilgan foiz va «bugungacha kutilgan» belgisi; reja kiritilmagan bo'lsa, tepada eslatma;
+- loyiha sahifasida: har ko'rsatkich, prognoz, **qolgan kunlarda kuniga qancha kerak** va **«Nega orqada»** — sababi bilan:
+  - lid orqada + byudjet to'liq sarflanmagan → «targetolog reklamani ko'paytirsin»;
+  - lid orqada + 1 lid rejadagidan qimmat → «kreativ va auditoriyani yangilash»;
+  - lid yetarli, sotuv orqada → «sabab sotuvda: konversiya rejada X%, hozir Y%»;
+  - sotuv soni rejada, tushum orqada → «o'rtacha chek kichik»;
+  - byudjet tez sarflanyapti → «kunlik byudjetni $X ga tushirish»;
+- PM ning kunlik tahlilida va direktorga boradigan hisobotda ham shu ogohlantirishlar (📅);
+- loyiha jiddiy orqada qolsa (kutilganning 80% idan kam) — **Telegramga alohida xabar**, har ko'rsatkich bo'yicha oyiga bir marta.
+
+Oyning birinchi 4 kunida xulosa chiqarilmaydi («Oy boshi») — bir-ikki kunlik raqam yetarli emas.
+
 ### Pul qanday hisoblanadi
 - **Foyda** = tushum − reklama (dollar kursi Sozlamalarda).
 - **Sof foyda** = foyda − tannarx − doimiy xarajat. Har bir loyiha uchun Sozlamalarda kiritiladi:

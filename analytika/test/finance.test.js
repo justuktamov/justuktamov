@@ -89,3 +89,52 @@ test("sabablar: nega sifatsiz, nega sotib olmadi; zararda bo'lsa narx tavsiyasi"
   assert.match(preview, /zarar/);
   assert.match(preview, /start · 100 xarid|100 xarid/);
 });
+
+test("oylik reja: orqada qolsa sababi aytiladi va Telegram xabari bir marta", async () => {
+  const { planAlerts } = await import('../src/metrics.js');
+  // Lid orqada, byudjet to'liq sarflanmagan → sabab: byudjet sarflanmayapti
+  let r = planAlerts({ kind: 'leads', metrics: {
+    budget: { plan: 3000, fact: 600, expected: 1000, status: 'ok' },
+    leads: { plan: 3000, fact: 500, expected: 1000, status: 'behind' },
+    sales: { plan: 90, fact: 28, expected: 30, status: 'ahead' },
+    revenue: { plan: 90e6, fact: 28e6, expected: 30e6, status: 'ahead' },
+  } }, 10, 30);
+  assert.equal(r.alerts.length, 1);
+  assert.match(r.alerts[0].text, /byudjet to'liq sarflanmayapti/);
+  assert.equal(r.need.leads, 125);
+  // Lid yetarli, sotuv orqada → sabab sotuvda (konversiya)
+  r = planAlerts({ kind: 'leads', metrics: {
+    budget: { plan: 3000, fact: 1000, expected: 1000, status: 'ok' },
+    leads: { plan: 3000, fact: 1000, expected: 1000, status: 'ahead' },
+    sales: { plan: 90, fact: 15, expected: 30, status: 'behind' },
+    revenue: { plan: 90e6, fact: 15e6, expected: 30e6, status: 'behind' },
+  } }, 10, 30);
+  assert.equal(r.alerts[0].who, 'sales');
+  assert.match(r.alerts[0].text, /konversiya rejada 3\.0%, hozir 1\.5%/);
+  // Oy boshida (5 kundan kam) xulosa yo'q
+  assert.equal(planAlerts({ kind: 'leads', metrics: { leads: { plan: 100, fact: 0, expected: 10, status: 'early' } } }, 3, 30).alerts.length, 0);
+  // Sotuv soni rejada, chek kichik
+  r = planAlerts({ kind: 'auto', metrics: {
+    budget: { plan: 1000, fact: 330, expected: 333, status: 'ok' },
+    leads: { plan: null, fact: 0 },
+    sales: { plan: 300, fact: 100, expected: 100, status: 'ahead' },
+    revenue: { plan: 30e6, fact: 6e6, expected: 10e6, status: 'behind' },
+  } }, 10, 30);
+  assert.match(r.alerts[0].text, /o'rtacha chek kichik/);
+
+  // Server: reja + fakt → ogohlantirish, ikkinchi marta yuborilmaydi
+  const pm = await session();
+  const p = await pm.json('/api/projects', { method: 'POST', body: { name: 'REJA' } });
+  const d = today();
+  const month = d.slice(0, 7);
+  await pm.json('/api/plans', { method: 'PUT', body: { month, project_id: p.id, values: { budget: 100000, leads: 100000, sales: 1000 } } });
+  const plans = await pm.json(`/api/plans?month=${month}`);
+  assert.ok(plans.prev, "o'tgan oy fakti qaytadi");
+  const { sendPlanAlerts } = await import('../src/server.js');
+  const day = Number(d.slice(8));
+  if (day >= 5) {
+    const first = await sendPlanAlerts(d);
+    assert.ok(first.some((x) => x.item.name === 'REJA'));
+    assert.equal((await sendPlanAlerts(d)).length, 0);
+  }
+});

@@ -70,32 +70,83 @@ async function tabProjects(body) {
 }
 
 // ---------- Oylik reja ----------
+// Har bir loyiha — alohida karta: 4 ta maqsad, o'tgan oy fakti mo'ljal sifatida, rejadan chiqadigan ko'rsatkichlar jonli
+const PLAN_INPUTS = [['budget', "Reklama byudjeti, $"], ['leads', 'Lidlar soni'], ['sales', 'Sotuvlar soni'], ['revenue', "Tushum, so'm"]];
+const num = (v) => { const x = Number(String(v ?? '').replace(/\s/g, '').replace(',', '.')); return v === '' || v == null || !Number.isFinite(x) ? null : x; };
+const usd2 = (x) => (x == null || !Number.isFinite(x) ? '—' : `$${x.toFixed(2)}`);
+const pctS = (x) => (x == null || !Number.isFinite(x) ? '—' : `${(x * 100).toFixed(1)}%`);
+const som = (x) => (x == null || !Number.isFinite(x) ? '—' : `${x >= 1e6 ? `${(x / 1e6).toFixed(1)} mln` : Math.round(x).toLocaleString('ru-RU')} so'm`);
+
+function planDerived(v, auto) {
+  return [
+    !auto && ['1 lid narxi', usd2(v.budget / v.leads)],
+    !auto && ['Konversiya (lid → sotuv)', pctS(v.sales / v.leads)],
+    [auto ? '1 xarid narxi' : '1 mijoz narxi', usd2(v.budget / v.sales)],
+    ["O'rtacha chek", som(v.revenue / v.sales)],
+  ].filter(Boolean);
+}
+
 async function tabPlans(body) {
   planMonth ||= state.me.today.slice(0, 7);
   const [plans] = await Promise.all([api(`/api/plans?month=${planMonth}`), reloadProjects()]);
-  const { planFields } = state.me;
   const projects = state.projects.filter((p) => p.active);
   const val = (pid, k) => plans.rows.find((r) => r.project_id === pid)?.[k] ?? '';
-  body.innerHTML = `<div class="card">
-    <div class="card-head"><h2>Oylik reja</h2>
-      <div class="filters"><span class="month-nav"><button type="button" class="btn small icon" data-mshift="-1" aria-label="Oldingi oy">‹</button><b>${monthLabel(planMonth)}</b><button type="button" class="btn small icon" data-mshift="1" aria-label="Keyingi oy">›</button></span><button class="btn small" id="copyPrev">O'tgan oydan nusxa</button></div></div>
-    <p class="small muted" style="margin:0 0 12px">Lid va sotuv rejasidan «lid ko'p, sotuv kam» signali hisoblanadi (reja konversiyasi = sotuv ÷ lid).</p>
-    <div class="table-wrap"><table><thead><tr><th>Loyiha</th>${Object.values(planFields).map((l) => `<th>${esc(l)}</th>`).join('')}<th></th></tr></thead><tbody>
-      ${projects.map((p) => `<tr data-id="${p.id}"><td><span class="dot" style="--dc:${esc(p.color || 'var(--series-1)')}"></span>${esc(p.name)}</td>
-        ${Object.keys(planFields).map((k) => `<td><input data-k="${k}" inputmode="decimal" value="${val(p.id, k)}" placeholder="—" style="width:130px" aria-label="${esc(planFields[k])}"></td>`).join('')}
-        <td><button class="btn small primary" data-a="save">Saqlash</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">Avval loyiha qo\'shing</td></tr>'}
-    </tbody></table></div></div>`;
+  const prevName = plans.prev && Object.values(plans.prev)[0] ? monthLabel(Object.values(plans.prev)[0].month) : "o'tgan oy";
+  body.innerHTML = `<div class="card plan-intro">
+      <div class="card-head"><h2>Oylik reja</h2>
+        <div class="filters"><span class="month-nav"><button type="button" class="btn small icon" data-mshift="-1" aria-label="Oldingi oy">‹</button><b>${monthLabel(planMonth)}</b><button type="button" class="btn small icon" data-mshift="1" aria-label="Keyingi oy">›</button></span>
+          <button class="btn small" id="copyPrev">O'tgan oy rejasidan nusxa</button><button class="btn small primary" id="saveAll">Hammasini saqlash</button></div></div>
+      <p class="small" style="margin:0;color:var(--text-2);max-width:90ch">Oy boshida har bir loyihaga maqsad qo'ying: reklamaga qancha sarflanadi, nechta lid va sotuv kerak, qancha pul tushishi kerak.
+        Oy davomida dastur har kuni solishtiradi va <b>orqada qolsangiz — nimada kamchilik ekanini</b> aytadi: byudjet sarflanmayaptimi, lid qimmatmi, sotuv bo'limida muammomi yoki chek kichikmi. Jiddiy orqada qolsa — Telegramga xabar boradi.</p>
+    </div>
+    <div class="plan-cards">${projects.map((p) => {
+      const auto = p.kind === 'auto';
+      const pv = plans.prev?.[p.id];
+      return `<section class="card plan-card" data-id="${p.id}">
+        <div class="card-head"><h3><span class="dot" style="--dc:${esc(p.color || 'var(--series-1)')}"></span>${esc(p.name)} <span class="muted small">${auto ? 'avtovoronka' : "sotuv bo'limi"}</span></h3>
+          ${pv?.has ? `<button type="button" class="btn small ghost" data-fill="${p.id}" title="${esc(prevName)} faktini rejaga yozib qo'yadi">↺ ${esc(prevName)} faktini qo'yish</button>` : ''}</div>
+        <div class="plan-inputs">${PLAN_INPUTS.filter(([k]) => !(auto && k === 'leads')).map(([k, l]) => `<label class="field">${l}
+          <input data-k="${k}" inputmode="decimal" value="${val(p.id, k)}" placeholder="—">
+          <span class="hint">${pv?.has ? `${esc(prevName)}: ${k === 'budget' ? `$${Math.round(pv[k])}` : k === 'revenue' ? som(pv[k]) : Math.round(pv[k])}` : '&nbsp;'}</span></label>`).join('')}</div>
+        <div class="plan-derived" data-derived></div>
+      </section>`;
+    }).join('') || '<div class="card empty">Avval loyiha qo\'shing</div>'}</div>
+    ${projects.length ? '<div class="row mt" style="justify-content:flex-end"><button class="btn primary" data-save-all>Hammasini saqlash</button></div>' : ''}`;
+
+  // Rejadan chiqadigan ko'rsatkichlar — reja realmi, bir qarashda
+  const derive = (card) => {
+    const p = projects.find((x) => String(x.id) === card.dataset.id);
+    const v = Object.fromEntries(PLAN_INPUTS.map(([k]) => [k, num($(`[data-k="${k}"]`, card)?.value)]));
+    const pv = plans.prev?.[p.id];
+    const was = pv?.has ? planDerived(pv, p.kind === 'auto') : [];
+    $('[data-derived]', card).innerHTML = Object.values(v).some((x) => x != null)
+      ? `<span class="muted small">Rejadan chiqadi:</span>${planDerived(v, p.kind === 'auto').map(([l, x], i) => `<span><small>${l}</small><b>${x}</b>${was[i] && was[i][1] !== '—' ? `<em>${esc(prevName)}: ${was[i][1]}</em>` : ''}</span>`).join('')}`
+      : '<span class="muted small">Raqamlarni yozing — rejadan 1 lid narxi, konversiya va o\'rtacha chek hisoblanadi.</span>';
+  };
+  $$('.plan-card', body).forEach((c) => { derive(c); c.addEventListener('input', () => derive(c)); });
+
   body.querySelectorAll('[data-mshift]').forEach((b) => { b.onclick = () => {
     const [y, m] = planMonth.split('-').map(Number);
     const d = new Date(Date.UTC(y, m - 1 + Number(b.dataset.mshift), 1));
     planMonth = d.toISOString().slice(0, 7);
     renderSettings();
   }; });
-  const save = (tr) => api('/api/plans', { method: 'PUT', body: { month: planMonth, project_id: Number(tr.dataset.id), values: Object.fromEntries($$('[data-k]', tr).map((el) => [el.dataset.k, el.value])) } });
-  body.querySelector('tbody').onclick = async (e) => {
-    if (e.target.closest('[data-a]')?.dataset.a !== 'save') return;
-    try { await save(e.target.closest('tr')); toast('Reja saqlandi'); } catch (err) { toast(err.message, true); }
+  body.querySelectorAll('[data-fill]').forEach((b) => { b.onclick = () => {
+    const card = b.closest('.plan-card');
+    const pv = plans.prev[b.dataset.fill];
+    for (const [k] of PLAN_INPUTS) { const el = $(`[data-k="${k}"]`, card); if (el) el.value = Math.round(pv[k]); }
+    derive(card);
+  }; });
+  const saveAll = async () => {
+    try {
+      for (const card of $$('.plan-card', body)) {
+        await api('/api/plans', { method: 'PUT', body: { month: planMonth, project_id: Number(card.dataset.id), values: Object.fromEntries($$('[data-k]', card).map((el) => [el.dataset.k, el.value])) } });
+      }
+      toast('Reja saqlandi');
+    } catch (err) { toast(err.message, true); }
   };
+  $('#saveAll').onclick = saveAll;
+  body.querySelectorAll('[data-save-all]').forEach((b) => { b.onclick = saveAll; });
   $('#copyPrev').onclick = async () => {
     const [y, m] = planMonth.split('-').map(Number);
     const prev = `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`;
