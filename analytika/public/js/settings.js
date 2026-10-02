@@ -1,6 +1,6 @@
 // Sozlamalar: loyihalar, oylik reja, Telegram (hisobot qayerga boradi), profil
 import {
-  $, $$, esc, api, state, shell, toast, ICONS, monthLabel, refreshMe, spinnerBlock,
+  $, $$, esc, api, state, shell, toast, ICONS, monthLabel, refreshMe, spinnerBlock, selectHtml, colorHtml, TIMES,
 } from './core.js';
 
 let settingsTab = 'projects';
@@ -26,7 +26,8 @@ export async function renderSettings() {
 async function reloadProjects() { state.projects = await api('/api/projects'); }
 
 // ---------- Loyihalar ----------
-const kindSelect = (v, attrs = '') => `<select ${attrs}>${Object.entries(state.me.kinds).map(([k, l]) => `<option value="${k}" ${v === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+const timeOpts = (cur) => [...new Set([...TIMES, cur])].sort().map((t) => [t, t]);
+const kindSelect = (v, attrs = '') => selectHtml(Object.entries(state.me.kinds), v, attrs, 'Loyiha turi');
 
 async function tabProjects(body) {
   await reloadProjects();
@@ -38,7 +39,7 @@ async function tabProjects(body) {
     <div class="table-wrap"><table><thead><tr><th>Loyiha</th><th>Rang</th><th>Turi</th><th>Tannarx, %</th><th>Doimiy xarajat, so'm/oy</th><th>Holat</th><th></th></tr></thead><tbody>
     ${state.projects.map((p) => `<tr data-id="${p.id}">
       <td><input data-f="name" value="${esc(p.name)}" style="min-width:130px" aria-label="Nomi"></td>
-      <td><input data-f="color" type="color" value="${esc(p.color || '#2a78d6')}" style="width:48px" aria-label="Rang"></td>
+      <td>${colorHtml(p.color || '#2a78d6', 'data-f="color"')}</td>
       <td>${kindSelect(p.kind, 'data-f="kind" aria-label="Turi"')}</td>
       <td><input data-f="var_cost_pct" inputmode="decimal" value="${p.var_cost_pct ?? ''}" placeholder="0" style="width:80px" aria-label="Tannarx foizi"></td>
       <td><input data-f="fixed_monthly" inputmode="decimal" value="${p.fixed_monthly ?? ''}" placeholder="0" style="width:140px" aria-label="Doimiy xarajat"></td>
@@ -49,10 +50,10 @@ async function tabProjects(body) {
     <form class="card stack mt" id="newProject"><h2>Yangi loyiha</h2>
       <div class="fields">
         <label class="field">Nomi<input name="name" id="npName" required placeholder="Masalan: VIZART"></label>
-        <label class="field">Turi${kindSelect('leads', 'name="kind" id="npKind"')}</label>
+        <div class="field">Turi${kindSelect('leads', 'name="kind" id="npKind"')}</div>
         <label class="field">Tannarx, %<input name="var_cost_pct" inputmode="decimal" placeholder="0"></label>
         <label class="field">Doimiy xarajat, so'm/oy<input name="fixed_monthly" inputmode="decimal" placeholder="0"></label>
-        <label class="field">Rang<input name="color" id="npColor" type="color" value="#7c5cff"></label>
+        <div class="field">Rang${colorHtml('#7048e8', 'name="color" id="npColor"')}</div>
       </div><div><button class="btn primary">${ICONS.plus} Qo'shish</button></div></form>`;
   $('#newProject').onsubmit = async (e) => {
     e.preventDefault();
@@ -119,8 +120,8 @@ async function tabTelegram(body) {
         <label class="field">Direktorning Telegram ID si yoki guruh ID<span class="hint">direktor botga /id yozsa, raqam chiqadi</span><input name="report_chat_id" id="sChat" value="${esc(settings.report_chat_id ?? '')}" placeholder="123456789"></label>
         <label class="field">Sizning Telegram ID ingiz<span class="hint">eslatma va direktor javobi sizga kelishi uchun</span><input id="sMyTg" value="${esc(me.telegram_id || '')}" placeholder="123456789"></label>
         <div class="fields">
-          <label class="field">Eslatma<span class="hint">hisobot yuborilmagan bo'lsa</span><input name="reminder_time" id="sRem" type="time" value="${esc(settings.reminder_time ?? '19:00')}"></label>
-          <label class="field">Avto-hisobot<span class="hint">siz yubormasangiz</span><input name="report_time" id="sTime" type="time" value="${esc(settings.report_time ?? '21:00')}"></label>
+          <label class="field">Eslatma<span class="hint">hisobot yuborilmagan bo'lsa</span>${selectHtml(timeOpts(settings.reminder_time ?? '19:00'), settings.reminder_time ?? '19:00', 'name="reminder_time" id="sRem"', 'Eslatma vaqti')}</label>
+          <label class="field">Avto-hisobot<span class="hint">siz yubormasangiz</span>${selectHtml(timeOpts(settings.report_time ?? '21:00'), settings.report_time ?? '21:00', 'name="report_time" id="sTime"', 'Avto-hisobot vaqti')}</label>
         </div>
         <label class="field">Dollar kursi (so'm)<span class="hint">ROAS hisobi uchun: tushum so'mda, reklama dollarda</span><input name="usd_rate" id="sRate" inputmode="decimal" value="${esc(settings.usd_rate ?? '12800')}"></label>
         <div><button class="btn primary">Saqlash</button></div>
