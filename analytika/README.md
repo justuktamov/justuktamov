@@ -123,7 +123,7 @@ Holat (7 kun va bugungi muammolardan eng jiddiysi):
 
 ## Ishga tushirish (lokal)
 
-Node.js **22.5+** kerak. Maʼlumotlar bazasi Node ichidagi SQLite, alohida baza oʻrnatish shart emas.
+Node.js **22.13+** kerak (undan eski 22.x da ichki SQLite bayroqsiz ishlamaydi). Maʼlumotlar bazasi Node ichidagi SQLite, alohida baza oʻrnatish shart emas.
 
 ```bash
 cd analytika
@@ -146,7 +146,7 @@ docker compose up -d      # ma'lumotlar ./data papkasida saqlanadi
 ```
 
 ### Oddiy VPS (Ubuntu)
-1. Node 22 ni oʻrnating va kodni `/opt/analytika` ga joylang, keyin `npm ci --omit=dev`.
+1. Node 22.13+ ni oʻrnating va kodni `/opt/analytika` ga joylang, keyin `npm ci --omit=dev`.
 2. `deploy/analytika.service` → systemd orqali avtomatik ishga tushadi.
 3. `deploy/nginx.conf` → domen va HTTPS (`certbot --nginx`).
 4. `.env` ga `COOKIE_SECURE=1` yozing.

@@ -204,3 +204,11 @@ export function setSetting(key, value) {
 export function today(tz = process.env.TZ_NAME || 'Asia/Tashkent') {
   return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date());
 }
+
+// Toshkent vaqti bo'yicha hozirgi vaqt (YYYY-MM-DD HH:MM:SS) — hisobot yuborilgan / ko'rilgan vaqt shu ko'rinishda saqlanadi
+export function nowLocal(tz = process.env.TZ_NAME || 'Asia/Tashkent') {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`;
+}

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { getDb, getSetting, setSetting, today, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from './db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText } from './reports.js';
 import { login, logout, userFromToken, changePassword, ensureUser, publicUser } from './auth.js';
-import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, planProgress, monthly, estimateLag } from './metrics.js';
+import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, planProgress, monthly, estimateLag, parseRate } from './metrics.js';
 import { startPolling, telegramStatus, sendMessage } from './telegram.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -38,8 +38,28 @@ async function readBody(req) {
     chunks.push(c);
   }
   if (!chunks.length) return {};
-  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new HttpError(400, "Noto'g'ri JSON"); }
+  let body;
+  try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new HttpError(400, "Noto'g'ri JSON"); }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new HttpError(400, "Noto'g'ri JSON");
+  return body;
 }
+
+// So'rovdagi loyiha ID si — musbat butun son (aks holda SQLite 500 beradi)
+function idOf(v) {
+  const n = Number(v);
+  if (!Number.isSafeInteger(n) || n <= 0) throw new HttpError(404, 'Loyiha topilmadi');
+  return n;
+}
+
+// Rang — faqat #rrggbb (style atributiga tushadi, boshqa CSS kiritib bo'lmasin)
+function checkColor(v) {
+  if (v == null || v === '') return null;
+  if (typeof v !== 'string' || !/^#[0-9a-f]{6}$/i.test(v)) throw new HttpError(400, "Rang noto'g'ri (#rrggbb)");
+  return v.toLowerCase();
+}
+
+// Content-Type ning asosiy qismi: «text/plain; application/json» — JSON emas
+const isJson = (req) => String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() === 'application/json';
 
 function sid(req) {
   const c = (req.headers.cookie || '').split(';').map((x) => x.trim()).find((x) => x.startsWith('sid='));
@@ -102,8 +122,9 @@ route('PUT', '/api/me', async (req, res) => {
 route('PUT', '/api/me/password', async (req, res) => {
   const user = requireUser(req);
   const b = await readBody(req);
-  if (String(b.new || '').length < 6) throw new HttpError(400, "Yangi parol kamida 6 belgi bo'lsin");
-  if (!changePassword(user.id, b.old, b.new)) throw new HttpError(400, "Joriy parol noto'g'ri");
+  const next = String(b.new ?? '');
+  if (next.length < 6) throw new HttpError(400, "Yangi parol kamida 6 belgi bo'lsin");
+  if (!changePassword(user.id, String(b.old ?? ''), next, sid(req))) throw new HttpError(400, "Joriy parol noto'g'ri");
   send(res, 200, { ok: true });
 });
 
@@ -147,18 +168,18 @@ route('POST', '/api/projects', async (req, res) => {
   const b = await readBody(req);
   const m = projectMoney(b);
   const info = getDb().prepare('INSERT INTO projects (name, color, kind, var_cost_pct, fixed_monthly, channels, sale_lag) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .run(checkName(b.name), b.color || null, m.kind, m.varPct, m.fixed, m.channels, m.lag);
+    .run(checkName(b.name), checkColor(b.color), m.kind, m.varPct, m.fixed, m.channels, m.lag);
   send(res, 201, projectOut(getProject(info.lastInsertRowid)));
 });
 route('PUT', '/api/projects/:id', async (req, res, { id }) => {
   requireUser(req);
   const b = await readBody(req);
-  const p = getProject(id);
+  const p = getProject(idOf(id));
   if (!p) throw new HttpError(404, 'Loyiha topilmadi');
   const m = projectMoney(b, p);
   getDb().prepare('UPDATE projects SET name = ?, color = ?, kind = ?, var_cost_pct = ?, fixed_monthly = ?, channels = ?, sale_lag = ?, active = ? WHERE id = ?')
-    .run(b.name === undefined ? p.name : checkName(b.name, id), b.color ?? p.color, m.kind, m.varPct, m.fixed, m.channels, m.lag, b.active === undefined ? p.active : (b.active ? 1 : 0), id);
-  send(res, 200, projectOut(getProject(id)));
+    .run(b.name === undefined ? p.name : checkName(b.name, p.id), b.color == null ? p.color : checkColor(b.color), m.kind, m.varPct, m.fixed, m.channels, m.lag, b.active === undefined ? p.active : (b.active ? 1 : 0), p.id);
+  send(res, 200, projectOut(getProject(p.id)));
 });
 
 // ---- Kunlik raqamlar ----
@@ -185,8 +206,8 @@ route('PUT', '/api/daily', async (req, res) => {
   requireUser(req);
   const b = await readBody(req);
   if (!isDate(b.date)) throw new HttpError(400, "Sana noto'g'ri");
-  if (b.date > addDays(today(), 1)) throw new HttpError(400, "Kelajak sanasiga kiritib bo'lmaydi");
-  const p = getDb().prepare('SELECT * FROM projects WHERE id = ? AND active = 1').get(b.project_id);
+  if (b.date > today()) throw new HttpError(400, "Kelajak sanasiga kiritib bo'lmaydi");
+  const p = getDb().prepare('SELECT * FROM projects WHERE id = ? AND active = 1').get(idOf(b.project_id));
   if (!p) throw new HttpError(404, 'Loyiha topilmadi');
   const db = getDb();
   const old = db.prepare('SELECT * FROM daily WHERE project_id = ? AND date = ?').get(p.id, b.date) || {};
@@ -247,7 +268,7 @@ route('GET', '/api/summary', async (req, res, _p, q) => {
   requireUser(req);
   send(res, 200, summary({ ...period(q), projectId: q.get('project') ? Number(q.get('project')) : null }));
 });
-// Oylar bo'yicha dinamika: oxirgi N oy (joriy oy — bugungacha)
+// Oylar bo'yicha dinamika: oxirgi N oy (joriy oy — kechagacha, ya'ni oxirgi hisobot kunigacha)
 route('GET', '/api/monthly', async (req, res, _p, q) => {
   requireUser(req);
   const months = Math.min(Math.max(Number(q.get('months')) || 6, 2), 24);
@@ -281,7 +302,7 @@ route('PUT', '/api/plans', async (req, res) => {
   requireUser(req);
   const b = await readBody(req);
   if (!isMonth(b.month)) throw new HttpError(400, "Oy noto'g'ri (YYYY-MM)");
-  const p = getProject(b.project_id);
+  const p = getProject(idOf(b.project_id));
   if (!p) throw new HttpError(404, 'Loyiha topilmadi');
   const v = Object.fromEntries(Object.keys(PLAN_FIELDS).map((k) => [k, num(b.values?.[k])]));
   if (Object.values(v).every((x) => x == null)) {
@@ -334,9 +355,14 @@ route('GET', '/api/settings', async (req, res) => {
 route('PUT', '/api/settings', async (req, res) => {
   requireUser(req);
   const b = await readBody(req);
-  if (b.usd_rate !== undefined && b.usd_rate !== '' && !(num(b.usd_rate) > 0)) throw new HttpError(400, "Dollar kursi noto'g'ri");
-  for (const k of ['report_time', 'reminder_time']) if (b[k] && !/^\d{2}:\d{2}$/.test(b[k])) throw new HttpError(400, "Vaqt noto'g'ri (SS:DD)");
-  for (const k of SETTING_KEYS) if (k in b) setSetting(k, b[k] === '' ? null : String(b[k]).trim());
+  // Kurs raqam sifatida saqlanadi: «12 800» yoki «12,800» yozilsa ham hisobda aynan shu kurs ishlatiladi
+  if (b.usd_rate !== undefined && b.usd_rate !== '' && b.usd_rate !== null) {
+    const rate = parseRate(b.usd_rate);
+    if (rate == null) throw new HttpError(400, "Dollar kursi noto'g'ri (masalan: 12800)");
+    b.usd_rate = String(rate);
+  }
+  for (const k of ['report_time', 'reminder_time']) if (b[k] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(b[k]))) throw new HttpError(400, "Vaqt noto'g'ri (SS:DD)");
+  for (const k of SETTING_KEYS) if (k in b) setSetting(k, b[k] === '' || b[k] == null ? null : String(b[k]).trim());
   send(res, 200, { ok: true });
 });
 
@@ -366,7 +392,7 @@ export function createApp() {
       if (url.pathname.startsWith('/api/')) {
         req.user = userFromToken(sid(req));
         // CSRF himoyasi: o'zgartiruvchi so'rovlar faqat JSON bilan
-        if (req.method !== 'GET' && !String(req.headers['content-type'] || '').includes('application/json')) {
+        if (req.method !== 'GET' && !isJson(req)) {
           throw new HttpError(415, 'Content-Type: application/json kerak');
         }
         for (const r of routes) {
@@ -394,45 +420,70 @@ export async function sendPlanAlerts(d = today()) {
   for (const item of planProgress(month, null, d).items) {
     for (const a of item.alerts.filter((x) => x.level === 'critical')) {
       const id = `${item.project_id}:${a.metric}`;
-      if (!sent.includes(id)) { sent.push(id); fresh.push({ item, a }); }
+      if (!sent.includes(id)) fresh.push({ id, item, a });
     }
   }
   if (!fresh.length) return [];
-  setSetting(key, JSON.stringify(sent));
   const esc = (x) => String(x).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
   const text = ['<b>📅 Oylik reja — ogohlantirish</b>', ...fresh.map(({ item, a }) => `\n<b>${esc(item.name)}</b>\n⚠️ ${esc(a.text)}\n💡 ${esc(a.fix)}`)].join('\n');
   const chats = new Set([getSetting('report_chat_id'), ...getDb().prepare('SELECT telegram_id FROM users WHERE active = 1 AND telegram_id IS NOT NULL').all().map((x) => x.telegram_id)].filter(Boolean));
-  for (const c of chats) await sendMessage(c, text);
-  return fresh;
+  // Avval yuboriladi, keyin «yuborildi» deb belgilanadi: hech kimga yetmasa — keyingi urinishda qayta yuboriladi
+  let delivered = 0;
+  let lastError = null;
+  for (const c of chats) {
+    try { await sendMessage(c, text); delivered += 1; } catch (e) { lastError = e; }
+  }
+  if (chats.size && !delivered) throw lastError;
+  setSetting(key, JSON.stringify([...sent, ...fresh.map((x) => x.id)]));
+  return fresh.map(({ item, a }) => ({ item, a }));
+}
+
+// Kuniga bir marta bajariladigan ish. Belgilangan vaqtdan keyingi birinchi tekshiruvda ishga tushadi
+// (server aynan o'sha daqiqada o'chiq bo'lsa ham o'tkazib yuborilmaydi). Muvaffaqiyatli bo'lsagina «bajarildi»;
+// xato bo'lsa — 10 daqiqadan keyin qayta, kuniga ko'pi bilan 5 marta.
+const busy = new Set();
+export async function runDaily(key, d, fn, now = Date.now()) {
+  if (busy.has(key) || getSetting(key) === d) return false;
+  let t = {};
+  try { t = JSON.parse(getSetting(`${key}_try`, '{}')); } catch { t = {}; }
+  if (t.d !== d) t = { d, n: 0, at: 0 };
+  if (t.n >= 5 || now - t.at < 10 * 60e3) return false;
+  busy.add(key);
+  try {
+    await fn();
+    setSetting(key, d);
+    return true;
+  } catch (e) {
+    setSetting(`${key}_try`, JSON.stringify({ d, n: t.n + 1, at: now }));
+    throw e;
+  } finally {
+    busy.delete(key);
+  }
 }
 
 // Rejalashtiruvchi (Toshkent vaqti): PM ga eslatma; PM yubormasa — direktorga avtomatik hisobot
 function startScheduler() {
   const tz = process.env.TZ_NAME || 'Asia/Tashkent';
   setInterval(async () => {
-    const hm = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+    const hm = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
     const d = addDays(today(), -1); // hisobot kechagi kun uchun
     const sent = () => ['submitted', 'reviewed'].includes(getDb().prepare('SELECT status FROM daily_reports WHERE date = ?').get(d)?.status);
-    try {
-      if (hm === getSetting('reminder_time', '11:00') && getSetting('last_reminder') !== d) {
-        setSetting('last_reminder', d);
-        if (!sent()) {
-          const pms = getDb().prepare('SELECT telegram_id FROM users WHERE active = 1 AND telegram_id IS NOT NULL').all();
-          for (const x of pms) await sendMessage(x.telegram_id, "⏰ Kechagi hisobot hali yuborilmagan. Ilovada «Kechagi hisobot» bo'limini oching — 4 qadam.");
-        }
-      }
+    const jobs = [
+      ['last_reminder', getSetting('reminder_time', '11:00'), async () => {
+        if (sent()) return;
+        const pms = getDb().prepare('SELECT telegram_id FROM users WHERE active = 1 AND telegram_id IS NOT NULL').all();
+        for (const x of pms) await sendMessage(x.telegram_id, "⏰ Kechagi hisobot hali yuborilmagan. Ilovada «Kechagi hisobot» bo'limini oching — 4 qadam.");
+      }],
       // Oylik reja: loyiha rejadan jiddiy orqada qolsa — bir marta xabar (har ko'rsatkich uchun oyiga bir marta)
-      if (hm === getSetting('reminder_time', '11:00') && getSetting('last_plan_check') !== d) {
-        setSetting('last_plan_check', d);
-        await sendPlanAlerts(d);
-      }
-      if (hm === getSetting('report_time', '13:00') && getSetting('last_report') !== d) {
-        setSetting('last_report', d);
+      ['last_plan_check', getSetting('reminder_time', '11:00'), () => sendPlanAlerts(d)],
+      ['last_report', getSetting('report_time', '13:00'), async () => {
         const chat = getSetting('report_chat_id');
         if (chat && !sent()) await sendMessage(chat, `⚠️ <i>PM hisobotni yubormadi — avtomatik hisobot</i>\n\n${reportText(d)}`);
-      }
-    } catch (e) {
-      console.error('Scheduler:', e.message);
+      }],
+    ];
+    for (const [key, at, fn] of jobs) {
+      if (!at || hm < at) continue; // vaqt bo'sh — o'chirilgan
+      try { await runDaily(key, d, fn); } catch (e) { console.error(`Scheduler (${key}):`, e.message); }
     }
   }, 30_000).unref();
 }

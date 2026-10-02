@@ -94,7 +94,8 @@ test('lid → sotuv kechikishi: konversiya oldingi lidlarga bo\'linadi va kechik
 test('LTV: qayta sotuvlar bilan 1 mijoz qiymati, LTV/CAC; oylik dinamika', async () => {
   const pm = await session();
   const p = await pm.json('/api/projects', { method: 'POST', body: { name: 'LTV', var_cost_pct: 20 } });
-  const d = today();
+  // Raqamlar kechagi kun uchun kiritiladi; oylik dinamika ham kechagacha hisoblanadi
+  const d = addDays(today(), -1);
   // 10 sotuv, shundan 2 tasi qayta: 8 yangi mijoz; 12 mln tushum, 2 mln qayta sotuvdan; reklama $400 = 4 mln
   await pm.json('/api/daily', { method: 'PUT', body: { project_id: p.id, date: d, values: { spend: 400, leads: 100, sales: 10, revenue: 12000000, repeat_sales: 2, repeat_revenue: 2000000 } } });
   const s = await pm.json(`/api/summary?from=${d}&to=${d}&project=${p.id}`);

@@ -1,8 +1,9 @@
 // Proekt menejerning direktorga kunlik hisoboti: qoralama → yuborildi → ko'rib chiqildi
-import { getDb } from './db.js';
+import { getDb, nowLocal } from './db.js';
 import { summary, weekStatus, addDays, dailyAdvice, PROJECT_STATUS, ADVICE_WHO } from './metrics.js';
 
-const nowIso = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
+const nowIso = () => nowLocal();
+const reviewedError = () => Object.assign(new Error("Direktor ko'rib chiqqan hisobotni o'zgartirib bo'lmaydi"), { status: 409 });
 
 export function getReport(date) {
   const r = getDb().prepare('SELECT * FROM daily_reports WHERE date = ?').get(date);
@@ -45,11 +46,7 @@ function cleanNotes(notes) {
 
 export function saveDraft(date, userId, { summary: text, tomorrow, project_notes }) {
   const cur = getReport(date);
-  if (cur?.status === 'reviewed') {
-    const err = new Error("Direktor ko'rib chiqqan hisobotni o'zgartirib bo'lmaydi");
-    err.status = 409;
-    throw err;
-  }
+  if (cur?.status === 'reviewed') throw reviewedError();
   getDb().prepare(`INSERT INTO daily_reports (date, author_id, status, summary, tomorrow, project_notes, updated_at)
     VALUES (?, ?, 'draft', ?, ?, ?, ?)
     ON CONFLICT(date) DO UPDATE SET author_id = excluded.author_id, summary = excluded.summary, tomorrow = excluded.tomorrow,
@@ -60,19 +57,26 @@ export function saveDraft(date, userId, { summary: text, tomorrow, project_notes
 }
 
 export function submitReport(date, userId) {
-  if (!getReport(date)) saveDraft(date, userId, {});
+  const cur = getReport(date);
+  if (cur?.status === 'reviewed') throw reviewedError();
+  if (!cur) saveDraft(date, userId, {});
   getDb().prepare("UPDATE daily_reports SET status = 'submitted', submitted_at = ?, author_id = ? WHERE date = ?").run(nowIso(), userId, date);
   return getReport(date);
 }
 
-// Direktor Telegramda hisobotga javob (reply) yozsa — yechim sifatida saqlanadi va PM ga ko'rinadi
-export function addDirectorReply(date, text, userId = null) {
+// Direktor Telegramda hisobotga javob (reply) yozsa — yechim sifatida saqlanadi va PM ga ko'rinadi.
+// allowUnsent — javob avtomatik hisobotga (PM yubormagan kun): yechim saqlanadi, lekin hisobot «ko'rildi» bo'lmaydi —
+// PM keyin ham o'z hisobotini to'ldirib yuborishi mumkin
+export function addDirectorReply(date, text, userId = null, { allowUnsent = false } = {}) {
   const cur = getReport(date);
   const msg = String(text ?? '').trim().slice(0, 2000);
-  if (!cur || cur.status === 'draft' || !msg) return null;
-  const comment = [cur.director_comment, msg].filter(Boolean).join('\n').slice(0, 4000);
-  getDb().prepare("UPDATE daily_reports SET status = 'reviewed', reviewed_by = ?, reviewed_at = ?, director_comment = ? WHERE date = ?")
-    .run(userId, nowIso(), comment, date);
+  if (!msg) return null;
+  const sent = cur && cur.status !== 'draft';
+  if (!sent && !allowUnsent) return null;
+  if (!cur) getDb().prepare("INSERT INTO daily_reports (date, status, updated_at) VALUES (?, 'draft', ?)").run(date, nowIso());
+  const comment = [cur?.director_comment, msg].filter(Boolean).join('\n').slice(0, 4000);
+  getDb().prepare('UPDATE daily_reports SET status = ?, reviewed_by = ?, reviewed_at = ?, director_comment = ? WHERE date = ?')
+    .run(sent ? 'reviewed' : 'draft', userId, nowIso(), comment, date);
   return getReport(date);
 }
 

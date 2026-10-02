@@ -4,7 +4,7 @@
 import { store } from './fake-sqlite.js';
 import { today, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from '../src/db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText } from '../src/reports.js';
-import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, monthly, estimateLag } from '../src/metrics.js';
+import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, monthly, estimateLag, parseRate } from '../src/metrics.js';
 import { generateDemo, DEMO_USER } from '../src/demo-data.js';
 
 const TODAY = today();
@@ -52,6 +52,12 @@ function num(v) {
   const x = Number(String(v).replace(/\s/g, '').replace(',', '.'));
   if (!Number.isFinite(x) || x < 0) throw new HttpError(400, `Noto'g'ri son: ${v}`);
   return x;
+}
+// Serverdagi checkColor bilan bir xil: faqat #rrggbb
+function checkColor(v) {
+  if (v == null || v === '') return null;
+  if (typeof v !== 'string' || !/^#[0-9a-f]{6}$/i.test(v)) throw new HttpError(400, "Rang noto'g'ri (#rrggbb)");
+  return v.toLowerCase();
 }
 const needUser = () => { if (!me) throw new HttpError(401, 'Tizimga kiring'); return me; };
 function period(q) {
@@ -123,7 +129,7 @@ const routes = {
   'GET /api/projects': () => { needUser(); return [...store.projects].sort((a, b) => b.active - a.active || a.id - b.id).map(projectOut); },
   'POST /api/projects': (b) => {
     needUser();
-    const p = { id: nextId(store.projects), name: checkName(b.name), color: b.color || null, ...projectMoney(b), active: 1 };
+    const p = { id: nextId(store.projects), name: checkName(b.name), color: checkColor(b.color), ...projectMoney(b), active: 1 };
     store.projects.push(p);
     return projectOut(p);
   },
@@ -132,7 +138,7 @@ const routes = {
     const p = store.projects.find((x) => x.id === Number(id));
     if (!p) throw new HttpError(404, 'Loyiha topilmadi');
     if (b.name !== undefined) p.name = checkName(b.name, id);
-    if (b.color) p.color = b.color;
+    if (b.color != null) p.color = checkColor(b.color);
     Object.assign(p, projectMoney(b, p));
     if (b.active !== undefined) p.active = b.active ? 1 : 0;
     return projectOut(p);
@@ -206,7 +212,7 @@ const routes = {
   'GET /api/monthly': (_b, _p, q) => {
     needUser();
     const months = Math.min(Math.max(Number(q.get('months')) || 6, 2), 24);
-    return monthly({ months, projectId: projectParam(q), asOf: TODAY });
+    return monthly({ months, projectId: projectParam(q), asOf: addDays(TODAY, -1) });
   },
   'GET /api/export.csv': (_b, _p, q) => {
     needUser();
@@ -254,7 +260,13 @@ const routes = {
   'GET /api/settings': () => { needUser(); return { ...store.settings, telegram: { enabled: false, running: false, bot: null } }; },
   'PUT /api/settings': (b) => {
     needUser();
-    for (const k of ['usd_rate', 'report_chat_id', 'report_time', 'reminder_time']) if (k in b) store.settings[k] = b[k] === '' ? null : String(b[k]).trim();
+    if (b.usd_rate !== undefined && b.usd_rate !== '' && b.usd_rate !== null) {
+      const rate = parseRate(b.usd_rate);
+      if (rate == null) throw new HttpError(400, "Dollar kursi noto'g'ri (masalan: 12800)");
+      b.usd_rate = String(rate);
+    }
+    for (const k of ['report_time', 'reminder_time']) if (b[k] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(b[k]))) throw new HttpError(400, "Vaqt noto'g'ri (SS:DD)");
+    for (const k of ['usd_rate', 'report_chat_id', 'report_time', 'reminder_time']) if (k in b) store.settings[k] = b[k] === '' || b[k] == null ? null : String(b[k]).trim();
     return { ok: true };
   },
 };

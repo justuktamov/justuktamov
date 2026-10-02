@@ -24,7 +24,7 @@ const ROWS = [
 // Turli uzunlikdagi oylar (va tugamagan joriy oy) kunlik sur'at bo'yicha solishtiriladi
 function change(key, perDay, cur, prev) {
   const a = cur.totals[key], b = prev?.totals[key];
-  if (a == null || b == null || !prev.has) return null;
+  if (a == null || b == null || !cur.has || !prev.has) return null;
   const x = perDay ? a / cur.days : a, y = perDay ? b / prev.days : b;
   if (key === 'net_profit' || key === 'net_margin') return y === 0 ? null : (x - y) / Math.abs(y);
   return y === 0 ? null : (x - y) / y;

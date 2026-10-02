@@ -46,13 +46,20 @@ async function handleUpdate(u) {
 async function handleDirectorReply(m) {
   // Faqat hisobot boradigan chatdan (direktor yoki guruh) kelgan javob qabul qilinadi
   if (String(m.chat.id) !== String(getSetting('report_chat_id') || '')) return;
-  const date = (m.reply_to_message.text || '').match(headRe)?.[1] || latestSentDate();
+  // Sarlavhada sana bo'lsa — javob aynan hisobot xabariga (avtomatik hisobotga ham): PM yubormagan kun uchun ham saqlanadi
+  const headDate = (m.reply_to_message.text || '').match(headRe)?.[1];
+  const date = headDate || latestSentDate();
   const who = m.chat.type === 'private' ? '' : `${m.from.first_name || 'Direktor'}: `;
-  const r = date && addDirectorReply(date, who + m.text);
+  const r = date && addDirectorReply(date, who + m.text, null, { allowUnsent: Boolean(headDate) });
   if (!r) return sendMessage(m.chat.id, 'Javob saqlanmadi: yuborilgan hisobot topilmadi.');
   await call('sendMessage', { chat_id: m.chat.id, text: '✅ Saqlandi va PM ga yetkazildi', reply_to_message_id: m.message_id }).catch(() => {});
-  const pm = r.author_id && getDb().prepare('SELECT telegram_id FROM users WHERE id = ?').get(r.author_id)?.telegram_id;
-  if (pm && String(pm) !== String(m.chat.id)) await sendMessage(pm, `💬 <b>Direktor javobi</b> (${date} hisobot):\n${escHtml(m.text)}`);
+  // Hisobot muallifi bo'lmasa (avtomatik hisobot) — barcha faol PM larga
+  const pms = r.author_id
+    ? [getDb().prepare('SELECT telegram_id FROM users WHERE id = ?').get(r.author_id)?.telegram_id]
+    : getDb().prepare('SELECT telegram_id FROM users WHERE active = 1 AND telegram_id IS NOT NULL').all().map((x) => x.telegram_id);
+  for (const pm of new Set(pms.filter(Boolean))) {
+    if (String(pm) !== String(m.chat.id)) await sendMessage(pm, `💬 <b>Direktor javobi</b> (${date} hisobot):\n${escHtml(m.text)}`);
+  }
 }
 
 export async function startPolling() {
