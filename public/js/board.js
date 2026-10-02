@@ -35,8 +35,8 @@ export async function renderBoard() {
         <span class="muted">Reja bo'lsa, dastur orqada qolishni va uning sababini oldindan aytadi.</span></div><a class="btn small primary" href="#/sozlamalar?tab=plans">Reja kiritish</a></div>` : '';
   const closed = getCollapsed();
   const layout = () => {
-    const ids = s.byProject.map((p) => closed.has(p.id));
-    return `--cols:${ids.map((c) => (c ? '64px' : 'minmax(260px, 1fr)')).join(' ')};--cols-m:${ids.map((c) => (c ? '64px' : '84vw')).join(' ')}`;
+    const n = s.byProject.length;
+    return `--cols:repeat(${n}, minmax(260px, 1fr));--cols-m:repeat(${n}, 84vw)`;
   };
   box.innerHTML = `${banner}<div class="board" style="${layout()}">${s.byProject.map((p) => column(p, s.plan, closed.has(p.id))).join('')}</div>`;
   const board = box.querySelector('.board');
