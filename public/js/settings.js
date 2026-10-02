@@ -92,13 +92,26 @@ const usd2 = (x) => (x == null || !Number.isFinite(x) ? '—' : `$${x.toFixed(2)
 const pctS = (x) => (x == null || !Number.isFinite(x) ? '—' : `${(x * 100).toFixed(1)}%`);
 const som = (x) => (x == null || !Number.isFinite(x) ? '—' : `${x >= 1e6 ? `${(x / 1e6).toFixed(1)} mln` : Math.round(x).toLocaleString('ru-RU')} so'm`);
 
+// Rejadan chiqadigan ko'rsatkichlar: [nom, qanday hisoblanadi, qiymat, format, yaxshi tomoni (-1 — kami yaxshi, 1 — ko'pi, 0 — neytral)]
 function planDerived(v, auto) {
+  const d = (a, b) => (a > 0 && b > 0 ? a / b : null);
   return [
-    !auto && ['1 lid narxi', usd2(v.budget / v.leads)],
-    !auto && ['Konversiya (lid → sotuv)', pctS(v.sales / v.leads)],
-    [auto ? '1 xarid narxi' : '1 mijoz narxi', usd2(v.budget / v.sales)],
-    ["O'rtacha chek", som(v.revenue / v.sales)],
+    !auto && ['1 lid narxi', 'byudjet ÷ lid', d(v.budget, v.leads), usd2, -1],
+    !auto && ['Konversiya', 'sotuv ÷ lid', d(v.sales, v.leads), pctS, 1],
+    [auto ? '1 xarid narxi' : '1 mijoz narxi', `byudjet ÷ ${auto ? 'xarid' : 'sotuv'}`, d(v.budget, v.sales), usd2, -1],
+    ["O'rtacha chek", 'tushum ÷ sotuv', d(v.revenue, v.sales), som, 0],
   ].filter(Boolean);
+}
+// Reja o'tgan oy faktiga qanchalik yaqin: ±25% — real, undan yaxshi — optimistik
+function planVerdict(plan, prev, good) {
+  if (plan == null || prev == null) return ['', '—'];
+  const r = plan / prev - 1;
+  const pct = `${Math.round(Math.abs(r) * 100)}%`;
+  if (Math.abs(r) <= 0.25) return ['good', 'Real'];
+  if (!good) return ['info', `${pct} ${r > 0 ? 'katta' : 'kichik'}`];
+  const better = good > 0 ? r > 0 : r < 0;
+  const word = good > 0 ? (r > 0 ? 'yuqori' : 'past') : (r > 0 ? 'qimmat' : 'arzon');
+  return better ? ['warn', `${pct} ${word} — qiyin`] : ['info', `${pct} ${word}`];
 }
 
 async function tabPlans(body) {
@@ -134,9 +147,17 @@ async function tabPlans(body) {
     const v = Object.fromEntries(PLAN_INPUTS.map(([k]) => [k, num($(`[data-k="${k}"]`, card)?.value)]));
     const pv = plans.prev?.[p.id];
     const was = pv?.has ? planDerived(pv, p.kind === 'auto') : [];
-    $('[data-derived]', card).innerHTML = Object.values(v).some((x) => x != null)
-      ? `<span class="muted small">Rejadan chiqadi:</span>${planDerived(v, p.kind === 'auto').map(([l, x], i) => `<span><small>${l}</small><b>${x}</b>${was[i] && was[i][1] !== '—' ? `<em>${esc(prevName)}: ${was[i][1]}</em>` : ''}</span>`).join('')}`
-      : '<span class="muted small">Raqamlarni yozing — rejadan 1 lid narxi, konversiya va o\'rtacha chek hisoblanadi.</span>';
+    const now = planDerived(v, p.kind === 'auto');
+    $('[data-derived]', card).innerHTML = now.some((x) => x[2] != null)
+      ? `<div class="pd-head"><b>Bu reja realmi?</b><span class="muted small">Reja raqamlaridan hisoblandi${was.length ? ` va ${esc(prevName)} fakti bilan solishtirildi` : ''}</span></div>
+        <table class="pd-table"><thead><tr><th></th><th class="n">Rejada</th>${was.length ? `<th class="n">${esc(prevName)}</th><th class="pd-v"></th>` : ''}</tr></thead><tbody>
+        ${now.map(([l, how, x, fmt, good], i) => {
+          const [cls, txt] = was.length ? planVerdict(x, was[i][2], good) : [];
+          return `<tr><td><b>${l}</b><small>${how}</small>${txt && txt !== '—' ? `<span class="pill ${cls} pd-m">${txt}</span>` : ''}</td><td class="n"><b>${x == null ? '—' : fmt(x)}</b></td>
+            ${was.length ? `<td class="n muted">${was[i][2] == null ? '—' : was[i][3](was[i][2])}</td><td class="n pd-v">${txt && txt !== '—' ? `<span class="pill ${cls}">${txt}</span>` : ''}</td>` : ''}</tr>`;
+        }).join('')}</tbody></table>
+        ${was.length ? '<p class="muted small pd-note">«Qiyin» — reja o\'tgan oydan ancha yaxshi natija kutyapti: targetolog yoki ROP bunga qanday erishishini so\'rang.</p>' : ''}`
+      : '<span class="muted small">Raqamlarni yozing — rejadan 1 lid narxi, konversiya va o\'rtacha chek hisoblanadi va o\'tgan oy bilan solishtiriladi.</span>';
   };
   $$('.plan-card', body).forEach((c) => { derive(c); c.addEventListener('input', () => derive(c)); });
 

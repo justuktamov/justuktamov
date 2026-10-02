@@ -742,14 +742,20 @@ input, select, textarea { color-scheme: light; }
 @media (max-width: 860px) { .plan-banner { flex-wrap: wrap; } }
 .plan-intro { margin-bottom: 14px; }
 .plan-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.plan-card { display: grid; gap: 12px; }
+.plan-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.plan-card .card-head { flex-wrap: wrap; gap: 6px; }
 .plan-card h3 { display: flex; align-items: center; gap: 4px; font-size: 16px; }
-.plan-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
-.plan-derived { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
-.plan-derived > span:not(.muted) { display: grid; gap: 1px; }
-.plan-derived small { font-size: 11px; color: var(--text-3); font-weight: 600; }
-.plan-derived b { font-size: 14.5px; font-variant-numeric: tabular-nums; }
-.plan-derived em { font-style: normal; font-size: 11px; color: var(--text-3); }
+.plan-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.plan-derived { padding: 12px 14px; border-radius: 12px; background: var(--surface-2); }
+.pd-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 6px; }
+.pd-head b { font-size: 14px; }
+.pd-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.pd-table th { font-size: 11px; font-weight: 600; color: var(--text-3); text-align: left; padding: 4px 6px; }
+.pd-table th.n, .pd-table td.n { text-align: right; }
+.pd-table td { padding: 6px; border-top: 1px solid var(--border); font-size: 13.5px; vertical-align: middle; }
+.pd-table td small { display: block; font-size: 11px; color: var(--text-3); font-weight: 500; }
+.pd-table .pill { white-space: nowrap; }
+.pd-note { margin: 8px 0 0; }
 @media (max-width: 1000px) { .plan-cards { grid-template-columns: minmax(0, 1fr); } }
 /* Kanallar va LTV */
 .ch-table td, .ch-table th { padding: 8px 10px; }
@@ -768,3 +774,15 @@ input, select, textarea { color-scheme: light; }
 #dynProj .chip { display: inline-flex; align-items: center; gap: 6px; }
 .dyn-table td:first-child { font-weight: 600; white-space: nowrap; }
 .dyn-table td.n { white-space: nowrap; line-height: 1.35; }
+.plan-card, .plan-cards > * { min-width: 0; }
+.pd-m { display: none; }
+@media (max-width: 640px) {
+  .pd-table .pd-v { display: none; }
+  .pd-m { display: inline-block; margin-top: 4px; }
+}
+@media (max-width: 640px) {
+  .pd-table { table-layout: fixed; }
+  .pd-table th:first-child { width: 48%; }
+  .pd-table td.n { white-space: normal; font-size: 13px; }
+  .pd-table td.n b { font-size: 13.5px; }
+}
