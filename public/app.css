@@ -549,7 +549,7 @@ details.sub-card[open] > summary { margin-bottom: 10px; }
 .totals span { display: grid; gap: 0; padding: 6px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); min-width: 92px; }
 .totals small { font-size: 11px; color: var(--text-3); font-weight: 600; }
 .totals b { font-size: 15px; font-variant-numeric: tabular-nums; }
-.board { display: grid; grid-template-columns: repeat(var(--n), minmax(260px, 1fr)); gap: 14px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x mandatory; }
+.board { display: grid; grid-template-columns: var(--cols, repeat(4, minmax(260px, 1fr))); gap: 14px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x mandatory; }
 .col { --tint: color-mix(in srgb, var(--pc) 34%, #2b2f36); background: var(--tint); border-radius: 26px; padding: 14px; display: flex; flex-direction: column; gap: 10px;
   min-height: calc(100vh - 190px); cursor: pointer; scroll-snap-align: start; transition: transform .15s, box-shadow .15s; outline: none; }
 .col:hover, .col:focus-visible { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }
@@ -578,7 +578,7 @@ details.sub-card[open] > summary { margin-bottom: 10px; }
 .col-head small, .col-foot { color: #4a5262; }
 @media (max-width: 860px) {
   .totals { margin-left: 0; width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .board { grid-template-columns: repeat(var(--n), 84vw); margin: 0 -16px; padding: 0 16px 6px; scroll-padding: 16px; }
+  .board { grid-template-columns: var(--cols-m, repeat(4, 84vw)); margin: 0 -16px; padding: 0 16px 6px; scroll-padding: 16px; }
   .col { min-height: 0; }
 }
 
@@ -812,3 +812,14 @@ input, select, textarea { color-scheme: light; }
 .fv-link::after { content: ''; position: absolute; left: -6px; bottom: 0; border: 5px solid transparent; border-top-color: color-mix(in srgb, var(--pc) 60%, #fff); border-bottom: 0; }
 .fv-link span { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; color: var(--text-2);
   background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+/* Doska: ustunni yig'ish — faqat loyiha nomi qoladi */
+.col-head { grid-template-columns: auto auto 1fr auto; }
+.col-toggle { width: 28px; height: 28px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--pc) 30%, #fff); background: #fff; color: #4a5262; display: grid; place-items: center; cursor: pointer; padding: 0; transition: transform .2s; }
+.col-toggle:hover { color: #10131a; box-shadow: 0 0 10px color-mix(in srgb, var(--pc) 45%, transparent); }
+.col.collapsed { padding: 12px 8px; align-items: center; cursor: pointer; }
+.col.collapsed:hover { transform: none; }
+.col.collapsed > :not(.col-head) { display: none; }
+.col.collapsed .col-head { grid-template-columns: auto; justify-items: center; gap: 12px; padding: 0; }
+.col.collapsed .col-head .pill, .col.collapsed .col-name small { display: none; }
+.col.collapsed .col-toggle { transform: rotate(180deg); }
+.col.collapsed .col-name h2 { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 16px; white-space: nowrap; }

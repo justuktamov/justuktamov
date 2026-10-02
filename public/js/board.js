@@ -33,14 +33,35 @@ export async function renderBoard() {
   const banner = missing.length && s.plan.month === state.me.today.slice(0, 7)
     ? `<div class="plan-banner"><span>📅</span><div><b>${monthName(s.plan.month)} uchun reja kiritilmagan:</b> ${missing.map((p) => esc(p.name)).join(', ')}.
         <span class="muted">Reja bo'lsa, dastur orqada qolishni va uning sababini oldindan aytadi.</span></div><a class="btn small primary" href="#/sozlamalar?tab=plans">Reja kiritish</a></div>` : '';
-  box.innerHTML = `${banner}<div class="board" style="--n:${s.byProject.length}">${s.byProject.map((p) => column(p, s.plan)).join('')}</div>`;
-  box.querySelector('.board').addEventListener('click', (e) => {
+  const closed = getCollapsed();
+  const layout = () => {
+    const ids = s.byProject.map((p) => closed.has(p.id));
+    return `--cols:${ids.map((c) => (c ? '64px' : 'minmax(260px, 1fr)')).join(' ')};--cols-m:${ids.map((c) => (c ? '64px' : '84vw')).join(' ')}`;
+  };
+  box.innerHTML = `${banner}<div class="board" style="${layout()}">${s.byProject.map((p) => column(p, s.plan, closed.has(p.id))).join('')}</div>`;
+  const board = box.querySelector('.board');
+  // Yig'ish / ochish — faqat nomi qoladi; tanlov shu brauzerda eslab qolinadi
+  const toggle = (col) => {
+    const id = Number(col.dataset.open);
+    if (closed.has(id)) closed.delete(id); else closed.add(id);
+    setCollapsed(closed);
+    col.classList.toggle('collapsed', closed.has(id));
+    col.querySelector('[data-collapse]').setAttribute('aria-expanded', String(!closed.has(id)));
+    col.querySelector('[data-collapse]').title = closed.has(id) ? 'Ochish' : "Yig'ish";
+    board.setAttribute('style', layout());
+  };
+  board.addEventListener('click', (e) => {
     if (e.target.closest('a')) return; // ichidagi havola (Reja kiritish) o'zi ishlasin
+    const btn = e.target.closest('[data-collapse]');
+    const yig = e.target.closest('.col.collapsed');
+    if (btn || yig) { toggle((btn || yig).closest('.col')); return; }
     const col = e.target.closest('[data-open]');
     if (col) location.hash = `#/loyiha/${col.dataset.open}`;
   });
-  box.querySelector('.board').addEventListener('keydown', (e) => {
+  board.addEventListener('keydown', (e) => {
+    if (e.target.closest('[data-collapse]')) return;
     const col = e.target.closest('[data-open]');
+    if (col?.classList.contains('collapsed') && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(col); return; }
     if (col && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); location.hash = `#/loyiha/${col.dataset.open}`; }
   });
 }
@@ -51,6 +72,14 @@ const M_IC = {
   up: ic('<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'),
   down: ic('<path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/>'),
 };
+const COLLAPSE_KEY = 'board-collapsed';
+function getCollapsed() {
+  try { return new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]').map(Number)); } catch { return new Set(); }
+}
+function setCollapsed(set) {
+  try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...set])); } catch { /* xotira yo'q */ }
+}
+const COLLAPSE_IC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
 const monthName = (m) => { const n = monthLabel(m).split(' ')[0]; return n[0].toUpperCase() + n.slice(1); };
 const PLAN_ROWS = [['revenue', 'Tushum'], ['sales', 'Sotuv'], ['leads', 'Lid']];
 
@@ -67,7 +96,7 @@ function planTile(p, plan) {
     ${a ? `<p class="plan-warn ${a.level}">${esc(a.text)}</p>` : plan.elapsed >= 5 ? '<p class="plan-ok">✓ Reja bo\'yicha</p>' : '<p class="why">Oy boshi — xulosa 5-kundan</p>'}</div>`;
 }
 
-function column(p, plan) {
+function column(p, plan, collapsed = false) {
   const [cls, label] = statusOf(p);
   const auto = p.kind === 'auto';
   const issue = p.insights.find((i) => i.level === 'critical') || p.insights.find((i) => i.level === 'warning');
@@ -81,8 +110,9 @@ function column(p, plan) {
   ].filter(Boolean);
   const q = [['q-good', p.qualified], ['q-mid', p.potential], ['q-bad', p.unqualified]];
   const badTop = p.reasons.bad[0];
-  return `<section class="col" style="--pc:${esc(p.color || '#4c86ff')}" data-open="${p.id}" tabindex="0" role="button" aria-label="${esc(p.name)} — batafsil">
-    <header class="col-head"><span class="col-dot"></span><div><h2>${esc(p.name)}</h2><small>${auto ? 'avtovoronka' : "sotuv bo'limi"}</small></div><span class="pill ${cls}">${label}</span></header>
+  return `<section class="col ${collapsed ? 'collapsed' : ''}" style="--pc:${esc(p.color || '#4c86ff')}" data-open="${p.id}" tabindex="0" role="button" aria-label="${esc(p.name)} — batafsil">
+    <header class="col-head"><button type="button" class="col-toggle" data-collapse aria-expanded="${!collapsed}" title="${collapsed ? 'Ochish' : "Yig'ish"}" aria-label="${esc(p.name)} — yig'ish yoki ochish">${COLLAPSE_IC}</button>
+      <span class="col-dot"></span><div class="col-name"><h2>${esc(p.name)}</h2><small>${auto ? 'avtovoronka' : "sotuv bo'limi"}</small></div><span class="pill ${cls}">${label}</span></header>
     <div class="tile money">
       <div class="m-hero rev"><span class="m-ic">${M_IC.rev}</span><div><small>Tushum</small><b>${fmtUzs(p.revenue)}<i>so'm</i></b><span class="m-sub">${fmtN(p.sales)} ta ${auto ? 'xarid' : 'sotuv'}</span></div></div>
       <div class="m-hero ${p.net_profit < 0 ? 'loss' : 'profit'}"><span class="m-ic">${p.net_profit < 0 ? M_IC.down : M_IC.up}</span><div><small>${p.net_profit < 0 ? 'Zarar' : 'Sof foyda'}</small><b>${signed(p.net_profit, false)}<i>so'm</i></b><span class="m-sub">barcha xarajatdan keyin</span></div></div>
