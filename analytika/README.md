@@ -92,6 +92,14 @@ Menyuda **Dinamika** — oxirgi 6 yoki 12 oy, hammasi yoki bitta loyiha: tushum 
 | 7 kunda zarar | Byudjetni qisqartirish yoki taklifni oʻzgartirish | Direktor qarori |
 | 7 kunda eng yaxshi natija | Byudjetni +20% oshirish | Direktor qarori |
 
+### AI tahlil (3-qadam)
+Serverda AI kaliti boʻlsa, 3-qadamda **«AI bilan tahlil qilish»** tugmasi chiqadi. AI kechagi raqamlarni, loyiha meʼyorini, sabablarni, kanallarni va yuqoridagi jadval boʻyicha tizim topgan muammolarni oʻqib, har loyiha boʻyicha qisqa tahlil (🔎) va takliflar (•) yozadi, 4-qadam uchun kun xulosasi va «ertaga» rejasini ham taklif qiladi.
+- AI matni «Direktorga taklif» maydonlariga qoʻyiladi (🤖 belgisi bilan). **PM oʻqiydi, xatosini tuzatadi va «Saqlash» bosadi** — direktorga faqat PM saqlagan matn boradi.
+- Raqamlar AI tahlildan keyin oʻzgarsa, «Raqamlar AI tahlildan keyin oʻzgardi — qayta tahlil qiling» ogohlantirishi chiqadi.
+- **Provayder** `.env` da tanlanadi, kod oʻzgarmaydi: `AI_PROVIDER` = `deepseek` (standart, model `deepseek-v4-pro`), `anthropic` (Claude, `claude-opus-5-5`) yoki `openai` (OpenAI yoki OpenAI formatidagi boshqa xizmat — `AI_MODEL`, kerak boʻlsa `AI_BASE_URL`). Kalit — `AI_API_KEY`. Oʻzgartirgach serverni qayta ishga tushiring. Holat: Sozlamalar → Telegram → «AI tahlil».
+- Kalit boʻlmasa AI tugmasi chiqmaydi, tahlil avvalgidek tizim qoidalari boʻyicha yoziladi.
+- AI ga kechagi biznes raqamlari, kreativ nomlari va targetolog/ROP izohlari yuboriladi (mijozlarning ism va telefonlari tizimda yoʻq, ular yuborilmaydi). Provayder maʼlumotni qayerda saqlashini uning shartlaridan tekshiring. Har bosish pullik: `deepseek-v4-pro` da bir tahlil taxminan 1–3 sent.
+
 4. **Yuborish.** Direktor Telegramda har bir loyiha boʻyicha raqamlar, muammolar (⚠️) va PM takliflarini (💡) oladi.
    - Direktor shu xabarga **javob (reply)** qilib yechim yozadi. Javob hisobotga saqlanadi va PM ga Telegramda boradi.
    - Ertasi kuni «Kechagi hisobot» sahifasining tepasida «Direktor yechimi» boʻlib turadi.
@@ -128,7 +136,7 @@ Node.js **22.13+** kerak (undan eski 22.x da ichki SQLite bayroqsiz ishlamaydi).
 ```bash
 cd analytika
 npm install
-cp .env.example .env      # TELEGRAM_BOT_TOKEN, ADMIN_PASSWORD
+cp .env.example .env      # TELEGRAM_BOT_TOKEN, ADMIN_PASSWORD, AI_API_KEY (ixtiyoriy)
 npm run demo              # (ixtiyoriy) 150 kunlik namuna: 4 loyiha, kanallar va oylik reja
 npm start                 # http://localhost:3000
 npm test                  # testlar
@@ -170,6 +178,7 @@ src/metrics.js     hisob-kitob: lid narxi, konversiya, ROAS, reja/prognoz, loyih
 src/reports.js     PM hisoboti: qoralama → yuborish → direktor javobi, Telegram matni
 src/auth.js        parol va sessiyalar
 src/telegram.js    bot: hisobot yuborish, /id, direktorning javobi (reply)
+src/ai/            AI tahlil: index (provayder tanlash), prompt (ma'lumot va ko'rsatma), openai-compatible (DeepSeek, OpenAI), anthropic (Claude)
 src/demo-data.js   namuna ma'lumotlar (server va brauzer demosi uchun)
 public/js/         interfeys: core, board (doska), project (loyiha sahifasi), blocks, pm (4 qadam va arxiv), settings
 demo/              brauzer demosini yig'ish

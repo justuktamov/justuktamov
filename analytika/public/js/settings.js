@@ -200,6 +200,7 @@ async function tabPlans(body) {
 async function tabTelegram(body) {
   const settings = await api('/api/settings');
   const tg = settings.telegram;
+  const ai = settings.ai || { enabled: false };
   const me = state.me.user;
   body.innerHTML = `
     <div class="grid g2">
@@ -221,6 +222,12 @@ async function tabTelegram(body) {
           <li>O'zingiz ham <span class="code">/id</span> yozing va ikkinchi maydonga kiriting.</li>
           <li>Direktor hisobotga <b>javob (reply)</b> qilib yechim yozadi — javob sizga keladi.</li>
         </ol>
+      </div>
+      <div class="card stack"><h2>AI tahlil</h2>
+        ${ai.enabled ? `<div class="insight good"><span class="ic">Ulangan</span><span>${esc(ai.label)} · ${esc(ai.model)}</span></div>`
+          : `<div class="insight warning"><span class="ic">O'chiq</span><span>${esc(window.DEMO ? "Demoda AI yo'q — haqiqiy serverda ishlaydi" : ai.reason || 'AI ulanmagan')}</span></div>`}
+        <p class="small" style="margin:0;color:var(--text-2)">«Kechagi hisobot» → 3-qadamda AI har loyiha bo'yicha tahlil va taklif yozadi; siz o'qib, tuzatib, saqlaysiz.
+          Provayder serverdagi <span class="code">.env</span> faylida tanlanadi: <span class="code">AI_PROVIDER</span> (deepseek, anthropic yoki openai), <span class="code">AI_API_KEY</span>, <span class="code">AI_MODEL</span> — o'zgartirgach serverni qayta ishga tushiring. Kalit ilovada ko'rsatilmaydi.</p>
       </div>
     </div>`;
   $('#setForm').onsubmit = async (e) => {

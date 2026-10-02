@@ -181,13 +181,21 @@ export async function renderToday() {
     const notes = report?.project_notes || {};
     const statuses = Object.entries(bundle.statuses).filter(([k]) => k !== 'nodata');
     const WHO = bundle.adviceWho || {};
+    // AI matni: hozirgina tahlil qilingan bo'lsa — barcha maydonlarga; aks holda PM saqlamagan joyga.
+    // Raqamlar AI dan keyin o'zgargan bo'lsa (stale) — eski AI matni qo'yilmaydi
+    const ai = bundle.ai && !bundle.ai.stale ? bundle.ai : null;
+    const fresh = state.aiFill === date;
+    state.aiFill = null;
     return `<section class="card step">
       <div class="step-head"><span class="eyebrow">3-qadam</span><h2>${STEPS[2].head}</h2><p>${STEPS[2].hint}</p></div>
+      ${aiBar()}
       <div class="checks">${bundle.day.byProject.map((p) => {
         const adv = bundle.advice?.[p.id] || { status: 'nodata', problems: [], proposals: [] };
         const auto = adv.status || 'nodata';
         const cur = notes[p.id]?.status || (auto === 'nodata' ? null : auto);
-        const proposal = notes[p.id]?.comment ?? autoProposal(adv);
+        const aiFor = ai?.texts?.[p.id] || null;
+        const proposal = (fresh && aiFor) || notes[p.id]?.comment || aiFor || autoProposal(adv);
+        const fromAi = Boolean(aiFor) && proposal === aiFor;
         const empty = !p.reported.spend && !p.reported.leads && !p.reported.sales;
         const revIn = p.reported.revenue > 0;
         // Targetolog/ROP izohlari — alohida; muammolar ro'yxatida faqat raqamdan chiqqan xulosalar
@@ -208,7 +216,7 @@ export async function renderToday() {
           </div>
           ${issues.length ? `<ul class="problems">${issues.slice(0, 3).map((x) => `<li><span class="who ${x.who}">${WHO_SHORT[x.who] || ''}</span><span>${esc(x.text)}</span></li>`).join('')}</ul>`
             : '<p class="ok-line">✓ Muammo topilmadi</p>'}`}
-          <label class="field">${empty ? 'Izoh (ixtiyoriy)' : 'Direktorga taklif'}<textarea data-comment rows="2" placeholder="${empty ? 'Masalan: targetolog raqam bermadi' : ''}" aria-label="${esc(p.name)} — taklif">${esc(empty && !notes[p.id]?.comment ? '' : proposal)}</textarea></label>
+          <label class="field"><span>${empty ? 'Izoh (ixtiyoriy)' : 'Direktorga taklif'}${fromAi ? '<span class="ai-tag">🤖 AI yozdi — tekshiring</span>' : ''}</span><textarea data-comment rows="2" class="${fromAi ? 'ai-filled' : ''}" placeholder="${empty ? 'Masalan: targetolog raqam bermadi' : ''}" aria-label="${esc(p.name)} — taklif">${esc(empty && !notes[p.id]?.comment ? '' : proposal)}</textarea></label>
           <details><summary>${extra ? 'Kreativlar, izohlar va holat' : "Holatni o'zgartirish"}</summary>
             ${adv.best || adv.worst ? `<div class="nums">${adv.best ? `<span>⭐ ${esc(adv.best)}</span>` : ''}${adv.worst ? `<span>👎 ${esc(adv.worst)}</span>` : ''}</div>` : ''}
             ${notesList.map((x) => `<p class="note-line">${esc(x.text)}</p>`).join('')}
@@ -220,15 +228,38 @@ export async function renderToday() {
     </section>`;
   }
 
+  // AI tahlil paneli: holat, tugma, eskirgan bo'lsa — ogohlantirish
+  function aiBar() {
+    const st = bundle.aiStatus || {};
+    if (!st.enabled) {
+      return `<div class="ai-bar off"><span class="ai-ic">🤖</span><div><b>AI tahlil</b>
+        <span class="muted small">${esc(st.reason || 'AI ulanmagan')}. Tahlil tizim qoidalari bo'yicha yozildi — <a href="#/sozlamalar?tab=telegram">holatini ko'rish</a>.</span></div></div>`;
+    }
+    const a = bundle.ai;
+    const hasData = bundle.day.byProject.some((p) => p.reported.spend || p.reported.leads || p.reported.sales);
+    const who = a ? `${a.provider === st.provider ? st.label : a.provider} · ${a.model}` : `${st.label} · ${st.model}`;
+    const line = !a ? `${esc(who)} — raqamlarni o'qib, har loyiha bo'yicha tahlil va taklif yozadi. Siz o'qib, tuzatib, saqlaysiz.`
+      : a.stale ? `<span class="ai-warn">Raqamlar AI tahlildan keyin o'zgardi — qayta tahlil qiling</span>`
+        : `${esc(who)} · ${esc(String(a.at || '').slice(11, 16))} da. AI matni pastdagi maydonlarda — o'qing, xatosini tuzating va saqlang: direktorga siz saqlagan matn boradi.`;
+    return `<div class="ai-bar ${a?.stale ? 'stale' : ''}"><span class="ai-ic">🤖</span><div><b>AI tahlil</b><span class="small">${line}</span></div>
+      <button type="button" class="btn ${a && !a.stale ? '' : 'primary'}" data-ai ${hasData ? '' : 'disabled title="Avval raqamlarni kiriting"'}>${a ? '↻ Qayta tahlil' : 'AI bilan tahlil qilish'}</button></div>`;
+  }
+
   // ---------- 4: yuborish ----------
   function sendStep() {
     const tg = state.me.telegram || {};
+    // AI yozgan xulosa — PM o'zi yozmagan bo'lsa taklif sifatida (yuborishdan oldin o'zgartirsa bo'ladi)
+    const ai = bundle.ai && !bundle.ai.stale && (!report || report.status === 'draft') ? bundle.ai : null;
+    const sum = report?.summary || ai?.xulosa || '';
+    const tom = report?.tomorrow || ai?.ertaga || '';
+    const aiTag = (fromAi) => (fromAi ? '<span class="ai-tag">🤖 AI yozdi — tekshiring</span>' : '');
     return `<section class="card step">
       <div class="step-head"><span class="eyebrow">4-qadam</span><h2>${STEPS[3].head}</h2><p>${STEPS[3].hint}</p></div>
       <div class="grid g2">
         <div class="stack">
-          <label class="field">Kun xulosasi (ixtiyoriy)<textarea id="rSummary" rows="3" placeholder="Masalan: DIZIPRO da lid ko'p, sotuv kam — ROP bilan gaplashdim">${esc(report?.summary || '')}</textarea></label>
-          <label class="field">Ertaga nima qilamiz (ixtiyoriy)<textarea id="rTomorrow" rows="3" placeholder="Masalan: VIZART uchun 2 ta yangi video qo'yamiz">${esc(report?.tomorrow || '')}</textarea></label>
+          <label class="field"><span>Kun xulosasi (ixtiyoriy)${aiTag(!report?.summary && sum)}</span><textarea id="rSummary" rows="3" class="${!report?.summary && sum ? 'ai-filled' : ''}" ${!report?.summary && sum ? 'data-ai-filled' : ''} placeholder="Masalan: DIZIPRO da lid ko'p, sotuv kam — ROP bilan gaplashdim">${esc(sum)}</textarea></label>
+          <label class="field"><span>Ertaga nima qilamiz (ixtiyoriy)${aiTag(!report?.tomorrow && tom)}</span><textarea id="rTomorrow" rows="3" class="${!report?.tomorrow && tom ? 'ai-filled' : ''}" ${!report?.tomorrow && tom ? 'data-ai-filled' : ''} placeholder="Masalan: VIZART uchun 2 ta yangi video qo'yamiz">${esc(tom)}</textarea></label>
+          ${bundle.ai?.stale ? `<div class="insight warning"><span class="ic">AI</span><span>Raqamlar AI tahlildan keyin o'zgardi. <button type="button" class="link-btn" data-step-go="check">3-qadamda qayta tahlil qiling</button>.</span></div>` : ''}
           ${!tg.enabled || !tg.reportChat ? `<div class="insight warning"><span class="ic">Eslatma</span><span>Telegram ${tg.enabled ? 'chat ID si' : 'bot'} sozlanmagan — hisobot faqat tizimda saqlanadi. <a href="#/sozlamalar?tab=telegram">Sozlash</a></span></div>` : ''}
         </div>
         <div class="stack"><span class="eyebrow">Direktor ko'radigan xabar</span><pre class="tg" id="preview">Yuklanmoqda…</pre></div>
@@ -283,6 +314,25 @@ export async function renderToday() {
       }
     }));
     box.querySelectorAll('[data-step-go]').forEach((b) => { b.onclick = () => toStep(b.dataset.stepGo); });
+    // AI tahlil: natija maydonlarga qo'yiladi, PM o'qib, tuzatib, «Saqlash» bosadi
+    const aiBtn = box.querySelector('[data-ai]');
+    if (aiBtn) aiBtn.onclick = async () => {
+      const edited = $$('.check textarea', box).some((t) => t.value !== t.defaultValue);
+      if (edited && !window.confirm("Siz yozgan (saqlanmagan) matn AI matni bilan almashtiriladi. Davom etilsinmi?")) return;
+      const label = aiBtn.innerHTML;
+      aiBtn.disabled = true;
+      aiBtn.innerHTML = '<span class="spinner"></span> Tahlil qilinmoqda… (1 daqiqagacha)';
+      try {
+        await api('/api/report/ai', { method: 'POST', body: { date } });
+        state.aiFill = date;
+        toast("AI tahlil tayyor — o'qing, tuzating va saqlang");
+        renderToday();
+      } catch (err) {
+        toast(err.message, true);
+        aiBtn.disabled = false;
+        aiBtn.innerHTML = label;
+      }
+    };
     box.querySelector('.checks')?.addEventListener('click', (e) => {
       const b = e.target.closest('[data-st]');
       if (!b) return;
@@ -348,7 +398,8 @@ export async function renderToday() {
       const refresh = () => api(`/api/report/preview?date=${date}`).then((r) => { const el = $('#preview'); if (el) el.innerHTML = r.text; }).catch(() => {});
       // Xulosa yozilgach ko'rinish yangilansin
       const persist = async () => { await api('/api/report', { method: 'PUT', body: { date, ...collectDraft() } }).catch(() => {}); refresh(); };
-      refresh();
+      // AI yozgan xulosa qo'yilgan bo'lsa — saqlanadi, shunda o'ngdagi xabarda ham ko'rinadi
+      if (box.querySelector('[data-ai-filled]')) persist(); else refresh();
       $('#rSummary').addEventListener('change', persist);
       $('#rTomorrow').addEventListener('change', persist);
       box.querySelector('[data-send]').onclick = async (e) => {
