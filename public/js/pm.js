@@ -42,7 +42,7 @@ export function dateNav(date, onChange) {
 }
 
 const filled = (row, fields) => fields.every((f) => row[f] != null);
-const dot = (c) => `<span class="dot" style="background:${esc(c || '#4c86ff')};color:${esc(c || '#4c86ff')}"></span>`;
+const dot = (c) => `<span class="dot" style="--dc:${esc(c || '#4c86ff')}"></span>`;
 
 function stepDone(key, daily, report) {
   if (key === 'target') return daily.projects.length > 0 && daily.projects.every((p) => filled(p.row, STEPS[0].required));
@@ -351,7 +351,7 @@ function renderOnboarding(box) {
   const have = new Set(state.projects.map((p) => p.name.toUpperCase()));
   box.innerHTML = `<section class="card step">
     <div class="step-head"><span class="eyebrow">Boshlash</span><h2>Loyihalaringizni qo'shing</h2><p>Bir bosishda to'rttala loyiha qo'shiladi. Keyin har kuni shular bo'yicha hisobot to'ldirasiz.</p></div>
-    <ul class="onb-list">${OUR_PROJECTS.map((p) => `<li><span class="dot" style="background:${p.color}"></span><b>${p.name}</b><span class="muted">${p.about}</span></li>`).join('')}</ul>
+    <ul class="onb-list">${OUR_PROJECTS.map((p) => `<li><span class="dot" style="--dc:${p.color}"></span><b>${p.name}</b><span class="muted">${p.about}</span></li>`).join('')}</ul>
     <button class="btn primary" id="onbAll">${ICONS.plus} To'rttasini qo'shish</button>
     <form id="onbForm" class="row mt"><input name="name" id="onbName" required placeholder="Yoki boshqa loyiha nomi" style="flex:1 1 240px" aria-label="Loyiha nomi"><button class="btn">${ICONS.plus} Qo'shish</button></form>
   </section>`;

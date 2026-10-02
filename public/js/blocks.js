@@ -3,7 +3,7 @@ import {
   esc, state, fmtN, fmtUsd, fmtUzs, fmtP, cssVar, chartBase, groupSeries, monthLabel, shortDate,
 } from './core.js';
 
-export const dot = (c) => `<span class="dot" style="background:${esc(c || 'var(--series-1)')}"></span>`;
+export const dot = (c) => `<span class="dot" style="--dc:${esc(c || 'var(--series-1)')}"></span>`;
 export const signed = (x) => (x > 0 ? `+${fmtUzs(x)}` : fmtUzs(x));
 const LEVEL = { critical: ['crit', 'Muhim'], warning: ['warn', 'Diqqat'], info: ['info', "Ma'lumot"], good: ['good', 'Yaxshi'] };
 

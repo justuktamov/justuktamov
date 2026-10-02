@@ -702,3 +702,22 @@ input, select, textarea { color-scheme: light; }
 .swatch:hover, .swatch:focus-visible { transform: scale(1.12); outline: none; }
 .swatch.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--c); }
 .sel-btn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- Glow: soya o'rniga elementning o'z rangida yorug'lik ---------- */
+.dot { background: var(--dc, var(--series-1)); box-shadow: 0 0 8px color-mix(in srgb, var(--dc, var(--series-1)) 65%, transparent); }
+.col-dot { box-shadow: 0 0 0 3px #fff, 0 0 14px color-mix(in srgb, var(--pc) 70%, transparent); }
+.pswitch a .col-dot { box-shadow: 0 0 8px color-mix(in srgb, var(--pc) 70%, transparent); }
+.nav a.active .ic, .mobile-nav a.active .ic { box-shadow: 0 0 18px rgba(49, 89, 232, .45); }
+.logo-mark { box-shadow: 0 0 20px rgba(76, 125, 255, .4); }
+.btn.primary:hover { box-shadow: 0 0 20px rgba(150, 210, 40, .45); }
+.done-icon { box-shadow: 0 0 36px rgba(150, 210, 40, .45); }
+.cal-day.sel { box-shadow: 0 0 12px rgba(47, 99, 240, .4); }
+.swatch:hover { box-shadow: 0 0 12px var(--c); }
+.swatch.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--c), 0 0 14px var(--c); }
+.stepper button.on .num { box-shadow: 0 0 14px rgba(150, 210, 40, .55); }
+.stepper button.ok .num { box-shadow: 0 0 10px color-mix(in srgb, var(--good) 35%, transparent); }
+.price .pi { box-shadow: 0 0 14px currentColor; }
+.price.good .pi { box-shadow: 0 0 14px color-mix(in srgb, var(--good) 35%, transparent); }
+.price.warn .pi { box-shadow: 0 0 14px color-mix(in srgb, var(--warn) 35%, transparent); }
+.price.info .pi { box-shadow: 0 0 14px color-mix(in srgb, var(--info) 35%, transparent); }
+.price.crit .pi { box-shadow: 0 0 14px color-mix(in srgb, var(--crit) 35%, transparent); }
