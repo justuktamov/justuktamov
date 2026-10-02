@@ -81,7 +81,7 @@ async function tabPlans(body) {
       <div class="filters"><span class="month-nav"><button type="button" class="btn small icon" data-mshift="-1" aria-label="Oldingi oy">‹</button><b>${monthLabel(planMonth)}</b><button type="button" class="btn small icon" data-mshift="1" aria-label="Keyingi oy">›</button></span><button class="btn small" id="copyPrev">O'tgan oydan nusxa</button></div></div>
     <p class="small muted" style="margin:0 0 12px">Lid va sotuv rejasidan «lid ko'p, sotuv kam» signali hisoblanadi (reja konversiyasi = sotuv ÷ lid).</p>
     <div class="table-wrap"><table><thead><tr><th>Loyiha</th>${Object.values(planFields).map((l) => `<th>${esc(l)}</th>`).join('')}<th></th></tr></thead><tbody>
-      ${projects.map((p) => `<tr data-id="${p.id}"><td><span class="dot" style="background:${esc(p.color || 'var(--series-1)')}"></span>${esc(p.name)}</td>
+      ${projects.map((p) => `<tr data-id="${p.id}"><td><span class="dot" style="--dc:${esc(p.color || 'var(--series-1)')}"></span>${esc(p.name)}</td>
         ${Object.keys(planFields).map((k) => `<td><input data-k="${k}" inputmode="decimal" value="${val(p.id, k)}" placeholder="—" style="width:130px" aria-label="${esc(planFields[k])}"></td>`).join('')}
         <td><button class="btn small primary" data-a="save">Saqlash</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">Avval loyiha qo\'shing</td></tr>'}
     </tbody></table></div></div>`;
