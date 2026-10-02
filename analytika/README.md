@@ -6,17 +6,20 @@ Raqamlarni har kuni **proekt menejer (PM)** kiritadi: targetologdan, sotuv boʻl
 
 ## Loyihalar (bosh sahifa)
 
-- **Tepada — jami pul:** reklamaga sarflandi, tushum, foyda (tushum − reklama), sof foyda va marja (%). Har biri oldingi shuncha kunga nisbatan oʻzgarishi bilan. Zarardagi loyihalar alohida qatorda.
-- **Har kungi pul:** har kuni tushgan pul va barcha xarajat (reklama + tannarx + doimiy) grafigi.
-- **Loyihalar ketma-ket:** har bir qatorda reklama, tushum, sof foyda, marja, konversiya va holat. **Bosilsa ochiladi, yana bosilsa yigʻiladi.** Ichida:
-  - **Pul:** tushum → − reklama → foyda → − tannarx → − doimiy xarajat → sof foyda, har biri tushumning necha foizi;
-  - **Voronka:** klik → lid → sifatli lid → sotuv (avtovoronkada klik → bot start → xarid), har bosqich konversiyasi; 1 lid, 1 sifatli lid, 1 mijoz narxi, oʻrtacha chek;
-  - **Lid sifati:** sifatli / potensial / sifatsiz ulushi, **nega sifatsiz** (sabablar foizda) va sifatsiz lidlarga ketgan pul;
-  - **Nega sotib olmadi:** sabablar foizda;
-  - **Narx:** koʻtarish, tushirish yoki oʻzgartirmaslik tavsiyasi — 1 sotuvdan sof foyda va zararsizlik narxi bilan;
-  - **Xulosa:** zarar va uning eng katta sababi, sifatsiz lidlar, past konversiya, qimmatlashgan lid, javob kutayotgan potensial lidlar; targetolog va ROP izohlari;
-  - har kungi pul grafigi va kunma-kun jadval.
-- Pastda — oylik reja (tushum, sotuv, lid, byudjet) va prognoz.
+Kirganda — **doska**, CRM dagi kabi: har bir loyiha alohida rangli ustun, yonma-yon. Tepada davr (bugun, kecha, 7 kun, oy…) va jami: reklama, tushum, sof foyda, marja. Har bir ustunda bir xil tartibda kartochkalar:
+
+1. **Sof foyda** — katta raqam; ostida tushum, reklama, marja;
+2. **Voronka** — klik → lid → sotuv (avtovoronkada klik → bot start → xarid), 1 lid narxi va konversiya;
+3. **Lid sifati** — sifatli / potensial / sifatsiz chizig'i va asosiy sabab;
+4. **Diqqat** — eng muhim muammo (agar bo'lsa);
+5. **Narx** — ko'tarish, tushirish yoki o'zgartirmaslik.
+
+**Ustunni bossangiz — loyihaning to'liq sahifasi** ochiladi (yuqorida boshqa loyihaga o'tish tugmalari bor):
+- 4 ta asosiy raqam: reklama, tushum, sof foyda, marja (oldingi davrga nisbatan o'zgarish bilan);
+- **Pul:** tushum → − reklama → foyda → − tannarx → − doimiy xarajat → sof foyda, har biri tushumning necha foizi; yonida har kungi tushum va xarajat grafigi;
+- **Voronka**, **Lid sifati** («nega sifatsiz» sabablari, sifatsiz lidlarga ketgan pul), **Nega sotib olmadi**;
+- **Narx** tavsiyasi (1 sotuvdan sof foyda, zararsizlik narxi) va **Xulosa** (zarar sababi, past konversiya, qimmatlashgan lid, targetolog va ROP izohlari);
+- oylik reja va kunma-kun jadval.
 
 ### Pul qanday hisoblanadi
 - **Foyda** = tushum − reklama (dollar kursi Sozlamalarda).
@@ -88,7 +91,7 @@ Holat (7 kun va bugungi muammolardan eng jiddiysi):
 
 | Boʻlim | Nima uchun |
 |---|---|
-| Loyihalar | butun biznes raqamlarda: pul, foyda, konversiya, lid sifati, narx; loyiha bosilsa ochiladi; CSV |
+| Loyihalar | doska: har loyiha — ustun; ustun bosilsa loyihaning to'liq sahifasi; CSV |
 | Bugungi hisobot | PM ning 4 qadami: target → sotuv va tushgan pul → tahlil → direktorga |
 | Hisobotlar | oldingi kunlar; istalgan kunni ochib tuzatish mumkin |
 | Sozlamalar | loyihalar (turi, tannarx %, doimiy xarajat), oylik reja, Telegram, profil |
@@ -143,7 +146,7 @@ src/reports.js     PM hisoboti: qoralama → yuborish → direktor javobi, Teleg
 src/auth.js        parol va sessiyalar
 src/telegram.js    bot: hisobot yuborish, /id, direktorning javobi (reply)
 src/demo-data.js   namuna ma'lumotlar (server va brauzer demosi uchun)
-public/js/         interfeys: core, pm (4 qadam va arxiv), stats, settings
+public/js/         interfeys: core, board (doska), project (loyiha sahifasi), blocks, pm (4 qadam va arxiv), settings
 demo/              brauzer demosini yig'ish
 deploy/            systemd, nginx, zaxira nusxa
 test/              testlar — npm test
