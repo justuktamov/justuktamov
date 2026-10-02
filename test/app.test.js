@@ -62,7 +62,7 @@ test('loyiha, kunlik raqamlar, statistika, reja va CSV', async () => {
   const d = today();
   r = await pm('/api/daily', { method: 'PUT', body: { project_id: p.id, date: d, values: { spend: '-5' } } });
   assert.equal(r.status, 400);
-  r = await pm('/api/daily', { method: 'PUT', body: { project_id: p.id, date: d, values: { starts: 5 } } });
+  r = await pm('/api/daily', { method: 'PUT', body: { project_id: p.id, date: d, values: { bot_starts: 5 } } });
   assert.equal(r.status, 400, "noma'lum maydon");
   r = await pm('/api/daily', { method: 'PUT', body: { project_id: p.id, date: addDays(d, 5), values: { spend: 5 } } });
   assert.equal(r.status, 400, 'kelajak');

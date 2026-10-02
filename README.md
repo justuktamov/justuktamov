@@ -1,14 +1,43 @@
 # Loyihalar analitikasi
 
-Loyihalar direktori har kuni proekt menejerdan bitta tushunarli hisobot oladigan platforma. Hisobotda bugun qaysi loyihaga targetga qancha sarflangani, nechta klik va lid boʻlgani, qaysi loyiha oqsoqlanayotgani, qayerga koʻproq lid kerakligi va qaysi kreativ ishlamayotgani koʻrinadi.
+Kompaniyaning data-analitigi: hamma loyihalar (STARPAY, VIZART, DIZIPRO, SELFENG) bir ekranda — qaysi loyihaga qancha pul sarflandi, qancha tushdi, foyda va sof foyda qancha, konversiya qanday, lid sifati nega past, narxni koʻtarish kerakmi yoki tushirish. Har kungi majlisda (PM, ROP, targetolog) shu ekran ochiladi.
 
-## Kim ishlatadi
+Raqamlarni har kuni **proekt menejer (PM)** kiritadi: targetologdan, sotuv boʻlimi rahbaridan (ROP) va botdan olib. Direktor kunlik hisobotni Telegramda oladi va javob qilib yechim yozadi.
 
-Dasturda bitta foydalanuvchi bor: **proekt menejer (PM)**. Targetolog va ROP tizimga kirmaydi — PM raqamlarni ulardan oladi va oʻzi kiritadi. Direktor hisobotni Telegramda oladi.
+## Loyihalar (bosh sahifa)
+
+- **Tepada — jami pul:** reklamaga sarflandi, tushum, foyda (tushum − reklama), sof foyda va marja (%). Har biri oldingi shuncha kunga nisbatan oʻzgarishi bilan. Zarardagi loyihalar alohida qatorda.
+- **Har kungi pul:** har kuni tushgan pul va barcha xarajat (reklama + tannarx + doimiy) grafigi.
+- **Loyihalar ketma-ket:** har bir qatorda reklama, tushum, sof foyda, marja, konversiya va holat. **Bosilsa ochiladi, yana bosilsa yigʻiladi.** Ichida:
+  - **Pul:** tushum → − reklama → foyda → − tannarx → − doimiy xarajat → sof foyda, har biri tushumning necha foizi;
+  - **Voronka:** klik → lid → sifatli lid → sotuv (avtovoronkada klik → bot start → xarid), har bosqich konversiyasi; 1 lid, 1 sifatli lid, 1 mijoz narxi, oʻrtacha chek;
+  - **Lid sifati:** sifatli / potensial / sifatsiz ulushi, **nega sifatsiz** (sabablar foizda) va sifatsiz lidlarga ketgan pul;
+  - **Nega sotib olmadi:** sabablar foizda;
+  - **Narx:** koʻtarish, tushirish yoki oʻzgartirmaslik tavsiyasi — 1 sotuvdan sof foyda va zararsizlik narxi bilan;
+  - **Xulosa:** zarar va uning eng katta sababi, sifatsiz lidlar, past konversiya, qimmatlashgan lid, javob kutayotgan potensial lidlar; targetolog va ROP izohlari;
+  - har kungi pul grafigi va kunma-kun jadval.
+- Pastda — oylik reja (tushum, sotuv, lid, byudjet) va prognoz.
+
+### Pul qanday hisoblanadi
+- **Foyda** = tushum − reklama (dollar kursi Sozlamalarda).
+- **Sof foyda** = foyda − tannarx − doimiy xarajat. Har bir loyiha uchun Sozlamalarda kiritiladi:
+  - **tannarx** — tushumdan foizda (STARPAY uchun Stars/Premium xaridi, kurslar uchun ROP bonusi, toʻlov komissiyasi);
+  - **doimiy xarajat** — oyiga soʻmda (ish haqi, ijara, mentorlar); kunlarga boʻlib hisoblanadi.
+- **Marja** = sof foyda ÷ tushum.
+
+### Narx tavsiyasi
+- 1 sotuvdan zarar boʻlsa → «Narxni koʻtarish kerak» va **zararsizlik narxi**; agar sotib olmaganlarning 35%+ «qimmat» desa → narxni emas, xarajatni kamaytirish tavsiya qilinadi.
+- «Qimmat» deganlar 35%+ va konversiya meʼyordan past → chegirma, boʻlib toʻlash yoki arzonroq tarif.
+- Konversiya meʼyorida, «qimmat» deganlar kam, lekin marja 15% dan past → narxni 5–10% koʻtarib sinash (qancha qoʻshimcha foyda berishi hisoblanadi).
+- Aks holda — «Narx meʼyorida».
+
+### Loyiha turi
+- **Sotuv boʻlimi orqali** — lid → ROP qoʻngʻiroq qiladi → sotuv. Lid sifati va sabablar kuzatiladi.
+- **Avtovoronka (bot)** — STARPAY kabi: odam botga kirib oʻzi sotib oladi. Lid kuzatilmaydi — faqat klik, bot start, xarid va tushum.
 
 ## Kunlik ish: 4 qadam
 
-PM kirganda «Bugun» sahifasi ochiladi va qaysi qadamda turgani yuqorida koʻrinadi. 1 va 2-qadamda soʻraladigan savollar roʻyxati bor. «Nusxalash» tugmasi ularni tayyor xabar qilib beradi — targetolog yoki ROP ga Telegramda yuborasiz.
+«Bugungi hisobot» boʻlimida PM qaysi qadamda turgani yuqorida koʻrinadi. 1 va 2-qadamda soʻraladigan savollar roʻyxati bor. «Nusxalash» tugmasi ularni tayyor xabar qilib beradi — targetolog yoki ROP ga Telegramda yuborasiz.
 
 1. **Targetologdan soʻrang** (har bir loyiha boʻyicha):
    - qancha pul sarflandi ($), nechta koʻrish va klik boʻldi;
@@ -17,10 +46,10 @@ PM kirganda «Bugun» sahifasi ochiladi va qaysi qadamda turgani yuqorida koʻri
    - reklamada muammo boʻldimi (akkaunt, moderatsiya, toʻlov).
 
    **Lid narxi** soʻralmaydi — tizim oʻzi hisoblaydi: xarajat ÷ lid.
-2. **Sotuv boʻlimi rahbaridan (ROP) soʻrang:**
-   - jami lid, shundan **sifatli** (sotib olishga tayyor), **potensial** (qiziqdi, keyinroq oladi) va **sifatsiz** (maqsadli emas);
-   - nechta sotuv va qancha summa;
-   - nega sotib olmayapti (izoh).
+2. **Sotuv va tushgan pul:**
+   - ROP dan: jami lid, shundan **sifatli** (sotib olishga tayyor), **potensial** (qiziqdi, keyinroq oladi) va **sifatsiz** (maqsadli emas); nechta sotuv va qancha pul tushdi;
+   - ROP dan **sabablar raqamda**: sifatsizlar nega sifatsiz (maqsadli emas, puli yoʻq, javob bermadi…) va sotib olmaganlar nega olmadi (qimmat, oʻylab koʻradi, keyinroq…) — har sababdan nechta;
+   - avtovoronkadan (botdan / toʻlov tizimidan): bot start, xarid, tushgan pul.
 
    Jami lid boʻsh qolsa, uch turi qoʻshib yoziladi. Yigʻindi mos kelmasa, ogohlantirish chiqadi.
 3. **Tahlil.** Tizim har bir loyihada bugungi muammoni topadi va tayyor taklif yozib qoʻyadi. PM uni tahrirlaydi:
@@ -59,10 +88,10 @@ Holat (7 kun va bugungi muammolardan eng jiddiysi):
 
 | Boʻlim | Nima uchun |
 |---|---|
-| Bugun | 4 qadamli kunlik hisobot |
+| Loyihalar | butun biznes raqamlarda: pul, foyda, konversiya, lid sifati, narx; loyiha bosilsa ochiladi; CSV |
+| Bugungi hisobot | PM ning 4 qadami: target → sotuv va tushgan pul → tahlil → direktorga |
 | Hisobotlar | oldingi kunlar; istalgan kunni ochib tuzatish mumkin |
-| Statistika | davr boʻyicha raqamlar, oylik reja, loyihalar taqqoslash, grafiklar; loyihani bossangiz — kunma-kun jadval va izohlar; CSV |
-| Sozlamalar | loyihalar, oylik reja, Telegram (hisobot qayerga boradi, eslatma vaqti, dollar kursi), profil va parol |
+| Sozlamalar | loyihalar (turi, tannarx %, doimiy xarajat), oylik reja, Telegram, profil |
 
 ## Ishga tushirish (lokal)
 

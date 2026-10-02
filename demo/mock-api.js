@@ -2,13 +2,13 @@
 // Hisob-kitoblar serverdagi kod bilan bir xil (metrics.js, reports.js).
 // Kiritilgan ma'lumotlar shu brauzerning localStorage xotirasida saqlanadi.
 import { store } from './fake-sqlite.js';
-import { today, FIELDS, TEXT_FIELDS, PLAN_FIELDS } from '../src/db.js';
+import { today, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS } from '../src/db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText } from '../src/reports.js';
-import { summary, loadRows, addDays, toCsv } from '../src/metrics.js';
+import { summary, loadRows, loadReasons, addDays, toCsv } from '../src/metrics.js';
 import { generateDemo, DEMO_USER } from '../src/demo-data.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v8';
+const SAVE_KEY = 'analitika-demo-v9';
 let me = null;
 
 function seed() {
@@ -16,6 +16,7 @@ function seed() {
   store.projects = demo.projects.map((p) => ({ ...p, active: 1 }));
   store.daily = demo.daily;
   store.plans = demo.plans;
+  store.reasons = demo.reasons;
   store.reports = demo.reports.map((r) => ({
     date: r.date, author_id: 1, status: r.status, summary: r.summary, tomorrow: r.tomorrow,
     project_notes: JSON.stringify(r.project_notes), submitted_at: `${r.date} 19:30:00`,
@@ -66,6 +67,15 @@ function checkName(name, exceptId = null) {
   return n;
 }
 
+function projectMoney(b, p = {}) {
+  const kind = b.kind === undefined ? (p.kind || 'leads') : b.kind;
+  if (!PROJECT_KINDS[kind]) throw new HttpError(400, "Loyiha turi noto'g'ri");
+  const var_cost_pct = b.var_cost_pct === undefined ? p.var_cost_pct ?? null : num(b.var_cost_pct);
+  if (var_cost_pct != null && var_cost_pct > 100) throw new HttpError(400, 'Tannarx 100% dan oshmaydi');
+  const fixed_monthly = b.fixed_monthly === undefined ? p.fixed_monthly ?? null : num(b.fixed_monthly);
+  return { kind, var_cost_pct, fixed_monthly };
+}
+
 const routes = {
   'POST /api/login': (b) => {
     const u = store.user;
@@ -75,7 +85,7 @@ const routes = {
   },
   'POST /api/logout': () => { me = null; return { ok: true }; },
   'GET /api/me': () => ({
-    user: publicUser(needUser()), today: TODAY, planFields: PLAN_FIELDS,
+    user: publicUser(needUser()), today: TODAY, planFields: PLAN_FIELDS, kinds: PROJECT_KINDS, reasons: REASONS, reasonKinds: REASON_KINDS,
     reportStatus: store.reports.find((r) => r.date === TODAY)?.status || null,
     telegram: { enabled: true, bot: 'demo_bot', reportChat: Boolean(store.settings.report_chat_id) },
   }),
@@ -99,7 +109,7 @@ const routes = {
   'GET /api/projects': () => { needUser(); return [...store.projects].sort((a, b) => b.active - a.active || a.id - b.id); },
   'POST /api/projects': (b) => {
     needUser();
-    const p = { id: nextId(store.projects), name: checkName(b.name), color: b.color || null, active: 1 };
+    const p = { id: nextId(store.projects), name: checkName(b.name), color: b.color || null, ...projectMoney(b), active: 1 };
     store.projects.push(p);
     return p;
   },
@@ -109,6 +119,7 @@ const routes = {
     if (!p) throw new HttpError(404, 'Loyiha topilmadi');
     if (b.name !== undefined) p.name = checkName(b.name, id);
     if (b.color) p.color = b.color;
+    Object.assign(p, projectMoney(b, p));
     if (b.active !== undefined) p.active = b.active ? 1 : 0;
     return p;
   },
@@ -117,12 +128,14 @@ const routes = {
     const date = isDate(q.get('date')) ? q.get('date') : TODAY;
     const { projects, rows } = loadRows(date, date);
     const { rows: prevRows } = loadRows(addDays(date, -1), addDays(date, -1));
+    const reasons = loadReasons(date, date);
     return {
       date,
       projects: projects.map((p) => ({
-        id: p.id, name: p.name, color: p.color,
+        id: p.id, name: p.name, color: p.color, kind: p.kind || 'leads',
         row: rows.find((r) => r.project_id === p.id) || {},
         prev: prevRows.find((r) => r.project_id === p.id) || {},
+        reasons: reasons[p.id] || { bad: {}, lost: {} },
       })),
     };
   },
@@ -139,8 +152,20 @@ const routes = {
       const v = FIELDS[field] ? num(raw) : (String(raw ?? '').trim().slice(0, 500) || null);
       if ((row?.[field] ?? null) !== v) changes.push([field, v]);
     }
+    const rs = [];
+    for (const [kind, map] of Object.entries(b.reasons || {})) {
+      if (!REASONS[kind]) throw new HttpError(400, `Noma'lum sabab turi: ${kind}`);
+      for (const [reason, raw] of Object.entries(map || {})) {
+        if (!REASONS[kind][reason]) throw new HttpError(400, `Noma'lum sabab: ${reason}`);
+        rs.push([kind, reason, num(raw)]);
+      }
+    }
     if (!row) { row = { project_id: project.id, date: b.date }; store.daily.push(row); }
     for (const [field, v] of changes) row[field] = v;
+    for (const [kind, reason, c] of rs) {
+      store.reasons = store.reasons.filter((r) => !(r.project_id === project.id && r.date === b.date && r.kind === kind && r.reason === reason));
+      if (c) store.reasons.push({ project_id: project.id, date: b.date, kind, reason, count: Math.round(c) });
+    }
     return { ok: true, changed: changes.length };
   },
   'GET /api/summary': (_b, _p, q) => { needUser(); return summary({ ...period(q), projectId: projectParam(q) }); },

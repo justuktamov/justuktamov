@@ -5,12 +5,19 @@ import { dirname } from 'node:path';
 
 const DB_PATH = process.env.DB_PATH || './data/analytika.db';
 
-// PM har kuni kiritadigan raqamlar: 1–4 targetologdan, qolgani sotuv bo'limi rahbaridan (ROP)
+// Loyiha turi: sotuv bo'limi lidlar bilan ishlaydi; avtovoronkada odam botga kirib o'zi sotib oladi (lid kuzatilmaydi)
+export const PROJECT_KINDS = {
+  leads: "Sotuv bo'limi orqali",
+  auto: 'Avtovoronka (bot)',
+};
+
+// PM har kuni kiritadigan raqamlar: targetologdan, sotuv bo'limi rahbaridan (ROP) yoki botdan
 export const FIELDS = {
   spend: 'Xarajat ($)',
   impressions: "Ko'rishlar",
   clicks: 'Kliklar',
   new_creatives: 'Yangi kreativlar',
+  starts: 'Bot start',
   leads: 'Lidlar',
   qualified: 'Sifatli lidlar',
   potential: 'Potensial lidlar',
@@ -25,6 +32,27 @@ export const TEXT_FIELDS = {
   note_target: 'Targetolog izohi',
   note_sales: 'ROP izohi',
 };
+
+// «Nega?» raqamlarda: ROP har kuni sanab beradi
+export const REASONS = {
+  bad: {
+    not_target: 'Maqsadli auditoriya emas',
+    no_money: "Puli yo'q",
+    no_answer: 'Javob bermadi / raqam xato',
+    age: "Yoshi to'g'ri kelmaydi",
+    curious: 'Shunchaki qiziqdi',
+    spam: 'Spam / adashib yozgan',
+  },
+  lost: {
+    expensive: 'Qimmat',
+    thinking: "O'ylab ko'radi",
+    later: 'Keyinroq oladi',
+    competitor: 'Raqobatchini tanladi',
+    no_trust: "Ishonch yo'q",
+    other: 'Boshqa',
+  },
+};
+export const REASON_KINDS = { bad: 'Nega sifatsiz', lost: 'Nega sotib olmadi' };
 
 export const PLAN_FIELDS = {
   budget: 'Byudjet ($)',
@@ -67,6 +95,9 @@ function migrate(db) {
       id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
       color TEXT,
+      kind TEXT NOT NULL DEFAULT 'leads',
+      var_cost_pct REAL,
+      fixed_monthly REAL,
       active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -77,6 +108,15 @@ function migrate(db) {
       ${textCols},
       updated_at TEXT,
       PRIMARY KEY (project_id, date)
+    );
+    -- Sabablar soni: kind = bad (nega sifatsiz) | lost (nega sotib olmadi)
+    CREATE TABLE IF NOT EXISTS reasons (
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      count INTEGER NOT NULL,
+      PRIMARY KEY (project_id, date, kind, reason)
     );
     -- Oylik reja: loyiha × oy
     CREATE TABLE IF NOT EXISTS plans (
@@ -111,6 +151,10 @@ function migrate(db) {
   const cols = db.prepare('PRAGMA table_info(daily)').all().map((c) => c.name);
   for (const f of Object.keys(FIELDS)) if (cols.length && !cols.includes(f)) db.exec(`ALTER TABLE daily ADD COLUMN ${f} REAL`);
   for (const f of Object.keys(TEXT_FIELDS)) if (cols.length && !cols.includes(f)) db.exec(`ALTER TABLE daily ADD COLUMN ${f} TEXT`);
+  const pcols = db.prepare('PRAGMA table_info(projects)').all().map((c) => c.name);
+  for (const [c, t] of [['kind', "TEXT NOT NULL DEFAULT 'leads'"], ['var_cost_pct', 'REAL'], ['fixed_monthly', 'REAL']]) {
+    if (pcols.length && !pcols.includes(c)) db.exec(`ALTER TABLE projects ADD COLUMN ${c} ${t}`);
+  }
 }
 
 export function getSetting(key, fallback = null) {

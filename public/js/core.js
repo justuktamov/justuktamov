@@ -75,6 +75,7 @@ export const ICONS = {
   dl: svg('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'),
   moon: svg('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'),
   sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  edit: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/>'),
   home: svg('<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/>'),
   chart: svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
   archive: svg('<rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v11h14V9M10 13h4"/>'),
@@ -195,9 +196,9 @@ function demoMenu() {
 function navItems() {
   const sent = ['submitted', 'reviewed'].includes(state.me.reportStatus);
   const items = [
-    ['#/', 'Bugun', ICONS.home, sent ? null : '!'],
+    ['#/', 'Loyihalar', ICONS.chart],
+    ['#/kiritish', 'Bugungi hisobot', ICONS.edit, sent ? null : '!'],
     ['#/hisobotlar', 'Hisobotlar', ICONS.archive],
-    ['#/loyihalar', 'Statistika', ICONS.chart],
   ];
   return { items, bottom: [['#/sozlamalar', 'Sozlamalar', ICONS.set]] };
 }

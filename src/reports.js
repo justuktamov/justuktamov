@@ -95,7 +95,7 @@ const esc = (s) => String(s ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>':
 const ICON = { unprofitable: '🔴', sales_issue: '🟠', creative: '🟠', needs_leads: '🟡', scale: '🟢', good: '🟢', nodata: '⚪' };
 
 const usd = (x) => (x == null ? '—' : `$${x.toFixed(2)}`);
-const sum = (x) => (x >= 1e6 ? `${(x / 1e6).toFixed(1).replace('.0', '')} mln` : n(x));
+const sum = (x) => (Math.abs(x) >= 1e6 ? `${(x / 1e6).toFixed(1).replace('.0', '')} mln` : n(x));
 export const REPORT_HEAD = 'PM hisoboti —';
 
 export function reportText(date) {
@@ -105,8 +105,9 @@ export function reportText(date) {
   const lines = [
     `<b>📋 ${REPORT_HEAD} ${date}</b>${r.author_name ? `\nTayyorladi: ${esc(r.author_name)}` : ''}`,
     '',
-    `💸 Target: <b>$${t.spend.toFixed(0)}</b> · klik <b>${n(t.clicks)}</b> · lid <b>${n(t.leads)}</b> · 1 lid <b>${usd(t.cpl)}</b>`,
-    `💰 Sotuv <b>${n(t.sales)}</b> · <b>${sum(t.total_revenue)} so'm</b> · lid→sotuv <b>${p(t.lead_to_sale)}</b>`,
+    `💸 Reklama: <b>$${t.spend.toFixed(0)}</b> (${sum(t.spend_uzs)} so'm) · klik <b>${n(t.clicks)}</b> · lid <b>${n(t.leads)}</b>`,
+    `💰 Tushum: <b>${sum(t.revenue)} so'm</b> · sotuv <b>${n(t.sales)}</b>`,
+    `${t.net_profit >= 0 ? '📈' : '📉'} Sof foyda: <b>${sum(t.net_profit)} so'm</b>${t.revenue ? ` (${p(t.net_margin)})` : ''} · reklamadan keyingi foyda ${sum(t.gross_profit)} so'm`,
   ];
   for (const pr of b.day.byProject) {
     const wk = b.week.projects.find((x) => x.id === pr.id);
@@ -116,8 +117,10 @@ export function reportText(date) {
     const q = [['sifatli', pr.qualified, 'qualified'], ['potensial', pr.potential, 'potential'], ['sifatsiz', pr.unqualified, 'unqualified']]
       .filter(([, , f]) => pr.reported[f]).map(([l, v]) => `${l} ${n(v)}`);
     lines.push('', `${ICON[status]} <b>${esc(pr.name)}</b> — ${esc(PROJECT_STATUS[status])}`);
-    lines.push(`   $${pr.spend.toFixed(0)} · ${n(pr.clicks)} klik · 1 lid ${usd(pr.cpl)}`);
-    lines.push(`   ${n(pr.leads)} lid${q.length ? ` (${q.join(' · ')})` : ''} · ${n(pr.sales)} sotuv · ${sum(pr.total_revenue)} so'm`);
+    lines.push(`   $${pr.spend.toFixed(0)} · ${n(pr.clicks)} klik · ${pr.unit_label} ${usd(pr.unit_cost)}`);
+    if (pr.kind === 'auto') lines.push(`   ${pr.reported.starts ? `${n(pr.starts)} bot start · ` : ''}${n(pr.sales)} xarid (${p(pr.conv)} ${pr.conv_label})`);
+    else lines.push(`   ${n(pr.leads)} lid${q.length ? ` (${q.join(' · ')})` : ''} · ${n(pr.sales)} sotuv`);
+    lines.push(`   💰 ${sum(pr.revenue)} so'm · ${pr.net_profit >= 0 ? 'sof foyda' : 'zarar'} ${sum(Math.abs(pr.net_profit))} so'm${pr.revenue ? ` (${p(pr.net_margin)})` : ''}`);
     if (adv.best) lines.push(`   ⭐ Yaxshi kreativ: ${esc(adv.best)}`);
     if (adv.worst) lines.push(`   👎 Ishlamayotgan: ${esc(adv.worst)}`);
     for (const pb of adv.problems) lines.push(`   ⚠️ ${esc(pb.text)}`);

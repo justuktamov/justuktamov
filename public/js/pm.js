@@ -23,11 +23,15 @@ const STEPS = [
     fields: [['spend', 'Xarajat, $'], ['impressions', "Ko'rish"], ['clicks', 'Klik'], ['new_creatives', 'Yangi kreativ']],
     required: ['spend', 'clicks'],
     texts: [['creative_best', 'Yaxshi ishlagan kreativ', 'nomi yoki havola'], ['creative_worst', 'Ishlamayotgan kreativ', 'nomi yoki havola'], ['note_target', 'Muammo', "akkaunt, moderatsiya, to'lov…"]] },
-  { key: 'sales', title: 'Sotuv', head: "Sotuv bo'limi rahbaridan (ROP) so'rang",
-    hint: "Sifatli — sotib olishga tayyor. Potensial — qiziqdi, keyinroq olishi mumkin. Sifatsiz — maqsadli emas yoki javob bermadi.",
-    ask: ['Har bir loyihaga nechta lid tushdi?', 'Nechtasi sifatli, nechtasi potensial, nechtasi sifatsiz?', "Nechta sotuv bo'ldi va summa qancha?", 'Sotib olmaganlar nega olmadi (asosiy sabab)?'],
-    fields: [['leads', 'Jami lid'], ['qualified', 'Sifatli'], ['potential', 'Potensial'], ['unqualified', 'Sifatsiz'], ['sales', 'Sotuv'], ['revenue', "Summa, so'm"]],
+  { key: 'sales', title: 'Sotuv', head: "Sotuv va tushgan pul",
+    hint: "Sifatli — sotib olishga tayyor. Potensial — qiziqdi, keyinroq olishi mumkin. Sifatsiz — maqsadli emas yoki javob bermadi. Avtovoronka raqamlari botdan / to'lov tizimidan olinadi.",
+    ask: ['Har bir loyihaga nechta lid tushdi?', 'Nechtasi sifatli, nechtasi potensial, nechtasi sifatsiz?', "Nechta sotuv bo'ldi va qancha pul tushdi?",
+      'Sifatsizlar nega sifatsiz, sotib olmaganlar nega olmadi (har sababdan nechta)?'],
+    askAuto: ['Avtovoronka: botga nechta odam kirdi (start), nechtasi sotib oldi, qancha pul tushdi?'],
+    fields: [['leads', 'Jami lid'], ['qualified', 'Sifatli'], ['potential', 'Potensial'], ['unqualified', 'Sifatsiz'], ['sales', 'Sotuv'], ['revenue', "Tushgan pul, so'm"]],
     required: ['leads', 'sales', 'revenue'],
+    autoFields: [['starts', 'Bot start'], ['sales', 'Xarid'], ['revenue', "Tushgan pul, so'm"]],
+    autoRequired: ['sales', 'revenue'],
     texts: [['note_sales', 'ROP izohi', "nega sotib olmayapti, nima xalaqit beryapti…"]] },
   { key: 'check', title: 'Tahlil', head: 'Tahlil qiling va taklif yozing',
     hint: "Tizim har bir loyihada muammoni topdi va taklif yozib qo'ydi. O'zingizcha tahrirlang — direktor shu takliflarni o'qib, yechim beradi." },
@@ -52,15 +56,16 @@ const dot = (c) => `<span class="dot" style="background:${esc(c || '#4c86ff')};c
 
 function stepDone(key, daily, report) {
   if (key === 'target') return daily.projects.length > 0 && daily.projects.every((p) => filled(p.row, STEPS[0].required));
-  if (key === 'sales') return daily.projects.length > 0 && daily.projects.every((p) => filled(p.row, STEPS[1].required));
+  if (key === 'sales') return daily.projects.length > 0 && daily.projects.every((p) => filled(p.row, p.kind === 'auto' ? STEPS[1].autoRequired : STEPS[1].required));
   if (key === 'check') return Boolean(report && Object.keys(report.project_notes || {}).length);
   return Boolean(report && report.status !== 'draft');
 }
 
 // Targetolog/ROP ga Telegramda yuborish uchun tayyor savollar
 function askText(s, projects) {
-  return `Salom! Bugungi hisobot uchun har bir loyiha (${projects.map((p) => p.name).join(', ')}) bo'yicha yozib bering:\n${s.ask.map((q, i) => `${i + 1}) ${q}`).join('\n')}`;
+  return `Salom! Bugungi hisobot uchun har bir loyiha (${projects.map((p) => p.name).join(', ')}) bo'yicha yozib bering:\n${askList(s, projects).map((q, i) => `${i + 1}) ${q}`).join('\n')}`;
 }
+const askList = (s, projects) => [...s.ask, ...(projects.some((p) => p.kind === 'auto') ? s.askAuto || [] : [])];
 
 export async function renderToday() {
   state.reportDate ||= state.me.today;
@@ -99,26 +104,48 @@ export async function renderToday() {
   // ---------- 1-2: targetolog va ROP raqamlari ----------
   function entryStep(i) {
     const s = STEPS[i];
-    const calc = s.key === 'sales'; // jonli hisob: lid narxi va lid turlari yig'indisi
+    const sales = s.key === 'sales';
+    const leadsP = daily.projects.filter((p) => !sales || p.kind !== 'auto');
+    const autoP = sales ? daily.projects.filter((p) => p.kind === 'auto') : [];
+    const textP = sales ? leadsP : daily.projects;
     return `<section class="card step">
       <div class="step-top">
         <div class="step-head"><span class="eyebrow">${i + 1}-qadam</span><h2>${s.head}</h2><p>${s.hint}</p></div>
-        <div class="ask"><b>So'raladigan savollar</b><ol>${s.ask.map((q) => `<li>${esc(q)}</li>`).join('')}</ol>
+        <div class="ask"><b>So'raladigan savollar</b><ol>${askList(s, daily.projects).map((q) => `<li>${esc(q)}</li>`).join('')}</ol>
           <button class="btn small" data-copy-ask>${ICONS.copy} Nusxalash — Telegramda yuborish uchun</button></div>
       </div>
-      <div class="table-wrap"><table class="grid-entry ${s.fields.length > 4 ? 'wide' : ''}" style="--cols:${s.fields.length % 3 ? 2 : 3}"><thead><tr><th>Loyiha</th>${s.fields.map(([, l]) => `<th class="n">${l}</th>`).join('')}${calc ? '<th class="n">1 lid</th>' : ''}<th></th></tr></thead>
-      <tbody>${daily.projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
-        ${s.fields.map(([f, l]) => `<td class="n" data-label="${l}"><input class="cell-in" inputmode="decimal" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}
-        ${calc ? `<td class="n calc" data-label="1 lid narxi" data-cpl>${cplText(p.row.spend, p.row.leads)}</td>` : ''}
-        <td data-state>${filled(p.row, s.required) ? '<span class="pill good">✓</span>' : ''}</td></tr>`).join('')}</tbody></table></div>
-      <details class="extra" ${daily.projects.some((p) => s.texts.some(([f]) => p.row[f])) ? 'open' : ''}><summary>${s.key === 'target' ? 'Kreativlar va muammolar' : 'ROP izohlari'} <span class="muted">(ixtiyoriy)</span></summary>
+      ${leadsP.length ? `${sales && autoP.length ? "<h3 class=\"tbl-title\">Sotuv bo'limi orqali</h3>" : ''}${numTable(leadsP, s.fields, s.required, sales ? 'cpl' : null)}` : ''}
+      ${autoP.length ? `<h3 class="tbl-title">Avtovoronka <span class="muted small">— botdan va to'lov tizimidan</span></h3>${numTable(autoP, s.autoFields, s.autoRequired, 'cps')}` : ''}
+      ${textP.length ? `<details class="extra" ${textP.some((p) => s.texts.some(([f]) => p.row[f])) ? 'open' : ''}><summary>${sales ? 'ROP izohlari' : 'Kreativlar va muammolar'} <span class="muted">(ixtiyoriy)</span></summary>
         <div class="table-wrap"><table class="grid-entry text-entry" style="--cols:1"><thead><tr><th>Loyiha</th>${s.texts.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead>
-        <tbody>${daily.projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
+        <tbody>${textP.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
           ${s.texts.map(([f, l, ph]) => `<td class="n" data-label="${l}"><input class="cell-in txt" name="${f}" maxlength="300" value="${esc(p.row[f] ?? '')}" placeholder="${esc(ph)}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>
-      </details>
-      <div class="step-foot"><span class="muted small">${calc ? "Jami lid bo'sh qolsa — uch turi qo'shiladi." : 'Kulrang raqam — kechagi qiymat. Enter — keyingi qator.'}</span><span class="spacer"></span>
+      </details>` : ''}
+      ${sales && leadsP.length ? reasonsBlock(leadsP) : ''}
+      <div class="step-foot"><span class="muted small">${sales ? "Jami lid bo'sh qolsa — uch turi qo'shiladi." : 'Kulrang raqam — kechagi qiymat. Enter — keyingi qator.'}</span><span class="spacer"></span>
         <button class="btn ghost" data-skip>O'tkazib yuborish</button><button class="btn primary" data-save>Saqlash va davom etish →</button></div>
     </section>`;
+  }
+
+  // calc: jonli hisob — 1 lid narxi (cpl) yoki 1 start narxi (cps)
+  function numTable(projects, fields, required, calc) {
+    return `<div class="table-wrap"><table class="grid-entry ${fields.length > 4 ? 'wide' : ''}" style="--cols:${fields.length % 3 ? 2 : 3}" ${calc ? `data-calc="${calc}"` : ''}><thead><tr><th>Loyiha</th>${fields.map(([, l]) => `<th class="n">${l}</th>`).join('')}${calc ? `<th class="n">${calc === 'cpl' ? '1 lid' : '1 start'}</th>` : ''}<th></th></tr></thead>
+      <tbody>${projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
+        ${fields.map(([f, l]) => `<td class="n" data-label="${l}"><input class="cell-in" inputmode="decimal" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}
+        ${calc ? `<td class="n calc" data-label="${calc === 'cpl' ? '1 lid narxi' : '1 start narxi'}" data-cpl>${cplText(p.row.spend, calc === 'cpl' ? p.row.leads : p.row.starts)}</td>` : ''}
+        <td data-state>${filled(p.row, required) ? '<span class="pill good">✓</span>' : ''}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+
+  // «Nega?» — ROP har sababdan nechta ekanini aytadi
+  function reasonsBlock(projects) {
+    const { reasons, reasonKinds } = state.me;
+    const has = projects.some((p) => Object.values(p.reasons || {}).some((m) => Object.keys(m).length));
+    return `<details class="extra" ${has ? 'open' : ''}><summary>Sabablar raqamda: nega sifatsiz, nega sotib olmadi <span class="muted">(ROP sanab beradi)</span></summary>
+      <div class="reasons-in">${projects.map((p) => `<div class="rin" data-rid="${p.id}"><b>${dot(p.color)}${esc(p.name)}</b>
+        ${Object.entries(reasonKinds).map(([kind, title]) => `<div class="rin-kind"><span class="muted small">${title}</span><div class="rin-grid">
+          ${Object.entries(reasons[kind]).map(([r, l]) => `<label><span>${esc(l)}</span><input class="cell-in" inputmode="numeric" data-kind="${kind}" data-reason="${r}" value="${p.reasons?.[kind]?.[r] ?? ''}" aria-label="${esc(p.name)} — ${esc(l)}"></label>`).join('')}
+        </div></div>`).join('')}</div>`).join('')}</div>
+    </details>`;
   }
 
   // ---------- 3: tahlil va takliflar ----------
@@ -137,8 +164,9 @@ export async function renderToday() {
         return `<article class="check" data-pid="${p.id}">
           <div class="check-top"><b>${dot(p.color)}${esc(p.name)}</b>
             <span class="pill ${STATUS_PILL[cur || auto]}" data-pill>${esc(bundle.statuses[cur || auto])}</span></div>
-          <div class="nums"><span>${fmtUsd(p.spend, 0)}</span><span>${fmtN(p.clicks)} klik</span><span><b>1 lid ${fmtUsd(p.cpl)}</b></span>
-            <span>${fmtN(p.leads)} lid${q.length ? ` (${q.join(', ')})` : ''}</span><span>${fmtN(p.sales)} sotuv</span><span>${fmtUzs(p.total_revenue)} so'm</span></div>
+          <div class="nums"><span>${fmtUsd(p.spend, 0)}</span><span>${fmtN(p.clicks)} klik</span><span><b>${p.unit_label} ${fmtUsd(p.unit_cost)}</b></span>
+            ${p.kind === 'auto' ? `<span>${p.reported.starts ? `${fmtN(p.starts)} start · ` : ''}${fmtN(p.sales)} xarid</span>` : `<span>${fmtN(p.leads)} lid${q.length ? ` (${q.join(', ')})` : ''}</span><span>${fmtN(p.sales)} sotuv</span>`}</div>
+          <div class="nums"><span>Tushum <b>${fmtUzs(p.revenue)}</b></span><span>${p.net_profit < 0 ? 'Zarar' : 'Sof foyda'} <b class="${p.net_profit < 0 ? 'neg' : 'pos'}">${fmtUzs(p.net_profit)}</b></span>${p.revenue ? `<span>marja ${fmtP(p.net_margin, 0)}</span>` : ''}</div>
           ${adv.best || adv.worst ? `<div class="nums">${adv.best ? `<span>⭐ ${esc(adv.best)}</span>` : ''}${adv.worst ? `<span>👎 ${esc(adv.worst)}</span>` : ''}</div>` : ''}
           ${adv.problems.length ? `<ul class="problems">${adv.problems.map((x) => `<li><span class="who ${x.who}">${esc(WHO[x.who] || '')}</span>${esc(x.text)}</li>`).join('')}</ul>`
             : `<p class="meaning">${esc(MEANING[auto])}</p>`}
@@ -177,7 +205,7 @@ export async function renderToday() {
       <h2>${date === state.me.today ? 'Bugungi hisobot yuborildi' : 'Hisobot yuborilgan'}</h2>
       <p class="muted">${String(report.submitted_at || '').slice(11, 16)} da yuborildi${report.status === 'reviewed' ? ' · direktor javob berdi' : ' · direktor javobini kutyapmiz'}</p>
       ${report.director_comment ? `<div class="reply-banner" style="text-align:left"><span class="eyebrow">Direktor yechimi</span><p>${esc(report.director_comment).replace(/\n/g, '<br>')}</p></div>` : ''}
-      <div class="nums big-nums"><span><b>${fmtUsd(t.spend, 0)}</b>xarajat</span><span><b>${fmtUsd(t.cpl)}</b>1 lid</span><span><b>${fmtN(t.leads)}</b>lid</span><span><b>${fmtN(t.sales)}</b>sotuv</span><span><b>${fmtUzs(t.total_revenue)}</b>tushum</span></div>
+      <div class="nums big-nums"><span><b>${fmtUsd(t.spend, 0)}</b>xarajat</span><span><b>${fmtUzs(t.net_profit)}</b>sof foyda</span><span><b>${fmtN(t.leads)}</b>lid</span><span><b>${fmtN(t.sales)}</b>sotuv</span><span><b>${fmtUzs(t.revenue)}</b>tushum</span></div>
       <div class="row" style="justify-content:center"><button class="btn" data-step-go="send">Xabarni ko'rish</button><button class="btn ghost" data-step-go="target">Raqamlarni o'zgartirish</button></div>
       <p class="small muted">Ertaga shu yerda yangi hisobot boshlanadi.</p>
     </section>`;
@@ -199,20 +227,21 @@ export async function renderToday() {
     const copyAsk = box.querySelector('[data-copy-ask]');
     if (copyAsk) copyAsk.onclick = () => copyText(askText(cur, daily.projects));
     // Sotuv qadami: lid narxi va lid turlari yig'indisi yozish paytida
-    if (step === 'sales') {
-      box.querySelector('.grid-entry tbody').addEventListener('input', (e) => {
-        const tr = e.target.closest('tr[data-id]');
-        if (!tr) return;
-        const p = daily.projects.find((x) => String(x.id) === tr.dataset.id);
-        const v = (f) => { const el = $(`input[name="${f}"]`, tr); return el.value === '' ? null : Number(String(el.value).replace(/\s/g, '').replace(',', '.')); };
+    box.querySelectorAll('table[data-calc]').forEach((tbl) => tbl.addEventListener('input', (e) => {
+      const tr = e.target.closest('tr[data-id]');
+      if (!tr) return;
+      const p = daily.projects.find((x) => String(x.id) === tr.dataset.id);
+      const v = (f) => { const el = $(`input[name="${f}"]`, tr); return !el || el.value === '' ? null : Number(String(el.value).replace(/\s/g, '').replace(',', '.')); };
+      if (tbl.dataset.calc === 'cps') { $('[data-cpl]', tr).textContent = cplText(p.row.spend, v('starts')); return; }
+      {
         const parts = ['qualified', 'potential', 'unqualified'].map(v);
         const total = v('leads') ?? (parts.some((x) => x != null) ? parts.reduce((a, x) => a + (x || 0), 0) : null);
         $('[data-cpl]', tr).textContent = cplText(p.row.spend, total);
         const sumParts = parts.reduce((a, x) => a + (x || 0), 0);
         $('[data-state]', tr).innerHTML = v('leads') != null && parts.some((x) => x != null) && sumParts !== v('leads')
           ? `<span class="pill warn" title="Sifatli + potensial + sifatsiz = ${sumParts}">≠ ${sumParts}</span>` : '';
-      });
-    }
+      }
+    }));
     box.querySelectorAll('[data-step-go]').forEach((b) => { b.onclick = () => toStep(b.dataset.stepGo); });
     box.querySelector('.checks')?.addEventListener('click', (e) => {
       const b = e.target.closest('[data-st]');
@@ -241,15 +270,25 @@ export async function renderToday() {
             if (el.value.trim() !== String(p.row[el.name] ?? '')) (byProject[p.id] ||= {})[el.name] = el.value.trim();
           }
           if (step === 'sales') {
-            for (const p of daily.projects) {
+            for (const p of daily.projects.filter((x) => x.kind !== 'auto')) {
               const tr = box.querySelector(`tr[data-id="${p.id}"]`);
               const val = (f) => $(`input[name="${f}"]`, tr).value.trim();
               const parts = ['qualified', 'potential', 'unqualified'].map(val).filter(Boolean);
               if (!val('leads') && parts.length) (byProject[p.id] ||= {}).leads = String(parts.reduce((a, x) => a + Number(x.replace(/\s/g, '').replace(',', '.')), 0));
             }
           }
+          // Sabablar: o'zgargan qiymatlar
+          const reasonsBy = {};
+          for (const el of box.querySelectorAll('[data-rid] input[data-reason]')) {
+            const p = daily.projects.find((x) => String(x.id) === el.closest('[data-rid]').dataset.rid);
+            const old = String(p.reasons?.[el.dataset.kind]?.[el.dataset.reason] ?? '');
+            if (el.value.trim() !== old) ((reasonsBy[p.id] ||= {})[el.dataset.kind] ||= {})[el.dataset.reason] = el.value.trim();
+          }
           let changed = 0;
-          for (const [id, values] of Object.entries(byProject)) changed += (await api('/api/daily', { method: 'PUT', body: { project_id: Number(id), date, values } })).changed;
+          for (const id of new Set([...Object.keys(byProject), ...Object.keys(reasonsBy)])) {
+            changed += (await api('/api/daily', { method: 'PUT', body: { project_id: Number(id), date, values: byProject[id] || {}, reasons: reasonsBy[id] } })).changed;
+            if (reasonsBy[id]) changed += 1;
+          }
           if (changed) toast('Saqlandi ✓');
         } else if (step === 'check') {
           await api('/api/report', { method: 'PUT', body: { date, ...collectDraft() } });
@@ -300,7 +339,7 @@ function cplText(spend, leads) {
 
 // Kompaniya loyihalari — birinchi kirishda bir bosishda qo'shiladi
 const OUR_PROJECTS = [
-  { name: 'STARPAY', color: '#2a78d6', about: 'Telegram Premium va Stars savdosi' },
+  { name: 'STARPAY', color: '#2a78d6', kind: 'auto', about: 'Telegram Premium va Stars savdosi · avtovoronka' },
   { name: 'VIZART', color: '#eb6834', about: "interyer va exteryer online o'quv markazi" },
   { name: 'DIZIPRO', color: '#1baf7a', about: "3D modeling online o'quv markazi" },
   { name: 'SELFENG', color: '#eda100', about: 'online general ingliz tili' },
@@ -352,7 +391,7 @@ export async function renderArchive() {
     if (!b) return;
     state.reportDate = b.dataset.date;
     state.pmStep = null;
-    location.hash = '#/';
+    location.hash = '#/kiritish';
   });
 }
 

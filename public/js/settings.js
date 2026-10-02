@@ -26,23 +26,34 @@ export async function renderSettings() {
 async function reloadProjects() { state.projects = await api('/api/projects'); }
 
 // ---------- Loyihalar ----------
+const kindSelect = (v, attrs = '') => `<select ${attrs}>${Object.entries(state.me.kinds).map(([k, l]) => `<option value="${k}" ${v === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+
 async function tabProjects(body) {
   await reloadProjects();
-  body.innerHTML = `<div class="grid g2">
-    <div class="card"><div class="table-wrap"><table><thead><tr><th>Loyiha</th><th>Rang</th><th>Holat</th><th></th></tr></thead><tbody>
+  body.innerHTML = `<div class="card">
+    <div class="card-head"><h2>Loyihalar</h2></div>
+    <p class="small muted" style="margin:0 0 12px;max-width:80ch"><b>Tannarx</b> — tushumdan foizda ketadigan xarajat (Stars/Premium xaridi, ROP bonusi, to'lov komissiyasi).
+      <b>Doimiy xarajat</b> — oyiga so'mda (ish haqi, ijara, mentorlar). Shu ikkisidan <b>sof foyda</b> hisoblanadi.
+      <b>Avtovoronka</b> — odam botga kirib o'zi sotib oladi: lid kuzatilmaydi, faqat klik, bot start va xarid.</p>
+    <div class="table-wrap"><table><thead><tr><th>Loyiha</th><th>Rang</th><th>Turi</th><th>Tannarx, %</th><th>Doimiy xarajat, so'm/oy</th><th>Holat</th><th></th></tr></thead><tbody>
     ${state.projects.map((p) => `<tr data-id="${p.id}">
-      <td><input data-f="name" value="${esc(p.name)}" style="min-width:150px" aria-label="Nomi"></td>
+      <td><input data-f="name" value="${esc(p.name)}" style="min-width:130px" aria-label="Nomi"></td>
       <td><input data-f="color" type="color" value="${esc(p.color || '#2a78d6')}" style="width:48px" aria-label="Rang"></td>
+      <td>${kindSelect(p.kind, 'data-f="kind" aria-label="Turi"')}</td>
+      <td><input data-f="var_cost_pct" inputmode="decimal" value="${p.var_cost_pct ?? ''}" placeholder="0" style="width:80px" aria-label="Tannarx foizi"></td>
+      <td><input data-f="fixed_monthly" inputmode="decimal" value="${p.fixed_monthly ?? ''}" placeholder="0" style="width:140px" aria-label="Doimiy xarajat"></td>
       <td>${p.active ? '<span class="pill good">Faol</span>' : '<span class="pill">Arxivda</span>'}</td>
-      <td class="row" style="flex-wrap:nowrap"><button class="btn small" data-a="save">Saqlash</button><button class="btn small ghost" data-a="toggle">${p.active ? 'Arxivlash' : 'Tiklash'}</button></td></tr>`).join('') || '<tr><td colspan="4" class="empty">Loyiha yo\'q</td></tr>'}
+      <td class="row" style="flex-wrap:nowrap"><button class="btn small" data-a="save">Saqlash</button><button class="btn small ghost" data-a="toggle">${p.active ? 'Arxivlash' : 'Tiklash'}</button></td></tr>`).join('') || '<tr><td colspan="7" class="empty">Loyiha yo\'q</td></tr>'}
     </tbody></table></div>
     <p class="small muted" style="margin:10px 0 0">Arxivdagi loyiha kunlik hisobotda chiqmaydi, eski raqamlari saqlanadi.</p></div>
-    <form class="card stack" id="newProject"><h2>Yangi loyiha</h2>
+    <form class="card stack mt" id="newProject"><h2>Yangi loyiha</h2>
       <div class="fields">
         <label class="field">Nomi<input name="name" id="npName" required placeholder="Masalan: VIZART"></label>
+        <label class="field">Turi${kindSelect('leads', 'name="kind" id="npKind"')}</label>
+        <label class="field">Tannarx, %<input name="var_cost_pct" inputmode="decimal" placeholder="0"></label>
+        <label class="field">Doimiy xarajat, so'm/oy<input name="fixed_monthly" inputmode="decimal" placeholder="0"></label>
         <label class="field">Rang<input name="color" id="npColor" type="color" value="#7c5cff"></label>
-      </div><div><button class="btn primary">${ICONS.plus} Qo'shish</button></div></form>
-  </div>`;
+      </div><div><button class="btn primary">${ICONS.plus} Qo'shish</button></div></form>`;
   $('#newProject').onsubmit = async (e) => {
     e.preventDefault();
     try { await api('/api/projects', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); toast("Loyiha qo'shildi"); renderSettings(); } catch (err) { toast(err.message, true); }
