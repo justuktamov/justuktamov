@@ -424,6 +424,7 @@ export async function boot() {
   const me = await fetchMe();
   if (!me) return renderLogin();
   state.me = me;
+  state.meAt = Date.now();
   state.projects = await api('/api/projects');
   // Hash o'zgarsa — hashchange o'zi chizadi; ikki marta chizilmasin
   if (!location.hash || location.hash === '#') location.hash = '#/';
@@ -437,4 +438,14 @@ async function fetchMe() {
 
 export async function refreshMe() {
   state.me = await api('/api/me');
+  state.meAt = Date.now();
+}
+
+// Ilova uzoq ochiq tursa (telefonda — kunlab) «bugun» va «kecha» eskiradi: 5 daqiqadan eski bo'lsa qayta olinadi.
+// true — kun almashgan (sahifani qayta chizish kerak)
+export async function syncDay(maxAge = 5 * 60e3) {
+  if (!state.me || Date.now() - (state.meAt || 0) < maxAge) return false;
+  const before = state.me.today;
+  await refreshMe().catch(() => {});
+  return Boolean(state.me) && state.me.today !== before;
 }

@@ -19,8 +19,17 @@ export function daysBetween(from, to) {
   return Math.round((new Date(`${to}T00:00:00Z`) - new Date(`${from}T00:00:00Z`)) / 864e5) + 1;
 }
 
+// Dollar kursi: «12 800», «12800», «12,800», «12.800» — hammasi 12800; «12 650,5» — 12650.5.
+// So'm kursi uchun mantiqsiz qiymat (masalan 12.8) — null
+export function parseRate(v) {
+  let s = String(v ?? '').replace(/[\s ]/g, '');
+  s = /^\d{1,3}([.,]\d{3})+$/.test(s) ? s.replace(/[.,]/g, '') : s.replace(',', '.');
+  const x = Number(s);
+  return s && Number.isFinite(x) && x >= 1000 && x <= 1e6 ? x : null;
+}
+
 export function usdRate() {
-  return Number(getSetting('usd_rate', process.env.USD_RATE || 12800)) || 12800;
+  return parseRate(getSetting('usd_rate')) ?? parseRate(process.env.USD_RATE) ?? 12800;
 }
 
 export function loadRows(from, to, projectId = null) {
@@ -150,6 +159,20 @@ function channelInsights(list, kind) {
     if (x.spend >= 50 && !x.sales && (x.leads >= 10 || kind === 'auto')) out.push({ level: 'critical', text: `${x.label}: $${fmt(x.spend)} sarflandi, birorta ham sotuv yo'q.` });
   }
   return out;
+}
+
+// Kanallar ixtiyoriy (bir qismigina kiritilishi mumkin), lekin yig'indisi loyiha jamisidan oshsa — raqamlarda xato bor
+const CH_CHECK = [['spend', 'xarajat', (x) => `$${fmt(x)}`], ['leads', 'lid', fmt], ['sales', 'sotuv', fmt], ['revenue', 'tushum', (x) => `${mln(x)} so'm`]];
+function channelMismatch(p) {
+  const over = [];
+  for (const [f, label, show] of CH_CHECK) {
+    const reported = p.channels.filter((c) => c.reported[f]);
+    if (!reported.length) continue;
+    const sum = reported.reduce((a, c) => a + c[f], 0);
+    const total = Number(p[f]) || 0;
+    if (sum > total * 1.02 + 0.5) over.push(`${label} kanallarda ${show(sum)}, jami ${show(total)}`);
+  }
+  return over.length ? [{ level: 'warning', text: `Kanallar yig'indisi jamidan katta: ${over.join('; ')}. 2-qadamdagi raqamlarni tekshiring.` }] : [];
 }
 
 // ---------- Lid → sotuv kechikishi ----------
@@ -324,7 +347,7 @@ export function summary({ from, to, projectId = null }) {
   const bench = benchmarks(from, projects, plan, projectId);
   for (const p of byProject) {
     p.bench = bench[p.id];
-    p.insights = [...projectInsights(p, len), ...channelInsights(p.channels, p.kind), ...ltvInsights(p)];
+    p.insights = [...projectInsights(p, len), ...channelMismatch(p), ...channelInsights(p.channels, p.kind), ...ltvInsights(p)];
     p.price = priceAdvice(p);
   }
   return { from, to, prevFrom, prevTo, days: len, totals, prev, delta, byProject, series, notes, plan };
@@ -405,8 +428,9 @@ export function priceAdvice(p) {
 }
 
 // ---------- Oylar bo'yicha dinamika ----------
+// asOf — oxirgi hisobot kuni (kecha): bugungi raqamlar hali kiritilmagan, joriy oyni kunlik sur'atda pasaytirmasin
 const MONTH_KEYS = ['spend', 'spend_uzs', 'revenue', 'gross_profit', 'net_profit', 'net_margin', 'leads', 'qualified_share', 'sales', 'conv', 'cpl', 'cac', 'avg_check', 'roas', 'repeat_share'];
-export function monthly({ months = 6, projectId = null, asOf = today() } = {}) {
+export function monthly({ months = 6, projectId = null, asOf = addDays(today(), -1) } = {}) {
   const out = [];
   let m = asOf.slice(0, 7);
   for (let i = 0; i < months; i++) {
@@ -651,10 +675,15 @@ export function dailyAdvice(date, day, week) {
   return out;
 }
 
-// Excel to'g'ri ochishi uchun BOM bilan CSV
+// Excel to'g'ri ochishi uchun BOM bilan CSV.
+// = + - @ bilan boshlangan matnni Excel formula deb bajaradi — oldiga ' qo'yiladi
 export function toCsv(projects, rows) {
   const cols = ['date', 'project', ...SUM_FIELDS, ...Object.keys(TEXT_FIELDS)];
-  const esc = (v) => (v == null ? '' : /[",\n;]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+  const esc = (v) => {
+    if (v == null) return '';
+    const s = typeof v === 'string' && /^[=+\-@\t\r]/.test(v) ? `'${v}` : String(v);
+    return /[",\n\r;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
   const lines = [cols.join(',')];
   for (const r of [...rows].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.project_id - b.project_id))) {
     const pr = projects.find((p) => p.id === r.project_id);

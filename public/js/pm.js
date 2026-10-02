@@ -47,7 +47,8 @@ const dot = (c) => `<span class="dot" style="--dc:${esc(c || '#4c86ff')}"></span
 function stepDone(key, daily, report) {
   if (key === 'target') return daily.projects.length > 0 && daily.projects.every((p) => filled(p.row, STEPS[0].required));
   if (key === 'sales') return daily.projects.length > 0 && daily.projects.every((p) => filled(p.row, p.kind === 'auto' ? STEPS[1].autoRequired : STEPS[1].required));
-  if (key === 'check') return Boolean(report && Object.keys(report.project_notes || {}).length);
+  // PM tahlil qadamini saqlagan bo'lsa hisobotda muallif bor (direktor javobidan yaratilgan qatorda — yo'q)
+  if (key === 'check') return Boolean(report?.author_id);
   return Boolean(report && report.status !== 'draft');
 }
 
@@ -57,10 +58,13 @@ function askText(s, projects) {
 }
 const askList = (s, projects) => [...s.ask, ...(projects.some((p) => p.kind === 'auto') ? s.askAuto || [] : [])];
 
+// Sana manzilda: #/kiritish?date=YYYY-MM-DD (arxivdan yoki ←/→ bilan); sanasiz — doim kechagi kun
+export const reportHash = (d) => (d === state.me.reportDay ? '#/kiritish' : `#/kiritish?date=${d}`);
+
 export async function renderToday() {
-  state.reportDate ||= state.me.reportDay;
-  const date = state.reportDate;
-  const go = (d) => { state.reportDate = d; state.pmStep = null; renderToday(); };
+  const qd = new URLSearchParams(location.hash.split('?')[1] || '').get('date');
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(qd || '') && qd <= state.me.reportDay ? qd : state.me.reportDay;
+  const go = (d) => { state.pmStep = null; if (location.hash !== reportHash(d)) location.hash = reportHash(d); else renderToday(); };
   const first = String(state.me.user.name || '').split(' ')[0];
   shell(`<div class="page-head"><div><h1>${date === state.me.reportDay ? `Salom, <span class="grad">${esc(first)}</span>` : `<span class="grad">${dayLabel(date)}</span>`}</h1>
       <div class="sub">${date === state.me.reportDay ? `Kechagi (${dayLabel(date)}) hisobotni 4 qadamda tayyorlaymiz` : 'Shu kun hisoboti'}</div></div>${dateNav(date, go)}</div>
@@ -77,15 +81,19 @@ export async function renderToday() {
   const report = bundle.report;
   const done = Object.fromEntries(STEPS.map((s) => [s.key, stepDone(s.key, daily, report)]));
   const sent = done.send;
-  let step = state.pmStep || (sent ? 'done' : STEPS.find((s) => !done[s.key])?.key || 'send');
+  // Tanlangan qadam faqat shu sana uchun eslab qolinadi
+  let step = (state.pmStep?.date === date && state.pmStep.step) || (sent ? 'done' : STEPS.find((s) => !done[s.key])?.key || 'send');
 
   const stepper = `<nav class="stepper" aria-label="Qadamlar">${STEPS.map((s, i) => `<button data-step="${s.key}" class="${step === s.key ? 'on' : ''} ${done[s.key] ? 'ok' : ''}">
       <span class="num">${done[s.key] ? ICONS.check : i + 1}</span><span>${s.title}</span></button>${i < STEPS.length - 1 ? '<i></i>' : ''}`).join('')}</nav>`;
-  // Direktorning oxirgi yechimi — PM bugun shuni bajarishi kerak
-  const reply = bundle.prevReply && step !== 'done'
-    ? `<div class="reply-banner"><span class="eyebrow">Direktor yechimi · ${shortDate(bundle.prevReply.date)}</span><p>${esc(bundle.prevReply.text).replace(/\n/g, '<br>')}</p></div>` : '';
+  // Direktorning oxirgi yechimi — PM bugun shuni bajarishi kerak.
+  // Shu kun hisobotini PM yubormagan, direktor esa avtomatik hisobotga javob yozgan bo'lsa — o'sha javob
+  const sameDay = report?.director_comment && !sent ? { date, text: report.director_comment, auto: true } : null;
+  const shownReply = step !== 'done' ? sameDay || bundle.prevReply : null;
+  const reply = shownReply
+    ? `<div class="reply-banner"><span class="eyebrow">Direktor yechimi · ${shortDate(shownReply.date)}${shownReply.auto ? ' · avtomatik hisobotga' : ''}</span><p>${esc(shownReply.text).replace(/\n/g, '<br>')}</p></div>` : '';
 
-  const toStep = (k) => { state.pmStep = k; renderToday(); };
+  const toStep = (k) => { state.pmStep = { date, step: k }; renderToday(); };
   const body = { target: () => entryStep(0), sales: () => entryStep(1), check: checkStep, send: sendStep, done: doneStep }[step]();
   box.innerHTML = stepper + reply + body;
   box.querySelector('.stepper').onclick = (e) => { const b = e.target.closest('[data-step]'); if (b) toStep(b.dataset.step); };
@@ -179,7 +187,7 @@ export async function renderToday() {
         const adv = bundle.advice?.[p.id] || { status: 'nodata', problems: [], proposals: [] };
         const auto = adv.status || 'nodata';
         const cur = notes[p.id]?.status || (auto === 'nodata' ? null : auto);
-        const proposal = notes[p.id]?.comment ?? adv.proposals.map((x) => `• ${x}`).join('\n');
+        const proposal = notes[p.id]?.comment ?? autoProposal(adv);
         const empty = !p.reported.spend && !p.reported.leads && !p.reported.sales;
         const revIn = p.reported.revenue > 0;
         // Targetolog/ROP izohlari — alohida; muammolar ro'yxatida faqat raqamdan chiqqan xulosalar
@@ -357,14 +365,20 @@ export async function renderToday() {
     }
   }
 
-  // Holat va takliflar + xulosa — bir joydan
+  // Holat va takliflar + xulosa — bir joydan.
+  // Faqat PM o'zgartirgani saqlanadi: tizim taklifi va holati tegilmagan bo'lsa — saqlanmaydi,
+  // shunda raqamlar keyin tuzatilsa, direktorga boradigan xabarda tahlil qayta hisoblanadi
   function collectDraft() {
     const project_notes = { ...(report?.project_notes || {}) };
     $$('.check[data-pid]', box).forEach((c) => {
-      project_notes[c.dataset.pid] = { status: $('[data-st].on', c)?.dataset.st || null, comment: $('[data-comment]', c).value };
+      const adv = bundle.advice?.[c.dataset.pid] || { proposals: [] };
+      const st = $('[data-st].on', c)?.dataset.st || null;
+      const text = $('[data-comment]', c).value;
+      project_notes[c.dataset.pid] = {
+        status: st && st !== adv.status ? st : null,
+        comment: sameText(text, autoProposal(adv)) ? null : text,
+      };
     });
-    // Tahlil qadami o'tkazib yuborilsa — tizim holati saqlanadi, taklif xabarda avtomatik chiqadi
-    for (const [id, a] of Object.entries(bundle.advice || {})) if (!project_notes[id] && a.status !== 'nodata') project_notes[id] = { status: a.status, comment: null };
     return {
       project_notes,
       summary: $('#rSummary')?.value ?? report?.summary ?? '',
@@ -372,6 +386,10 @@ export async function renderToday() {
     };
   }
 }
+
+// Tizim taklifi matni (3-qadamdagi maydon shu bilan to'ldiriladi)
+const autoProposal = (adv) => (adv?.proposals || []).map((x) => `• ${x}`).join('\n');
+const sameText = (a, b) => String(a ?? '').replace(/\s+/g, ' ').trim() === String(b ?? '').replace(/\s+/g, ' ').trim();
 
 function cplText(spend, leads) {
   return spend != null && leads > 0 ? fmtUsd(spend / leads) : '—';
@@ -429,9 +447,8 @@ export async function renderArchive() {
   box.addEventListener('click', (e) => {
     const b = e.target.closest('[data-date]');
     if (!b) return;
-    state.reportDate = b.dataset.date;
     state.pmStep = null;
-    location.hash = '#/kiritish';
+    location.hash = reportHash(b.dataset.date);
   });
 }
 

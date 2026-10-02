@@ -25,8 +25,13 @@ export async function renderProject(id) {
   let s;
   try { s = await api(`/api/summary?${new URLSearchParams({ from, to, project: id })}`); } catch (e) { const el = $('#pd'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#pd');
+  if (!box || isStale(rid)) return;
   const p = s.byProject[0];
-  if (!box || isStale(rid) || !p) return;
+  // Arxivdagi loyiha statistikada yo'q — spinner o'rniga tushuntirish
+  if (!p) {
+    box.innerHTML = `<div class="card empty">${proj.active ? "Bu loyiha bo'yicha ma'lumot topilmadi." : "Loyiha arxivda — statistikasi ko'rsatilmaydi."} <a href="#/sozlamalar?tab=projects">Sozlamalar → Loyihalar</a></div>`;
+    return;
+  }
   const [cls, label] = statusOf(p);
   $('#pSub').innerHTML = `${p.kind === 'auto' ? 'Avtovoronka (bot)' : "Sotuv bo'limi orqali"} · ${from === to ? from : `${from} — ${to}`} <span class="pill ${cls}">${label}</span>`;
 
