@@ -73,6 +73,7 @@ export const ICONS = {
   copy: svg('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>'),
   plus: svg('<path d="M12 5v14M5 12h14"/>'),
   dl: svg('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'),
+  logout: svg('<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h10"/>'),
   moon: svg('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'),
   sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
   edit: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/>'),
@@ -84,21 +85,11 @@ export const ICONS = {
   cal: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
 };
 
-// ---------- Mavzu (tizim / yorug' / tungi) ----------
-// Qorong'i rejim — standart (dizayn shunga qurilgan); yorug' rejim — profilda tanlanadi
-export function getTheme() { try { return localStorage.getItem('theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; } }
-export function applyTheme(t = getTheme()) {
-  // data-ui — ilovaning o'z belgisi; claude.ai ning data-theme si dizaynni yorug'ga o'tkazib yubormaydi
-  const root = document.documentElement;
-  if (t === 'light') root.dataset.ui = 'light';
-  else delete root.dataset.ui;
+// Dizayn faqat yorug' rejimda; eski saqlangan tanlov tozalanadi
+export function applyTheme() {
+  delete document.documentElement.dataset.ui;
+  try { localStorage.removeItem('theme'); } catch { /* xotira yo'q */ }
 }
-export function setTheme(t) {
-  try { localStorage.setItem('theme', t); } catch { /* xotira yo'q */ }
-  applyTheme(t);
-  rerender();
-}
-export const isDark = () => document.documentElement.dataset.ui !== 'light';
 
 // ---------- Grafiklar ----------
 export const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -217,11 +208,10 @@ export function shell(content) {
   const active = (href) => route === href || (href !== '#/' && route.startsWith(href)) || (href === '#/' && route.startsWith('#/loyiha/'));
   const link = ([href, label, icon, badge]) => `<a href="${href}" class="${active(href) ? 'active' : ''}" title="${label}"><span class="ic">${icon}</span><span>${label}</span>${badge ? `<span class="badge">${badge}</span>` : ''}</a>`;
   const u = state.me.user;
-  const dark = isDark();
   const mobileItems = [...items, ...bottom];
   app().innerHTML = `
     <div class="mobile-top"><span class="logo"><span class="logo-mark">${ICONS.logo}</span>Analitika</span>
-      <button id="themeBtnM" aria-label="Mavzuni almashtirish">${dark ? ICONS.sun.replace('<svg', '<svg width="18" height="18"') : ICONS.moon.replace('<svg', '<svg width="18" height="18"')}</button></div>
+      <button id="logoutM" aria-label="Chiqish" title="Chiqish">${ICONS.logout.replace('<svg', '<svg width="18" height="18"')}</button></div>
     <div class="layout">
       <aside class="sidebar">
         <div class="logo"><span class="logo-mark">${ICONS.logo}</span><span>Analitika<small>kunlik hisobot</small></span></div>
@@ -236,7 +226,6 @@ export function shell(content) {
         <div class="topbar">
           <div class="crumbs"><span class="pill">${ICONS.cal.replace('<svg', '<svg width="13" height="13"')} ${dayLabel(state.me.today)}</span>${window.DEMO ? demoMenu() : ''}</div>
           <div class="top-actions">
-            <button class="circle-btn" id="themeBtnTop" aria-label="Mavzuni almashtirish" title="Mavzu">${dark ? ICONS.sun : ICONS.moon}</button>
             <button class="btn small ghost" id="logout">Chiqish</button>
             <a class="avatar" href="#/sozlamalar?tab=profil" style="width:42px;height:42px;text-decoration:none" title="Profil">${esc(initials(u.name))}</a>
           </div>
@@ -245,10 +234,7 @@ export function shell(content) {
       </main>
     </div>
     <nav class="mobile-nav" style="--n:${mobileItems.length}">${mobileItems.map(link).join('')}</nav>`;
-  const toggle = () => setTheme(isDark() ? 'light' : 'dark');
-  $('#themeBtnM').onclick = toggle;
-  $('#themeBtnTop').onclick = toggle;
-  $('#logout').onclick = async () => {
+  $('#logout').onclick = $('#logoutM').onclick = async () => {
     await api('/api/logout', { method: 'POST', body: {} }).catch(() => {});
     state.me = null;
     renderLogin();

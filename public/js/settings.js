@@ -1,6 +1,6 @@
 // Sozlamalar: loyihalar, oylik reja, Telegram (hisobot qayerga boradi), profil
 import {
-  $, $$, esc, api, state, shell, toast, ICONS, monthLabel, refreshMe, getTheme, setTheme, spinnerBlock,
+  $, $$, esc, api, state, shell, toast, ICONS, monthLabel, refreshMe, spinnerBlock,
 } from './core.js';
 
 let settingsTab = 'projects';
@@ -146,20 +146,16 @@ async function tabTelegram(body) {
 // ---------- Profil ----------
 async function tabProfile(body) {
   const u = state.me.user;
-  const theme = getTheme();
   body.innerHTML = `<div class="grid g2">
     <form class="card stack" id="nameForm"><h2>Profil</h2>
       <label class="field">Ismingiz<input name="name" id="pName" value="${esc(u.name)}" required maxlength="60"></label>
       <div class="muted small">Login: <b>${esc(u.login)}</b></div>
-      <div><span class="eyebrow">Mavzu</span>
-        <div class="seg" id="themeSeg" style="margin-top:6px">${[['dark', 'Tungi'], ['light', "Yorug'"]].map(([k, l]) => `<button type="button" data-t="${k}" class="${theme === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
       <div><button class="btn primary">Saqlash</button></div></form>
     <form class="card stack" id="pwForm"><h2>Parolni almashtirish</h2>
       <label class="field">Joriy parol<input type="password" name="old" id="pwOld" autocomplete="current-password" required></label>
       <label class="field">Yangi parol<input type="password" name="new" id="pwNew" autocomplete="new-password" minlength="6" required></label>
       <div><button class="btn primary">Saqlash</button></div></form>
   </div>`;
-  $('#themeSeg').onclick = (e) => { const t = e.target.dataset.t; if (t) setTheme(t); };
   $('#nameForm').onsubmit = async (e) => {
     e.preventDefault();
     try { await api('/api/me', { method: 'PUT', body: { name: $('#pName').value } }); await refreshMe(); toast('Saqlandi'); renderSettings(); } catch (err) { toast(err.message, true); }

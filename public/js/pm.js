@@ -4,16 +4,6 @@ import {
 } from './core.js';
 
 const STATUS_PILL = { unprofitable: 'crit', sales_issue: 'crit', creative: 'warn', needs_leads: 'info', scale: 'lime', good: 'good', nodata: '' };
-// Holat oddiy tilda: PM direktorga nima deyishini darhol tushunsin
-const MEANING = {
-  good: 'Hammasi joyida',
-  scale: 'Yaxshi ishlayapti — byudjetni oshirsa bo\'ladi',
-  needs_leads: 'Lid kam — ko\'proq reklama kerak',
-  creative: 'Reklama videosi/rasmi ishlamayapti — almashtirish kerak',
-  sales_issue: 'Lid bor, lekin sotuv past — sotuv bo\'limini tekshirish kerak',
-  unprofitable: 'Reklama zarar qilyapti — to\'xtatish yoki o\'zgartirish kerak',
-  nodata: 'Raqamlar kiritilmagan',
-};
 
 const STEPS = [
   { key: 'target', title: 'Target', head: "Targetologdan so'rang",
@@ -34,7 +24,7 @@ const STEPS = [
     autoRequired: ['sales', 'revenue'],
     texts: [['note_sales', 'ROP izohi', "nega sotib olmayapti, nima xalaqit beryapti…"]] },
   { key: 'check', title: 'Tahlil', head: 'Tahlil qiling va taklif yozing',
-    hint: "Tizim har bir loyihada muammoni topdi va taklif yozib qo'ydi. O'zingizcha tahrirlang — direktor shu takliflarni o'qib, yechim beradi." },
+    hint: "Har bir loyihada tizim muammoni topdi va taklif yozdi. Kerak bo'lsa taklifni o'zgartiring." },
   { key: 'send', title: 'Yuborish', head: 'Direktorga yuboring',
     hint: 'Direktor Telegramda aynan shu xabarni oladi va javob (reply) qilib yechim yozadi — javob sizga keladi.' },
 ];
@@ -160,18 +150,30 @@ export async function renderToday() {
         const auto = adv.status || 'nodata';
         const cur = notes[p.id]?.status || (auto === 'nodata' ? null : auto);
         const proposal = notes[p.id]?.comment ?? adv.proposals.map((x) => `• ${x}`).join('\n');
-        const q = [['sifatli', 'qualified'], ['potensial', 'potential'], ['sifatsiz', 'unqualified']].filter(([, f]) => p.reported[f]).map(([l, f]) => `${l} ${fmtN(p[f])}`);
-        return `<article class="check" data-pid="${p.id}">
+        const empty = !p.reported.spend && !p.reported.leads && !p.reported.sales;
+        const revIn = p.reported.revenue > 0;
+        // Targetolog/ROP izohlari — alohida; muammolar ro'yxatida faqat raqamdan chiqqan xulosalar
+        const isNote = (x) => /^(Targetolog|ROP): /.test(x.text);
+        const issues = adv.problems.filter((x) => !isNote(x));
+        const notesList = adv.problems.filter(isNote);
+        const WHO_SHORT = { target: 'Target', sales: 'Sotuv', director: 'Direktor' };
+        const extra = adv.best || adv.worst || notesList.length;
+        return `<article class="check ${empty ? 'is-empty' : ''}" data-pid="${p.id}">
           <div class="check-top"><b>${dot(p.color)}${esc(p.name)}</b>
-            <span class="pill ${STATUS_PILL[cur || auto]}" data-pill>${esc(bundle.statuses[cur || auto])}</span></div>
-          <div class="nums"><span>${fmtUsd(p.spend, 0)}</span><span>${fmtN(p.clicks)} klik</span><span><b>${p.unit_label} ${fmtUsd(p.unit_cost)}</b></span>
-            ${p.kind === 'auto' ? `<span>${p.reported.starts ? `${fmtN(p.starts)} start · ` : ''}${fmtN(p.sales)} xarid</span>` : `<span>${fmtN(p.leads)} lid${q.length ? ` (${q.join(', ')})` : ''}</span><span>${fmtN(p.sales)} sotuv</span>`}</div>
-          <div class="nums"><span>Tushum <b>${fmtUzs(p.revenue)}</b></span><span>${p.net_profit < 0 ? 'Zarar' : 'Sof foyda'} <b class="${p.net_profit < 0 ? 'neg' : 'pos'}">${fmtUzs(p.net_profit)}</b></span>${p.revenue ? `<span>marja ${fmtP(p.net_margin, 0)}</span>` : ''}</div>
-          ${adv.best || adv.worst ? `<div class="nums">${adv.best ? `<span>⭐ ${esc(adv.best)}</span>` : ''}${adv.worst ? `<span>👎 ${esc(adv.worst)}</span>` : ''}</div>` : ''}
-          ${adv.problems.length ? `<ul class="problems">${adv.problems.map((x) => `<li><span class="who ${x.who}">${esc(WHO[x.who] || '')}</span>${esc(x.text)}</li>`).join('')}</ul>`
-            : `<p class="meaning">${esc(MEANING[auto])}</p>`}
-          <label class="field">Taklifim direktorga<textarea data-comment rows="${Math.max(2, proposal.split('\n').length)}" aria-label="${esc(p.name)} — taklif">${esc(proposal)}</textarea></label>
-          <details><summary>Holatni o'zgartirish</summary>
+            <span class="pill ${empty ? '' : STATUS_PILL[cur || auto]}" data-pill>${empty ? 'Kiritilmagan' : esc(bundle.statuses[cur || auto])}</span></div>
+          ${empty ? `<div class="nodata">Bugungi raqamlar hali kiritilmagan. <button type="button" class="btn small" data-step-go="target">Kiritish</button></div>` : `
+          <div class="mini">
+            <div><small>Reklama</small><b>${fmtUsd(p.spend, 0)}</b></div>
+            <div><small>Tushum</small><b>${revIn ? fmtUzs(p.revenue) : '—'}</b></div>
+            ${revIn ? `<div><small>${p.net_profit < 0 ? 'Zarar' : 'Sof foyda'}</small><b class="${p.net_profit < 0 ? 'neg' : 'pos'}">${fmtUzs(p.net_profit)}</b></div>` : '<div><small>Sof foyda</small><b class="muted" title="Tushum kiritilmagan">—</b></div>'}
+            <div title="${esc(p.conv_label)}"><small>Konversiya</small><b>${p.reported.sales ? fmtP(p.conv) : '—'}</b></div>
+          </div>
+          ${issues.length ? `<ul class="problems">${issues.slice(0, 3).map((x) => `<li><span class="who ${x.who}">${WHO_SHORT[x.who] || ''}</span><span>${esc(x.text)}</span></li>`).join('')}</ul>`
+            : '<p class="ok-line">✓ Muammo topilmadi</p>'}`}
+          <label class="field">${empty ? 'Izoh (ixtiyoriy)' : 'Direktorga taklif'}<textarea data-comment rows="2" placeholder="${empty ? 'Masalan: targetolog raqam bermadi' : ''}" aria-label="${esc(p.name)} — taklif">${esc(empty && !notes[p.id]?.comment ? '' : proposal)}</textarea></label>
+          <details><summary>${extra ? 'Kreativlar, izohlar va holat' : "Holatni o'zgartirish"}</summary>
+            ${adv.best || adv.worst ? `<div class="nums">${adv.best ? `<span>⭐ ${esc(adv.best)}</span>` : ''}${adv.worst ? `<span>👎 ${esc(adv.worst)}</span>` : ''}</div>` : ''}
+            ${notesList.map((x) => `<p class="note-line">${esc(x.text)}</p>`).join('')}
             <div class="status-chips">${statuses.map(([k, l]) => `<button type="button" data-st="${k}" class="${cur === k ? 'on' : ''} ${auto === k ? 'auto' : ''}">${esc(l)}</button>`).join('')}</div>
           </details>
         </article>`;
