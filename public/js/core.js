@@ -214,8 +214,8 @@ export function shell(content) {
   destroyCharts();
   const route = location.hash.split('?')[0] || '#/';
   const { items, bottom } = navItems();
-  const active = (href) => route === href || (href !== '#/' && route.startsWith(href));
-  const link = ([href, label, icon, badge]) => `<a href="${href}" class="${active(href) ? 'active' : ''}"><span class="ic">${icon}</span><span>${label}</span>${badge ? `<span class="badge">${badge}</span>` : ''}</a>`;
+  const active = (href) => route === href || (href !== '#/' && route.startsWith(href)) || (href === '#/' && route.startsWith('#/loyiha/'));
+  const link = ([href, label, icon, badge]) => `<a href="${href}" class="${active(href) ? 'active' : ''}" title="${label}"><span class="ic">${icon}</span><span>${label}</span>${badge ? `<span class="badge">${badge}</span>` : ''}</a>`;
   const u = state.me.user;
   const dark = isDark();
   const mobileItems = [...items, ...bottom];
@@ -229,14 +229,15 @@ export function shell(content) {
         <div class="side-foot">
           <nav class="nav">${bottom.map(link).join('')}</nav>
           <a class="side-user" href="#/sozlamalar?tab=profil" style="text-decoration:none"><span class="avatar">${esc(initials(u.name))}</span><span>${esc(u.name)}<small>Proekt menejer</small></span></a>
-          <div class="side-actions"><button id="themeBtn">${dark ? 'Yorug\' rejim' : 'Tungi rejim'}</button><button id="logout">Chiqish</button></div>
+
         </div>
       </aside>
       <main class="main" id="main">
         <div class="topbar">
           <div class="crumbs"><span class="pill">${ICONS.cal.replace('<svg', '<svg width="13" height="13"')} ${dayLabel(state.me.today)}</span>${window.DEMO ? demoMenu() : ''}</div>
           <div class="top-actions">
-            <button class="circle-btn" id="themeBtnTop" aria-label="Mavzuni almashtirish">${dark ? ICONS.sun : ICONS.moon}</button>
+            <button class="circle-btn" id="themeBtnTop" aria-label="Mavzuni almashtirish" title="Mavzu">${dark ? ICONS.sun : ICONS.moon}</button>
+            <button class="btn small ghost" id="logout">Chiqish</button>
             <a class="avatar" href="#/sozlamalar?tab=profil" style="width:42px;height:42px;text-decoration:none" title="Profil">${esc(initials(u.name))}</a>
           </div>
         </div>
@@ -245,7 +246,6 @@ export function shell(content) {
     </div>
     <nav class="mobile-nav" style="--n:${mobileItems.length}">${mobileItems.map(link).join('')}</nav>`;
   const toggle = () => setTheme(isDark() ? 'light' : 'dark');
-  $('#themeBtn').onclick = toggle;
   $('#themeBtnM').onclick = toggle;
   $('#themeBtnTop').onclick = toggle;
   $('#logout').onclick = async () => {

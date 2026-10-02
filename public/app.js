@@ -1,17 +1,20 @@
 // Loyihalar analitikasi — proekt menejer uchun (framework'siz, hash-router)
 import { state, setRouter, boot, toast, applyTheme } from './js/core.js';
 import { renderToday, renderArchive } from './js/pm.js';
-import { renderOverview } from './js/overview.js';
+import { renderBoard } from './js/board.js';
+import { renderProject } from './js/project.js';
 import { renderSettings } from './js/settings.js';
 
 async function router() {
   if (!state.me) return;
   const route = location.hash.split('?')[0] || '#/';
   try {
-    if (route === '#/kiritish') await renderToday();
+    let m;
+    if ((m = route.match(/^#\/loyiha\/(\d+)$/))) await renderProject(m[1]);
+    else if (route === '#/kiritish') await renderToday();
     else if (route === '#/hisobotlar') await renderArchive();
     else if (route === '#/sozlamalar') await renderSettings();
-    else await renderOverview();
+    else await renderBoard();
   } catch (e) {
     if (state.me) toast(e.message, true);
   }
