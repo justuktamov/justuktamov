@@ -5,7 +5,7 @@ export const DEMO_USER = { name: 'Dilshod', login: 'pm', password: 'demo1234' };
 
 // [nom, CPC $, klik→lid (avtovoronkada klik→start), lid→sotuv (start→xarid), o'rtacha chek so'm, kunlik byudjet $]
 const PROJECTS = [
-  ['STARPAY', 0.12, 1.4, 0.12, 95_000, 60], // Telegram Premium va Stars: avtovoronka, arzon chek
+  ['STARPAY', 0.12, 0.55, 0.3, 95_000, 60], // Telegram Premium va Stars: avtovoronka, arzon chek
   ['VIZART', 0.3, 0.12, 0.06, 2_400_000, 70], // interyer/exteryer
   ['DIZIPRO', 0.2, 0.24, 0.015, 2_900_000, 70], // 3D modeling: lid ko'p, sotuv past
   ['SELFENG', 0.25, 0.24, 0.08, 890_000, 35], // general English: doimiy xarajat katta — zararda
