@@ -19,7 +19,7 @@ export async function renderBoard() {
   const box = $('#board');
   if (!box || isStale(rid)) return;
   if (!s.byProject.length) {
-    box.innerHTML = `<div class="card empty">Hali loyiha yo'q. <a href="#/kiritish">Bugungi hisobot</a> bo'limida loyihalarni qo'shing.</div>`;
+    box.innerHTML = `<div class="card empty">Hali loyiha yo'q. <a href="#/kiritish">Kechagi hisobot</a> bo'limida loyihalarni qo'shing.</div>`;
     return;
   }
   const t = s.totals;
@@ -30,7 +30,7 @@ export async function renderBoard() {
     <span><small>Marja</small><b>${fmtP(t.net_margin, 0)}</b></span>`;
   // Shu oy uchun rejasi yo'q loyihalar — eslatma
   const missing = s.byProject.filter((p) => !s.plan.items.some((i) => i.project_id === p.id));
-  const banner = missing.length && s.plan.month === state.me.today.slice(0, 7)
+  const banner = missing.length && s.plan.month === state.me.reportDay.slice(0, 7)
     ? `<div class="plan-banner"><span>📅</span><div><b>${monthName(s.plan.month)} uchun reja kiritilmagan:</b> ${missing.map((p) => esc(p.name)).join(', ')}.
         <span class="muted">Reja bo'lsa, dastur orqada qolishni va uning sababini oldindan aytadi.</span></div><a class="btn small primary" href="#/sozlamalar?tab=plans">Reja kiritish</a></div>` : '';
   const closed = getCollapsed();

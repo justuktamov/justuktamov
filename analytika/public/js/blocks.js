@@ -53,7 +53,7 @@ export function funnelBlock(p) {
 // Kanallar: qaysi biri sifatli lid beradi, qayerda mijoz arzon
 export function channelsBlock(p) {
   if (!p.channels?.length) {
-    return `<div class="sub-card"><h3>Reklama kanallari</h3><p class="small muted">Kanallar bo'yicha raqam kiritilmagan. «Bugungi hisobot» → 2-qadam → «Kanallar bo'yicha» bo'limida har kanal raqamini yozing — shunda qaysi kanal sifatli lid berishi ko'rinadi.</p></div>`;
+    return `<div class="sub-card"><h3>Reklama kanallari</h3><p class="small muted">Kanallar bo'yicha raqam kiritilmagan. «Kechagi hisobot» → 2-qadam → «Kanallar bo'yicha» bo'limida har kanal raqamini yozing — shunda qaysi kanal sifatli lid berishi ko'rinadi.</p></div>`;
   }
   const auto = p.kind === 'auto';
   const best = (k, dir) => { const xs = p.channels.filter((c) => c[k] != null && (auto || c.leads >= 10 || k === 'roas')); if (xs.length < 2) return null; return xs.reduce((a, c) => ((dir > 0 ? c[k] > a[k] : c[k] < a[k]) ? c : a)).channel; };

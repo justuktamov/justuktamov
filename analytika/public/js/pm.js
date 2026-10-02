@@ -8,7 +8,7 @@ const STATUS_PILL = { unprofitable: 'crit', sales_issue: 'crit', creative: 'warn
 const STEPS = [
   { key: 'target', title: 'Target', head: "Targetologdan so'rang",
     hint: "Har bir loyiha bo'yicha raqamlarni yozing. Lid narxini tizim o'zi hisoblaydi (xarajat ÷ lid).",
-    ask: ['Qaysi loyihaga qancha pul sarflandi ($)?', "Nechta ko'rish va nechta klik bo'ldi?", 'Bugun nechta yangi kreativ chiqdi?',
+    ask: ['Qaysi loyihaga qancha pul sarflandi ($)?', "Nechta ko'rish va nechta klik bo'ldi?", 'Kecha nechta yangi kreativ chiqdi?',
       'Qaysi kreativ yaxshi ishladi, qaysi biri ishlamadi?', "Reklamada muammo bo'ldimi (akkaunt, moderatsiya, to'lov)?"],
     fields: [['spend', 'Xarajat, $'], ['impressions', "Ko'rish"], ['clicks', 'Klik'], ['new_creatives', 'Yangi kreativ']],
     required: ['spend', 'clicks'],
@@ -30,11 +30,11 @@ const STEPS = [
 ];
 
 export function dateNav(date, onChange) {
-  const isToday = date === state.me.today;
+  const isToday = date === state.me.reportDay;
   setTimeout(() => {
     $('#dPrev').onclick = () => onChange(addDays(date, -1));
     $('#dNext').onclick = () => { if (!isToday) onChange(addDays(date, 1)); };
-    $('#dPick').onclick = (e) => openCalendar(e.currentTarget, { value: date, max: state.me.today, onPick: onChange });
+    $('#dPick').onclick = (e) => openCalendar(e.currentTarget, { value: date, max: state.me.reportDay, onPick: onChange });
   });
   return `<div class="filters"><button class="btn small icon" id="dPrev" aria-label="Oldingi kun">←</button>
     ${dateButton('dPick', date, 'Hisobot sanasi')}
@@ -53,17 +53,17 @@ function stepDone(key, daily, report) {
 
 // Targetolog/ROP ga Telegramda yuborish uchun tayyor savollar
 function askText(s, projects) {
-  return `Salom! Bugungi hisobot uchun har bir loyiha (${projects.map((p) => p.name).join(', ')}) bo'yicha yozib bering:\n${askList(s, projects).map((q, i) => `${i + 1}) ${q}`).join('\n')}`;
+  return `Salom! Kechagi hisobot uchun har bir loyiha (${projects.map((p) => p.name).join(', ')}) bo'yicha yozib bering:\n${askList(s, projects).map((q, i) => `${i + 1}) ${q}`).join('\n')}`;
 }
 const askList = (s, projects) => [...s.ask, ...(projects.some((p) => p.kind === 'auto') ? s.askAuto || [] : [])];
 
 export async function renderToday() {
-  state.reportDate ||= state.me.today;
+  state.reportDate ||= state.me.reportDay;
   const date = state.reportDate;
   const go = (d) => { state.reportDate = d; state.pmStep = null; renderToday(); };
   const first = String(state.me.user.name || '').split(' ')[0];
-  shell(`<div class="page-head"><div><h1>${date === state.me.today ? `Salom, <span class="grad">${esc(first)}</span>` : `<span class="grad">${dayLabel(date)}</span>`}</h1>
-      <div class="sub">${date === state.me.today ? "Bugungi hisobotni 4 qadamda tayyorlaymiz" : 'Shu kun hisoboti'}</div></div>${dateNav(date, go)}</div>
+  shell(`<div class="page-head"><div><h1>${date === state.me.reportDay ? `Salom, <span class="grad">${esc(first)}</span>` : `<span class="grad">${dayLabel(date)}</span>`}</h1>
+      <div class="sub">${date === state.me.reportDay ? `Kechagi (${dayLabel(date)}) hisobotni 4 qadamda tayyorlaymiz` : 'Shu kun hisoboti'}</div></div>${dateNav(date, go)}</div>
     <div id="pm">${spinnerBlock()}</div>`);
   const rid = state.renderId;
   let daily, bundle;
@@ -191,7 +191,7 @@ export async function renderToday() {
         return `<article class="check ${empty ? 'is-empty' : ''}" data-pid="${p.id}">
           <div class="check-top"><b>${dot(p.color)}${esc(p.name)}</b>
             <span class="pill ${empty ? '' : STATUS_PILL[cur || auto]}" data-pill>${empty ? 'Kiritilmagan' : esc(bundle.statuses[cur || auto])}</span></div>
-          ${empty ? `<div class="nodata">Bugungi raqamlar hali kiritilmagan. <button type="button" class="btn small" data-step-go="target">Kiritish</button></div>` : `
+          ${empty ? `<div class="nodata">Raqamlar hali kiritilmagan. <button type="button" class="btn small" data-step-go="target">Kiritish</button></div>` : `
           <div class="mini">
             <div><small>Reklama</small><b>${fmtUsd(p.spend, 0)}</b></div>
             <div><small>Tushum</small><b>${revIn ? fmtSom(p.revenue) : '—'}</b></div>
@@ -234,12 +234,12 @@ export async function renderToday() {
     const t = bundle.day.totals;
     return `<section class="card step done-card">
       <div class="done-icon">${ICONS.check}</div>
-      <h2>${date === state.me.today ? 'Bugungi hisobot yuborildi' : 'Hisobot yuborilgan'}</h2>
+      <h2>${date === state.me.reportDay ? 'Kechagi hisobot yuborildi' : 'Hisobot yuborilgan'}</h2>
       <p class="muted">${String(report.submitted_at || '').slice(11, 16)} da yuborildi${report.status === 'reviewed' ? ' · direktor javob berdi' : ' · direktor javobini kutyapmiz'}</p>
       ${report.director_comment ? `<div class="reply-banner" style="text-align:left"><span class="eyebrow">Direktor yechimi</span><p>${esc(report.director_comment).replace(/\n/g, '<br>')}</p></div>` : ''}
       <div class="nums big-nums"><span><b>${fmtUsd(t.spend, 0)}</b>xarajat</span><span><b>${fmtSom(t.net_profit)}</b>sof foyda</span><span><b>${fmtN(t.leads)}</b>lid</span><span><b>${fmtN(t.sales)}</b>sotuv</span><span><b>${fmtUzs(t.revenue)}</b>tushum</span></div>
       <div class="row" style="justify-content:center"><button class="btn" data-step-go="send">Xabarni ko'rish</button><button class="btn ghost" data-step-go="target">Raqamlarni o'zgartirish</button></div>
-      <p class="small muted">Ertaga shu yerda yangi hisobot boshlanadi.</p>
+      <p class="small muted">Ertaga shu yerda bugungi kun hisobotini tayyorlaysiz.</p>
     </section>`;
   }
 
@@ -425,7 +425,7 @@ export async function renderArchive() {
   box.innerHTML = list.length ? `<div class="clist">${list.map((r) => { const [c, l] = STATE_PILL[r.status] || ['', r.status]; return `<button class="citem arch" data-date="${r.date}">
       <span class="cname"><b>${dayLabel(r.date)}</b><small>${esc(r.summary || 'Xulosa yozilmagan')}</small></span>
       ${r.director_comment ? `<span class="small muted" title="${esc(r.director_comment)}">💬</span>` : '<span></span>'}<span class="pill ${c}">${l}</span></button>`; }).join('')}</div>`
-    : '<div class="card empty">Hali hisobot yo\'q. «Bugun» bo\'limida birinchisini tayyorlang.</div>';
+    : '<div class="card empty">Hali hisobot yo\'q. «Kechagi hisobot» bo\'limida birinchisini tayyorlang.</div>';
   box.addEventListener('click', (e) => {
     const b = e.target.closest('[data-date]');
     if (!b) return;

@@ -207,8 +207,8 @@ async function tabTelegram(body) {
         <label class="field">Direktorning Telegram ID si yoki guruh ID<span class="hint">direktor botga /id yozsa, raqam chiqadi</span><input name="report_chat_id" id="sChat" value="${esc(settings.report_chat_id ?? '')}" placeholder="123456789"></label>
         <label class="field">Sizning Telegram ID ingiz<span class="hint">eslatma va direktor javobi sizga kelishi uchun</span><input id="sMyTg" value="${esc(me.telegram_id || '')}" placeholder="123456789"></label>
         <div class="fields">
-          <label class="field">Eslatma<span class="hint">hisobot yuborilmagan bo'lsa</span>${selectHtml(timeOpts(settings.reminder_time ?? '19:00'), settings.reminder_time ?? '19:00', 'name="reminder_time" id="sRem"', 'Eslatma vaqti')}</label>
-          <label class="field">Avto-hisobot<span class="hint">siz yubormasangiz</span>${selectHtml(timeOpts(settings.report_time ?? '21:00'), settings.report_time ?? '21:00', 'name="report_time" id="sTime"', 'Avto-hisobot vaqti')}</label>
+          <label class="field">Eslatma<span class="hint">hisobot yuborilmagan bo'lsa</span>${selectHtml(timeOpts(settings.reminder_time ?? '11:00'), settings.reminder_time ?? '11:00', 'name="reminder_time" id="sRem"', 'Eslatma vaqti')}</label>
+          <label class="field">Avto-hisobot<span class="hint">siz yubormasangiz</span>${selectHtml(timeOpts(settings.report_time ?? '13:00'), settings.report_time ?? '13:00', 'name="report_time" id="sTime"', 'Avto-hisobot vaqti')}</label>
         </div>
         <label class="field">Dollar kursi (so'm)<span class="hint">ROAS hisobi uchun: tushum so'mda, reklama dollarda</span><input name="usd_rate" id="sRate" inputmode="decimal" value="${esc(settings.usd_rate ?? '12800')}"></label>
         <div><button class="btn primary">Saqlash</button></div>

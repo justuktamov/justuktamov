@@ -84,8 +84,8 @@ route('GET', '/api/me', async (req, res) => {
   const user = requireUser(req);
   const tg = telegramStatus();
   send(res, 200, {
-    user, today: today(), planFields: PLAN_FIELDS, kinds: PROJECT_KINDS, reasons: REASONS, reasonKinds: REASON_KINDS, channels: CHANNELS, channelFields: CHANNEL_FIELDS,
-    reportStatus: getDb().prepare('SELECT status FROM daily_reports WHERE date = ?').get(today())?.status || null,
+    user, today: today(), reportDay: addDays(today(), -1), planFields: PLAN_FIELDS, kinds: PROJECT_KINDS, reasons: REASONS, reasonKinds: REASON_KINDS, channels: CHANNELS, channelFields: CHANNEL_FIELDS,
+    reportStatus: getDb().prepare('SELECT status FROM daily_reports WHERE date = ?').get(addDays(today(), -1))?.status || null,
     telegram: { enabled: tg.enabled, bot: tg.bot, reportChat: Boolean(getSetting('report_chat_id')) },
   });
 });
@@ -411,22 +411,22 @@ function startScheduler() {
   const tz = process.env.TZ_NAME || 'Asia/Tashkent';
   setInterval(async () => {
     const hm = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
-    const d = today();
+    const d = addDays(today(), -1); // hisobot kechagi kun uchun
     const sent = () => ['submitted', 'reviewed'].includes(getDb().prepare('SELECT status FROM daily_reports WHERE date = ?').get(d)?.status);
     try {
-      if (hm === getSetting('reminder_time', '19:00') && getSetting('last_reminder') !== d) {
+      if (hm === getSetting('reminder_time', '11:00') && getSetting('last_reminder') !== d) {
         setSetting('last_reminder', d);
         if (!sent()) {
           const pms = getDb().prepare('SELECT telegram_id FROM users WHERE active = 1 AND telegram_id IS NOT NULL').all();
-          for (const x of pms) await sendMessage(x.telegram_id, "⏰ Bugungi hisobot hali yuborilmagan. Ilovada «Bugun» bo'limini oching — 4 qadam.");
+          for (const x of pms) await sendMessage(x.telegram_id, "⏰ Kechagi hisobot hali yuborilmagan. Ilovada «Kechagi hisobot» bo'limini oching — 4 qadam.");
         }
       }
       // Oylik reja: loyiha rejadan jiddiy orqada qolsa — bir marta xabar (har ko'rsatkich uchun oyiga bir marta)
-      if (hm === getSetting('reminder_time', '19:00') && getSetting('last_plan_check') !== d) {
+      if (hm === getSetting('reminder_time', '11:00') && getSetting('last_plan_check') !== d) {
         setSetting('last_plan_check', d);
         await sendPlanAlerts(d);
       }
-      if (hm === getSetting('report_time', '21:00') && getSetting('last_report') !== d) {
+      if (hm === getSetting('report_time', '13:00') && getSetting('last_report') !== d) {
         setSetting('last_report', d);
         const chat = getSetting('report_chat_id');
         if (chat && !sent()) await sendMessage(chat, `⚠️ <i>PM hisobotni yubormadi — avtomatik hisobot</i>\n\n${reportText(d)}`);

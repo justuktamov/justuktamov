@@ -64,7 +64,7 @@ function split(total, weights, rand) {
 }
 const PLAN_SALES_K = [null, null, 3.8, null];
 
-// end — bugun: SELFENG raqamlari hali kiritilmagan, VIZART va SELFENG sotuvi kutilmoqda
+// end — PM hisobot qilayotgan kun (kecha): SELFENG raqamlari hali kiritilmagan, VIZART va SELFENG sotuvi kutilmoqda
 export function generateDemo(end, days = 150) {
   let seed = 42;
   const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
