@@ -6,7 +6,7 @@ Raqamlarni har kuni **proekt menejer (PM)** kiritadi: targetologdan, sotuv boʻl
 
 ## Loyihalar (bosh sahifa)
 
-Kirganda — **doska**, CRM dagi kabi: har bir loyiha alohida rangli ustun, yonma-yon. Tepada davr (bugun, kecha, 7 kun, oy…) va jami: reklama, tushum, sof foyda, marja. Har bir ustunda bir xil tartibda kartochkalar:
+Kirganda — **doska**, CRM dagi kabi: har bir loyiha alohida rangli ustun, yonma-yon. Tepada davr (kecha, kechadan oldin, hafta, oy, oraliq) va jami: tushum, sof foyda, reklama, marja. Raqamlar kechagi kun uchun kiritiladi, shuning uchun hamma davrlar kechadan orqaga hisoblanadi. Har bir ustunda bir xil tartibda kartochkalar:
 
 1. **Sof foyda** — katta raqam; ostida tushum, reklama, marja;
 2. **Voronka** — klik → lid → sotuv (avtovoronkada klik → bot start → xarid), 1 lid narxi va konversiya;
@@ -64,7 +64,7 @@ Menyuda **Dinamika** — oxirgi 6 yoki 12 oy, hammasi yoki bitta loyiha: tushum 
 
 ## Kunlik ish: 4 qadam
 
-«Bugungi hisobot» boʻlimida PM qaysi qadamda turgani yuqorida koʻrinadi. 1 va 2-qadamda soʻraladigan savollar roʻyxati bor. «Nusxalash» tugmasi ularni tayyor xabar qilib beradi — targetolog yoki ROP ga Telegramda yuborasiz.
+«Kechagi hisobot» boʻlimida PM qaysi qadamda turgani yuqorida koʻrinadi. 1 va 2-qadamda soʻraladigan savollar roʻyxati bor. «Nusxalash» tugmasi ularni tayyor xabar qilib beradi — targetolog yoki ROP ga Telegramda yuborasiz.
 
 1. **Targetologdan soʻrang** (har bir loyiha boʻyicha):
    - qancha pul sarflandi ($), nechta koʻrish va klik boʻldi;
@@ -94,9 +94,9 @@ Menyuda **Dinamika** — oxirgi 6 yoki 12 oy, hammasi yoki bitta loyiha: tushum 
 
 4. **Yuborish.** Direktor Telegramda har bir loyiha boʻyicha raqamlar, muammolar (⚠️) va PM takliflarini (💡) oladi.
    - Direktor shu xabarga **javob (reply)** qilib yechim yozadi. Javob hisobotga saqlanadi va PM ga Telegramda boradi.
-   - Ertasi kuni «Bugun» sahifasining tepasida «Direktor yechimi» boʻlib turadi.
+   - Ertasi kuni «Kechagi hisobot» sahifasining tepasida «Direktor yechimi» boʻlib turadi.
 
-Har qadamni «Oʻtkazib yuborish» mumkin. Belgilangan vaqtgacha hisobot yuborilmasa, PM ga Telegramda eslatma boradi; avto-hisobot vaqtigacha ham yuborilmasa, direktorga «PM hisobotni yubormadi» belgisi bilan avtomatik hisobot ketadi.
+PM har kuni **kechagi kun** hisobotini tayyorlaydi (sana tanlagichda oldingi kunlarni ham ochish mumkin). Har qadamni «Oʻtkazib yuborish» mumkin. Belgilangan vaqtgacha (standart 11:00) hisobot yuborilmasa, PM ga Telegramda eslatma boradi; avto-hisobot vaqtigacha (standart 13:00) ham yuborilmasa, direktorga «PM hisobotni yubormadi» belgisi bilan avtomatik hisobot ketadi.
 
 ### Holat va meʼyor qanday hisoblanadi
 Loyihalar bir-biri bilan solishtirilmaydi: STARPAY doʻkon (chek kichik, konversiya yuqori), VIZART, DIZIPRO va SELFENG esa kurslar. Har bir loyiha **oʻz meʼyori** bilan solishtiriladi:
@@ -116,7 +116,7 @@ Holat (7 kun va bugungi muammolardan eng jiddiysi):
 | Boʻlim | Nima uchun |
 |---|---|
 | Loyihalar | doska: har loyiha — ustun; ustun bosilsa loyihaning to'liq sahifasi; CSV |
-| Bugungi hisobot | PM ning 4 qadami: target → sotuv va tushgan pul → tahlil → direktorga |
+| Kechagi hisobot | PM ning 4 qadami: target → sotuv va tushgan pul → tahlil → direktorga |
 | Dinamika | oyma-oy: tushum, xarajat, foyda, lid narxi, konversiya — ▲▼ o'zgarish |
 | Hisobotlar | oldingi kunlar; istalgan kunni ochib tuzatish mumkin |
 | Sozlamalar | loyihalar (turi, tannarx %, doimiy xarajat, kanallar, lid → sotuv kechikishi), oylik reja, Telegram, profil |
@@ -153,7 +153,7 @@ docker compose up -d      # ma'lumotlar ./data papkasida saqlanadi
 5. `deploy/backup.sh` → bazaning kunlik zaxira nusxasi (cron).
 
 ### Sozlash tartibi
-1. Birinchi kirishda «Bugun» sahifasi STARPAY, VIZART, DIZIPRO, SELFENG ni bir bosishda qoʻshishni taklif qiladi.
+1. Birinchi kirishda «Kechagi hisobot» sahifasi STARPAY, VIZART, DIZIPRO, SELFENG ni bir bosishda qoʻshishni taklif qiladi.
 2. **Sozlamalar → Oylik reja:** har bir loyiha uchun lid, sotuv, tushum va byudjet rejasi.
 3. **Sozlamalar → Telegram:** direktor botga `/id` yozadi — chiqqan raqamni birinchi maydonga yozing. Oʻzingiz ham `/id` yozib, ikkinchi maydonga kiriting. Eslatma va avto-hisobot vaqtini belgilang.
 

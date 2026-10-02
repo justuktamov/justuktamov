@@ -1,5 +1,6 @@
 // Namuna ma'lumotlar: `npm run demo` — 4 ta loyiha, 150 kun
 import { getDb, today, FIELDS, TEXT_FIELDS } from './db.js';
+import { addDays } from './metrics.js';
 import { createUser } from './auth.js';
 import { generateDemo, DEMO_USER } from './demo-data.js';
 
@@ -10,7 +11,7 @@ if (db.prepare('SELECT COUNT(*) AS n FROM projects').get().n > 0) {
 }
 
 const uid = db.prepare('SELECT id FROM users WHERE login = ?').get(DEMO_USER.login)?.id ?? createUser(DEMO_USER);
-const { projects, daily, plans, reports, reasons, channels } = generateDemo(today());
+const { projects, daily, plans, reports, reasons, channels } = generateDemo(addDays(today(), -1)); // PM kechagi kunni kiritadi
 const cols = ['project_id', 'date', ...Object.keys(FIELDS), ...Object.keys(TEXT_FIELDS)];
 const insertDaily = db.prepare(`INSERT INTO daily (${cols.join(', ')}, updated_at) VALUES (${cols.map(() => '?').join(', ')}, datetime('now'))`);
 const ids = new Map();

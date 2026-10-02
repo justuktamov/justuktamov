@@ -275,17 +275,19 @@ document.addEventListener('click', (e) => {
 export const TIMES = Array.from({ length: 36 }, (_, i) => { const m = 6 * 60 + i * 30; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${m % 60 ? '30' : '00'}`; });
 
 // ---------- Davr filtri ----------
+// Raqamlar kechagi kun uchun kiritiladi — hamma davrlar kechadan orqaga hisoblanadi
+const PERIODS = [['y', 'Kecha'], ['y2', 'Kechadan oldin'], ['7', 'Hafta'], ['month', 'Oy'], ['custom', 'Oraliq']];
 export function computePeriod() {
-  const t = state.me.today;
+  const t = state.me.reportDay;
+  if (!PERIODS.some(([v]) => v === state.period)) state.period = '7';
   if (state.period === 'custom' && state.from && state.to) return { from: state.from, to: state.to };
   if (state.period === 'month') return { from: `${t.slice(0, 8)}01`, to: t };
-  if (state.period === '1') return { from: t, to: t };
-  if (state.period === 'y') { const y = addDays(t, -1); return { from: y, to: y }; }
-  const n = Number(state.period) || 7;
-  return { from: addDays(t, -(n - 1)), to: t };
+  if (state.period === 'y') return { from: t, to: t };
+  if (state.period === 'y2') { const d = addDays(t, -1); return { from: d, to: d }; }
+  return { from: addDays(t, -6), to: t };
 }
 export function filtersHtml() {
-  const opts = [['1', 'Bugun'], ['y', 'Kecha'], ['7', '7 kun'], ['30', '30 kun'], ['month', 'Shu oy'], ['90', '90 kun'], ['custom', 'Oraliq']];
+  const opts = PERIODS;
   const { from, to } = computePeriod();
   return `<div class="filters">
     <div class="seg" id="periodSeg" role="group" aria-label="Davr">${opts.map(([v, l]) => `<button data-v="${v}" class="${state.period === v ? 'on' : ''}">${l}</button>`).join('')}</div>
@@ -304,7 +306,7 @@ export function bindFilters(rerenderPage) {
   if (f) {
     const { from, to } = computePeriod();
     f.onclick = () => openCalendar(f, { value: from, max: to, onPick: (d) => { state.from = d; state.to = to; rerenderPage(); } });
-    t.onclick = () => openCalendar(t, { value: to, min: from, max: state.me.today, onPick: (d) => { state.from = from; state.to = d; rerenderPage(); } });
+    t.onclick = () => openCalendar(t, { value: to, min: from, max: state.me.reportDay, onPick: (d) => { state.from = from; state.to = d; rerenderPage(); } });
   }
 }
 
@@ -322,7 +324,7 @@ function navItems() {
   const sent = ['submitted', 'reviewed'].includes(state.me.reportStatus);
   const items = [
     ['#/', 'Loyihalar', ICONS.chart],
-    ['#/kiritish', 'Bugungi hisobot', ICONS.edit, sent ? null : '!'],
+    ['#/kiritish', 'Kechagi hisobot', ICONS.edit, sent ? null : '!'],
     ['#/dinamika', 'Dinamika', ICONS.trend],
     ['#/hisobotlar', 'Hisobotlar', ICONS.archive],
   ];

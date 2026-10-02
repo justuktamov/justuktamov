@@ -8,11 +8,11 @@ import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBoun
 import { generateDemo, DEMO_USER } from '../src/demo-data.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v12';
+const SAVE_KEY = 'analitika-demo-v13';
 let me = null;
 
 function seed() {
-  const demo = generateDemo(TODAY);
+  const demo = generateDemo(addDays(TODAY, -1)); // PM kechagi kunni kiritadi
   store.projects = demo.projects.map((p) => ({ ...p, active: 1 }));
   store.daily = demo.daily;
   store.plans = demo.plans;
@@ -23,7 +23,7 @@ function seed() {
     project_notes: JSON.stringify(r.project_notes), submitted_at: `${r.date} 19:30:00`,
     reviewed_at: `${r.date} 21:05:00`, director_comment: r.director_comment, updated_at: `${r.date} 19:30:00`,
   }));
-  store.settings = { usd_rate: '12800', report_time: '21:00', reminder_time: '19:00', report_chat_id: '123456789' };
+  store.settings = { usd_rate: '12800', report_time: '13:00', reminder_time: '11:00', report_chat_id: '123456789' };
   store.user = { id: 1, name: DEMO_USER.name, login: DEMO_USER.login, password: DEMO_USER.password, telegram_id: null };
 }
 
@@ -99,8 +99,8 @@ const routes = {
   },
   'POST /api/logout': () => { me = null; return { ok: true }; },
   'GET /api/me': () => ({
-    user: publicUser(needUser()), today: TODAY, planFields: PLAN_FIELDS, kinds: PROJECT_KINDS, reasons: REASONS, reasonKinds: REASON_KINDS, channels: CHANNELS, channelFields: CHANNEL_FIELDS,
-    reportStatus: store.reports.find((r) => r.date === TODAY)?.status || null,
+    user: publicUser(needUser()), today: TODAY, reportDay: addDays(TODAY, -1), planFields: PLAN_FIELDS, kinds: PROJECT_KINDS, reasons: REASONS, reasonKinds: REASON_KINDS, channels: CHANNELS, channelFields: CHANNEL_FIELDS,
+    reportStatus: store.reports.find((r) => r.date === addDays(TODAY, -1))?.status || null,
     telegram: { enabled: true, bot: 'demo_bot', reportChat: Boolean(store.settings.report_chat_id) },
   }),
   'PUT /api/me': (b) => {
