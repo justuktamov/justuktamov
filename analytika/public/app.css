@@ -1,49 +1,7 @@
-/* Loyihalar analitikasi — "tungi shisha" dizayn tizimi
+/* Loyihalar analitikasi — yorug' dizayn tizimi
    Layout: chap tomonda yumaloq ikonkali panel, tepada yo'l + sana; kartalar — yarim shaffof shisha,
    asosiy harakatlar — laym rangli pill, raqamlar — katta va yengil */
 :root {
-  color-scheme: dark;
-  --bg: #070b16;
-  --bg-glow-1: rgba(64, 104, 255, .22);
-  --bg-glow-2: rgba(198, 245, 90, .07);
-  --side: rgba(12, 17, 32, .72);
-  --surface: rgba(22, 29, 50, .62);
-  --surface-solid: #141b2f;
-  --surface-2: rgba(255, 255, 255, .05);
-  --surface-3: rgba(255, 255, 255, .09);
-  --border: rgba(255, 255, 255, .08);
-  --border-strong: rgba(255, 255, 255, .16);
-  --text: #f1f4fb;
-  --text-2: #b5bdd3;
-  --text-3: #7c86a3;
-  --accent: #c6f55a;
-  --accent-ink: #0b1205;
-  --accent-soft: rgba(198, 245, 90, .14);
-  --blue: #4c7dff;
-  --blue-soft: rgba(76, 125, 255, .18);
-  --brand: var(--accent);
-  --brand-ink: var(--accent-ink);
-  --brand-soft: var(--accent-soft);
-  --series-1: #4c86ff;
-  --series-2: #e8642d;
-  --series-3: #36c98e;
-  --series-4: #f3b52c;
-  --good: #7ee08a; --good-bg: rgba(126, 224, 138, .13);
-  --warn: #f6c453; --warn-bg: rgba(246, 196, 83, .13);
-  --crit: #ff7a7a; --crit-bg: rgba(255, 122, 122, .13);
-  --info: #8fb2ff; --info-bg: rgba(76, 125, 255, .16);
-  --gold: #f3b52c; --gold-soft: rgba(243, 181, 44, .14);
-  --shadow: 0 20px 50px rgba(0, 0, 0, .45);
-  --radius: 22px;
-  --radius-sm: 14px;
-  --blur: blur(18px);
-  --font: Manrope, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-family: var(--font);
-  font-size: 15px;
-}
-/* Yorug' rejim — foydalanuvchi profilda tanlasa */
-:root[data-ui="light"] {
   color-scheme: light;
   --bg: #eef1f7;
   --bg-glow-1: rgba(76, 125, 255, .16);
@@ -63,14 +21,28 @@
   --accent-soft: rgba(120, 170, 20, .15);
   --blue: #2f63f0;
   --blue-soft: rgba(47, 99, 240, .12);
-  --series-1: #2a6be0; --series-2: #e8642d; --series-3: #17a673; --series-4: #d99a00;
+  --brand: var(--accent);
+  --brand-ink: var(--accent-ink);
+  --brand-soft: var(--accent-soft);
+  --series-1: #2a6be0;
+  --series-2: #e8642d;
+  --series-3: #17a673;
+  --series-4: #d99a00;
   --good: #1a7f37; --good-bg: rgba(26, 127, 55, .1);
   --warn: #93600a; --warn-bg: rgba(200, 140, 10, .13);
   --crit: #c22a2a; --crit-bg: rgba(194, 42, 42, .1);
   --info: #1c5cab; --info-bg: rgba(28, 92, 171, .1);
   --gold: #a5650a; --gold-soft: rgba(165, 101, 10, .12);
   --shadow: 0 20px 40px rgba(20, 30, 60, .12);
+  --radius: 22px;
+  --radius-sm: 14px;
+  --blur: blur(18px);
+  --font: Inter, "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font);
+  font-size: 15px;
 }
+
 
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text); }
@@ -84,7 +56,7 @@ body {
 }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
-:root[data-ui="light"] a { color: var(--blue); }
+a { color: var(--blue); }
 h1, h2, h3 { margin: 0; letter-spacing: -.02em; text-wrap: balance; }
 h1 { font-size: 34px; font-weight: 600; line-height: 1.15; }
 h1 .grad { background: linear-gradient(90deg, #7aa2ff, #4c7dff 45%, var(--accent)); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -601,9 +573,9 @@ details.sub-card[open] > summary { margin-bottom: 10px; }
 .tile .pos { color: #7ee08a; } .tile .neg { color: #ff8a8a; }
 .qbar.sm { height: 8px; margin: 2px 0 3px; }
 .col-foot { margin-top: auto; text-align: center; font-size: 13px; font-weight: 700; color: rgba(255, 255, 255, .85); padding: 6px; }
-:root[data-ui="light"] .col { --tint: color-mix(in srgb, var(--pc) 22%, #ffffff); }
-:root[data-ui="light"] .col-head, :root[data-ui="light"] .col-head h2 { color: #10131a; }
-:root[data-ui="light"] .col-head small, :root[data-ui="light"] .col-foot { color: #4a5262; }
+.col { --tint: color-mix(in srgb, var(--pc) 22%, #ffffff); }
+.col-head, .col-head h2 { color: #10131a; }
+.col-head small, .col-foot { color: #4a5262; }
 @media (max-width: 860px) {
   .totals { margin-left: 0; width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .board { grid-template-columns: repeat(var(--n), 84vw); margin: 0 -16px; padding: 0 16px 6px; scroll-padding: 16px; }
@@ -624,6 +596,54 @@ details.sub-card[open] > summary { margin-bottom: 10px; }
 @media (max-width: 1100px) { .span-4 { grid-column: span 6; } }
 @media (max-width: 860px) { .span-4, .span-6 { grid-column: span 12; } }
 .col-head .pill { background: rgba(10, 12, 16, .55); }
-:root[data-ui="light"] .col-head .pill { background: rgba(255, 255, 255, .75); }
+.col-head .pill { background: rgba(255, 255, 255, .75); }
 .tile .kv b { min-width: 52px; text-align: right; }
 .tile .kv em { min-width: 76px; }
+
+/* ---------- Yorug' rejim aniqliklari ---------- */
+body { background: radial-gradient(900px 600px at 85% -10%, rgba(76, 125, 255, .10), transparent 60%), var(--bg); background-attachment: fixed; }
+h1 .grad { background: linear-gradient(90deg, #2f63f0, #6a4cff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+h1 { font-weight: 700; }
+h2, h3 { font-weight: 700; }
+.kpi .value { font-weight: 600; }
+.card, .kpi, .proj, .sub-card, .seg, .totals span { box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }
+.card, .kpi { background: #fff; }
+.sub-card { background: #fff; }
+.nav a.active .ic, .mobile-nav a.active .ic { box-shadow: 0 4px 12px rgba(49, 89, 232, .3); }
+/* Doska: ustun — loyiha rangining ochiq tusi, kartochkalar — oq */
+.col { --tint: color-mix(in srgb, var(--pc) 16%, #ffffff); border: 1px solid color-mix(in srgb, var(--pc) 22%, #ffffff); }
+.col:hover, .col:focus-visible { box-shadow: 0 10px 24px rgba(16, 24, 40, .10); }
+.col-head, .col-head h2 { color: #10131a; }
+.col-head small, .col-foot { color: #4a5262; }
+.col-dot { box-shadow: 0 0 0 3px #fff; }
+.col-head .pill { background: #fff; }
+.tile { background: #fff; color: var(--text); box-shadow: 0 1px 2px rgba(16, 24, 40, .06); }
+.tile > small { color: var(--text-3); }
+.tile .kv span { color: var(--text-2); }
+.tile .kv em, .tile .why { color: var(--text-3); }
+.tile p { color: var(--text); }
+.tile .pos { color: var(--good); } .tile .neg { color: var(--crit); }
+.tile.issue.critical { box-shadow: inset 3px 0 0 var(--crit), 0 1px 2px rgba(16, 24, 40, .06); } .tile.issue.critical > small { color: var(--crit); }
+.tile.issue.warning { box-shadow: inset 3px 0 0 #d99a00, 0 1px 2px rgba(16, 24, 40, .06); } .tile.issue.warning > small { color: var(--warn); }
+/* Raqamlar bir xil kenglikda */
+body, input, textarea, select, button { font-family: var(--font); }
+.kv b, .proj-m b, .tile .big, .kpi .value, td.n, .wf b, .fn-row b, .rb-row b, .unit b, .totals b { font-variant-numeric: tabular-nums; }
+/* Tahlil kartasi: 4 ta raqam, 3 tagacha muammo, taklif */
+.check { gap: 12px; padding: 16px 18px; background: #fff; }
+.check-top b { font-size: 16px; }
+.mini { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 10px 12px; background: var(--surface-2); border-radius: 12px; }
+.mini > div { display: grid; gap: 1px; min-width: 0; }
+.mini small { font-size: 11px; color: var(--text-3); font-weight: 600; }
+.mini b { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.check .problems { gap: 7px; font-size: 13.5px; line-height: 1.4; }
+.check .problems li { display: grid; grid-template-columns: 62px 1fr; gap: 8px; align-items: baseline; }
+.check .who { text-align: center; }
+.ok-line { margin: 0; color: var(--good); font-weight: 600; font-size: 13.5px; }
+.nodata { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border-radius: 12px; background: var(--surface-2); color: var(--text-2); font-size: 13.5px; }
+.check.is-empty { background: var(--surface-solid); }
+.check textarea { font-weight: 400; }
+.check details > summary { cursor: pointer; }
+.check details[open] { display: grid; gap: 8px; }
+.note-line { margin: 0; font-size: 13px; color: var(--text-2); }
+@media (max-width: 560px) { .mini { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.check { align-content: start; }
