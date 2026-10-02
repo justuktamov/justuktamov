@@ -14,6 +14,8 @@ export const fmtUzs = (x) => {
   if (Math.abs(x) >= 1e6) return `${fmtN(x / 1e6, 1)} mln`;
   return fmtN(x);
 };
+// So'mdagi summa doim «so'm» bilan, dollar — «$» bilan (adashmaslik uchun)
+export const fmtSom = (x) => (x == null ? '—' : `${fmtUzs(x)} so'm`);
 export const fmtP = (x, d = 1) => (x == null || !Number.isFinite(x) ? '—' : `${fmtN(x * 100, d)}%`);
 export const addDays = (date, n) => { const d = new Date(`${date}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 export const shortDate = (d) => d.slice(5).split('-').reverse().join('.');

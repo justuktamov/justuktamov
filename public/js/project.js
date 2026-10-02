@@ -42,7 +42,7 @@ export async function renderProject(id) {
     <div class="kpis">
       ${kpi({ label: 'Reklamaga sarflandi', value: fmtUsd(p.spend, 0), sub: `${fmtUzs(p.spend_uzs)} so'm`, d: change(p.spend, p.prev.spend), invert: true })}
       ${kpi({ label: 'Tushum', value: fmtUzs(p.revenue), unit: "so'm", sub: `${p.sales} ta ${auto ? 'xarid' : 'sotuv'}`, d: change(p.revenue, p.prev.revenue) })}
-      ${kpi({ label: 'Sof foyda', value: `<span class="${p.net_profit < 0 ? 'neg' : 'pos'}">${signed(p.net_profit)}</span>`, unit: "so'm", sub: 'barcha xarajatdan keyin', d: change(p.net_profit, p.prev.net_profit) })}
+      ${kpi({ label: 'Sof foyda', value: `<span class="${p.net_profit < 0 ? 'neg' : 'pos'}">${signed(p.net_profit, false)}</span>`, unit: "so'm", sub: 'barcha xarajatdan keyin', d: change(p.net_profit, p.prev.net_profit) })}
       ${kpi({ label: 'Marja', value: fmtP(p.net_margin, 0), sub: `${p.conv_label}: ${fmtP(p.conv)}` })}
     </div>
     <div class="pgrid">${blocks.map(([html, span]) => `<div class="span-${span}">${html}</div>`).join('')}
