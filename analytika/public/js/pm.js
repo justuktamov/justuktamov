@@ -112,6 +112,8 @@ export async function renderToday() {
           ${s.texts.map(([f, l, ph]) => `<td class="n" data-label="${l}"><input class="cell-in txt" name="${f}" maxlength="300" value="${esc(p.row[f] ?? '')}" placeholder="${esc(ph)}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>
       </details>` : ''}
       ${sales && leadsP.length ? reasonsBlock(leadsP) : ''}
+      ${sales ? repeatBlock(daily.projects) : ''}
+      ${sales ? channelsEntry(daily.projects) : ''}
       <div class="step-foot"><span class="muted small">${sales ? "Jami lid bo'sh qolsa — uch turi qo'shiladi." : 'Kulrang raqam — kechagi qiymat. Enter — keyingi qator.'}</span><span class="spacer"></span>
         <button class="btn ghost" data-skip>O'tkazib yuborish</button><button class="btn primary" data-save>Saqlash va davom etish →</button></div>
     </section>`;
@@ -135,6 +137,34 @@ export async function renderToday() {
         ${Object.entries(reasonKinds).map(([kind, title]) => `<div class="rin-kind"><span class="muted small">${title}</span><div class="rin-grid">
           ${Object.entries(reasons[kind]).map(([r, l]) => `<label><span>${esc(l)}</span><input class="cell-in" inputmode="numeric" data-kind="${kind}" data-reason="${r}" value="${p.reasons?.[kind]?.[r] ?? ''}" aria-label="${esc(p.name)} — ${esc(l)}"></label>`).join('')}
         </div></div>`).join('')}</div>`).join('')}</div>
+    </details>`;
+  }
+
+  // Qayta sotuv — eski mijoz yana sotib oldi (LTV shundan hisoblanadi)
+  function repeatBlock(projects) {
+    const has = projects.some((p) => p.row.repeat_sales != null || p.row.repeat_revenue != null);
+    return `<details class="extra" ${has ? 'open' : ''}><summary>Qayta sotuvlar <span class="muted">(eski mijoz yana sotib oldi — jami sotuv ichida)</span></summary>
+      <div class="table-wrap"><table class="grid-entry" style="--cols:2"><thead><tr><th>Loyiha</th><th class="n">Qayta sotuv</th><th class="n">Shundan qayta sotuvdan, so'm</th></tr></thead>
+      <tbody>${projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
+        ${[['repeat_sales', 'Qayta sotuv'], ['repeat_revenue', "Qayta sotuvdan, so'm"]].map(([f, l]) => `<td class="n" data-label="${l}"><input class="cell-in" inputmode="decimal" name="${f}" value="${p.row[f] ?? ''}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    </details>`;
+  }
+
+  // Kanallar bo'yicha: Telegram Ads, Instagram, bloger… — qaysi kanal sifatli lid va arzon mijoz beradi
+  function channelsEntry(projects) {
+    const { channels: names, channelFields } = state.me;
+    const withCh = projects.filter((p) => (p.channels || []).length);
+    if (!withCh.length) return `<details class="extra"><summary>Kanallar bo'yicha <span class="muted">(ixtiyoriy)</span></summary>
+      <p class="muted small">Loyihaga kanallar belgilanmagan. <a href="#/sozlamalar">Sozlamalar → Loyihalar</a> da Telegram Ads, Instagram, bloger… ni tanlang.</p></details>`;
+    const has = withCh.some((p) => Object.keys(p.channelRows || {}).length);
+    return `<details class="extra" ${has ? 'open' : ''}><summary>Kanallar bo'yicha <span class="muted">(ixtiyoriy — targetolog va ROP birga aytadi)</span></summary>
+      ${withCh.map((p) => {
+        const fields = Object.entries(channelFields).filter(([f]) => p.kind !== 'auto' || !['leads', 'qualified'].includes(f));
+        return `<h3 class="tbl-title">${dot(p.color)}${esc(p.name)}</h3>
+        <div class="table-wrap"><table class="grid-entry ${fields.length > 4 ? 'wide' : ''}" style="--cols:${fields.length % 3 ? 2 : 3}" data-chp="${p.id}"><thead><tr><th>Kanal</th>${fields.map(([f, l]) => `<th class="n">${esc(p.kind === 'auto' && f === 'clicks' ? 'Bot start' : l)}</th>`).join('')}</tr></thead>
+        <tbody>${p.channels.map((c) => `<tr data-ch="${c}"><td>${esc(names[c] || c)}</td>
+          ${fields.map(([f, l]) => `<td class="n" data-label="${esc(l)}"><input class="cell-in" inputmode="decimal" data-f="${f}" value="${p.channelRows?.[c]?.[f] ?? ''}" aria-label="${esc(p.name)} — ${esc(names[c] || c)} — ${esc(l)}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+      }).join('')}
     </details>`;
   }
 
@@ -286,9 +316,17 @@ export async function renderToday() {
             const old = String(p.reasons?.[el.dataset.kind]?.[el.dataset.reason] ?? '');
             if (el.value.trim() !== old) ((reasonsBy[p.id] ||= {})[el.dataset.kind] ||= {})[el.dataset.reason] = el.value.trim();
           }
+          // Kanallar: o'zgargan kataklar
+          const chBy = {};
+          for (const el of box.querySelectorAll('[data-chp] input[data-f]')) {
+            const pid = el.closest('[data-chp]').dataset.chp;
+            const ch = el.closest('[data-ch]').dataset.ch;
+            const p = daily.projects.find((x) => String(x.id) === pid);
+            if (el.value.trim() !== String(p.channelRows?.[ch]?.[el.dataset.f] ?? '')) ((chBy[pid] ||= {})[ch] ||= {})[el.dataset.f] = el.value.trim();
+          }
           let changed = 0;
-          for (const id of new Set([...Object.keys(byProject), ...Object.keys(reasonsBy)])) {
-            changed += (await api('/api/daily', { method: 'PUT', body: { project_id: Number(id), date, values: byProject[id] || {}, reasons: reasonsBy[id] } })).changed;
+          for (const id of new Set([...Object.keys(byProject), ...Object.keys(reasonsBy), ...Object.keys(chBy)])) {
+            changed += (await api('/api/daily', { method: 'PUT', body: { project_id: Number(id), date, values: byProject[id] || {}, reasons: reasonsBy[id], channels: chBy[id] } })).changed;
             if (reasonsBy[id]) changed += 1;
           }
           if (changed) toast('Saqlandi ✓');

@@ -1,6 +1,6 @@
 // Brauzer demosi uchun node:sqlite o'rnini bosuvchi: metrics.js va reports.js ishlatadigan
 // so'rovlarni xotiradagi massivlar ustida bajaradi.
-export const store = { projects: [], daily: [], plans: [], reports: [], reasons: [], settings: {} };
+export const store = { projects: [], daily: [], plans: [], reports: [], reasons: [], channels: [], settings: {} };
 
 const inRange = (d, from, to) => d >= from && d <= to;
 const byDateDesc = (a, b) => (a.date < b.date ? 1 : -1);
@@ -11,6 +11,7 @@ const QUERIES = [
     all: (from, to, ...ids) => store.daily.filter((r) => inRange(r.date, from, to) && ids.includes(r.project_id)).map((r) => ({ ...r })),
   }],
   [/^SELECT \* FROM reasons WHERE date BETWEEN \? AND \?$/, { all: (from, to) => store.reasons.filter((r) => inRange(r.date, from, to)).map((r) => ({ ...r })) }],
+  [/^SELECT \* FROM channel_daily WHERE date BETWEEN \? AND \?$/, { all: (from, to) => (store.channels || []).filter((r) => inRange(r.date, from, to)).map((r) => ({ ...r })) }],
   [/^SELECT \* FROM plans WHERE month = \?$/, { all: (m) => store.plans.filter((p) => p.month === m).map((p) => ({ ...p })) }],
   [/^PRAGMA table_info/, { all: () => [] }],
   [/^SELECT \* FROM daily_reports WHERE date = \?$/, { get: (d) => { const r = store.reports.find((x) => x.date === d); return r && { ...r }; } }],

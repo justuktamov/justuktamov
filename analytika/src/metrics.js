@@ -1,5 +1,5 @@
 // Hisob-kitoblar: reklama → klik → lid / bot start → sotuv → tushum → foyda va sof foyda
-import { getDb, getSetting, today, FIELDS, TEXT_FIELDS, REASONS } from './db.js';
+import { getDb, getSetting, today, FIELDS, TEXT_FIELDS, REASONS, CHANNELS, CHANNEL_FIELDS } from './db.js';
 
 const SUM_FIELDS = Object.keys(FIELDS);
 const pct = (x) => `${(x * 100).toFixed(1)}%`;
@@ -84,9 +84,96 @@ export function derive(t, rate = usdRate()) {
     qualified_share: div(t.qualified, t.leads),
     potential_share: div(t.potential, t.leads),
     unqualified_share: div(t.unqualified, t.leads),
-    avg_check: div(t.revenue, t.sales),
+    // O'rtacha chek — faqat yangi mijozlardan (qayta sotuv tushumi ayrilgan)
+    avg_check: div(t.revenue - (t.repeat_revenue || 0), t.sales - (t.repeat_sales || 0)),
+    repeat_share: div(t.repeat_revenue, t.revenue),
     roas: div(t.revenue, spendUzs),
   };
+}
+
+// Jami: raqamlar yig'indisi + har bir loyihaning xarajatlari (tannarx va doimiy — loyihaga qarab)
+function totalsOf(list, rowsAll) {
+  const t = sumRows(rowsAll);
+  const f = { var_cost: 0, fixed_cost: 0 };
+  for (const p of list) { f.var_cost += p.var_cost; f.fixed_cost += p.fixed_cost; }
+  const gross = t.revenue - t.spend_uzs;
+  const net = gross - f.var_cost - f.fixed_cost;
+  return { ...t, ...f, costs: t.spend_uzs + f.var_cost + f.fixed_cost, gross_profit: gross, net_profit: net, gross_margin: div(gross, t.revenue), net_margin: div(net, t.revenue) };
+}
+
+// ---------- Kanallar ----------
+export function loadChannels(from, to) {
+  return getDb().prepare('SELECT * FROM channel_daily WHERE date BETWEEN ? AND ?').all(from, to);
+}
+
+function channelStats(rows, kind, rate = usdRate()) {
+  const by = {};
+  for (const r of rows) {
+    const c = (by[r.channel] ||= { channel: r.channel, label: CHANNELS[r.channel] || r.channel, reported: {} });
+    for (const f of Object.keys(CHANNEL_FIELDS)) {
+      c[f] = (c[f] || 0) + (Number(r[f]) || 0);
+      if (r[f] != null) c.reported[f] = (c.reported[f] || 0) + 1;
+    }
+  }
+  const list = Object.values(by);
+  const totalSpend = list.reduce((a, c) => a + c.spend, 0);
+  for (const c of list) {
+    Object.assign(c, {
+      cpl: div(c.spend, c.leads), cac: div(c.spend, c.sales), qualified_share: c.reported.qualified ? div(c.qualified, c.leads) : null,
+      conv: kind === 'auto' ? div(c.sales, c.clicks) : div(c.sales, c.leads), roas: div(c.revenue, c.spend * rate),
+      spend_share: div(c.spend, totalSpend),
+    });
+  }
+  return list.sort((a, b) => b.spend - a.spend);
+}
+
+// Kanallar solishtiriladi: qaysi biri sifatli lid beradi, qayerda mijoz arzon, qaysi biriga pul kuyyapti
+function channelInsights(list, kind) {
+  const out = [];
+  const q = list.filter((c) => c.leads >= 10 && c.qualified_share != null);
+  if (kind !== 'auto' && q.length >= 2) {
+    const s = [...q].sort((a, b) => a.qualified_share - b.qualified_share);
+    const worst = s[0], best = s.at(-1);
+    if (best.qualified_share - worst.qualified_share >= 0.15) {
+      out.push({ level: 'warning', text: `Lid sifati kanalga bog'liq: ${worst.label} lidlarining faqat ${pct0(worst.qualified_share)} sifatli, ${best.label} — ${pct0(best.qualified_share)}.` });
+    }
+  }
+  const c = list.filter((x) => x.sales >= 2 && x.cac != null);
+  if (c.length >= 2) {
+    const s = [...c].sort((a, b) => a.cac - b.cac);
+    const best = s[0], worst = s.at(-1);
+    if (worst.cac >= best.cac * 1.5) {
+      out.push({ level: 'warning', text: `1 mijoz narxi: ${best.label} $${best.cac.toFixed(0)}, ${worst.label} $${worst.cac.toFixed(0)} — ${worst.label} byudjetining bir qismini ${best.label} ga o'tkazish kerak.` });
+    }
+  }
+  for (const x of list) {
+    if (x.spend >= 50 && !x.sales && (x.leads >= 10 || kind === 'auto')) out.push({ level: 'critical', text: `${x.label}: $${fmt(x.spend)} sarflandi, birorta ham sotuv yo'q.` });
+  }
+  return out;
+}
+
+// ---------- Lid → sotuv kechikishi ----------
+// Kurslarda odam bugun lid bo'lib, bir-ikki haftadan keyin sotib oladi. Konversiya — sotuvlar ÷ «kechikish» kun oldingi lidlar.
+// Ma'lumotdan taxmin: kunlik lid va sotuv qatorlari qaysi siljishda eng ko'p mos tushadi (0–21 kun)
+export function estimateLag(projectId, asOf = today()) {
+  const { rows } = loadRows(addDays(asOf, -89), asOf, projectId);
+  const days = [];
+  for (let d = addDays(asOf, -89); d <= asOf; d = addDays(d, 1)) {
+    const r = rows.find((x) => x.date === d) || {};
+    days.push({ leads: Number(r.leads) || 0, sales: Number(r.sales) || 0 });
+  }
+  if (days.reduce((a, x) => a + x.sales, 0) < 15) return null;
+  let best = null;
+  for (let lag = 0; lag <= 21; lag++) {
+    const xs = [], ys = [];
+    for (let i = lag; i < days.length; i++) { xs.push(days[i - lag].leads); ys.push(days[i].sales); }
+    const mx = xs.reduce((a, x) => a + x, 0) / xs.length, my = ys.reduce((a, x) => a + x, 0) / ys.length;
+    let num = 0, dx = 0, dy = 0;
+    for (let i = 0; i < xs.length; i++) { num += (xs[i] - mx) * (ys[i] - my); dx += (xs[i] - mx) ** 2; dy += (ys[i] - my) ** 2; }
+    const r = dx && dy ? num / Math.sqrt(dx * dy) : 0;
+    if (!best || r > best.r + 0.02) best = { lag, r };
+  }
+  return best && best.r >= 0.2 ? best.lag : null;
 }
 
 // Pul: tushum − reklama = foyda; − tannarx (tushumdan %) − doimiy xarajat = sof foyda
@@ -166,15 +253,6 @@ export function summary({ from, to, projectId = null }) {
     };
   });
 
-  // Jami: raqamlar yig'indisi + har bir loyihaning xarajatlari
-  const totalsOf = (list, rowsAll) => {
-    const t = sumRows(rowsAll);
-    const f = { var_cost: 0, fixed_cost: 0 };
-    for (const p of list) { f.var_cost += p.var_cost; f.fixed_cost += p.fixed_cost; }
-    const gross = t.revenue - t.spend_uzs;
-    const net = gross - f.var_cost - f.fixed_cost;
-    return { ...t, ...f, costs: t.spend_uzs + f.var_cost + f.fixed_cost, gross_profit: gross, net_profit: net, gross_margin: div(gross, t.revenue), net_margin: div(net, t.revenue) };
-  };
   const totals = totalsOf(byProject, rows);
   const prevList = projects.map((p) => projectStats(p, prevRows.filter((r) => r.project_id === p.id), len));
   const prev = totalsOf(prevList, prevRows);
@@ -208,11 +286,45 @@ export function summary({ from, to, projectId = null }) {
     .slice(0, 40)
     .map((r) => ({ date: r.date, project_id: r.project_id, project: projects.find((p) => p.id === r.project_id)?.name, ...Object.fromEntries(Object.keys(TEXT_FIELDS).map((f) => [f, r[f] || null])) }));
 
+  // Konversiya kechikish bilan: sotuvlar ÷ «kechikish» kun oldingi lidlar; 7 kundan qisqa davrda — oxirgi 7 kun
+  for (const p of byProject) {
+    if (p.kind === 'auto') continue;
+    const proj = projects.find((x) => x.id === p.id);
+    const lag = Math.max(0, Math.round(Number(proj.sale_lag) || 0));
+    p.sale_lag = lag;
+    if (!lag && len >= 7) continue;
+    const wFrom = len >= 7 ? from : addDays(to, -6);
+    const sales = sumRows(loadRows(wFrom, to, p.id).rows).sales;
+    const leads = sumRows(loadRows(addDays(wFrom, -lag), addDays(to, -lag), p.id).rows).leads;
+    p.conv = div(sales, leads);
+    p.conv_note = `${daysBetween(wFrom, to)} kunlik sotuv ÷ ${lag ? `${lag} kun oldingi` : 'shu kunlardagi'} lidlar`;
+  }
+
+  // LTV (90 kun): 1 yangi mijozdan jami qancha pul (qayta sotuvlar bilan) va uni olib kelish narxiga nisbati
+  const { rows: ltvRows } = loadRows(addDays(to, -89), to, projectId);
+  const rate = usdRate();
+  for (const p of byProject) {
+    const t = sumRows(ltvRows.filter((r) => r.project_id === p.id));
+    // Yangi mijozlar = jami sotuv − qayta sotuv; LTV — ularning har biridan 90 kunda tushgan jami pul
+    const fresh = Math.max(t.sales - (t.repeat_sales || 0), 0);
+    const ltv = div(t.revenue, fresh);
+    const cacUzs = div(t.spend * rate, fresh);
+    const ltvProfit = ltv != null ? ltv * (1 - (Number(p.var_cost_pct) || 0) / 100) : null;
+    p.ltv = { days: 90, ltv, ltv_profit: ltvProfit, cac_uzs: cacUzs, ltv_cac: ltvProfit != null && cacUzs ? ltvProfit / cacUzs : null,
+      repeat_share: t.repeat_revenue ? div(t.repeat_revenue, t.revenue) : 0, repeat_sales: t.repeat_sales, sales: t.sales, new_sales: fresh, reported: t.reported.repeat_sales > 0 || t.reported.repeat_revenue > 0 };
+  }
+
+  // Kanallar bo'yicha
+  const ch = loadChannels(from, to);
+  for (const p of byProject) {
+    p.channels = channelStats(ch.filter((r) => r.project_id === p.id), p.kind);
+  }
+
   const plan = planProgress(to.slice(0, 7), projectId, to);
   const bench = benchmarks(from, projects, plan, projectId);
   for (const p of byProject) {
     p.bench = bench[p.id];
-    p.insights = projectInsights(p, len);
+    p.insights = [...projectInsights(p, len), ...channelInsights(p.channels, p.kind), ...ltvInsights(p)];
     p.price = priceAdvice(p);
   }
   return { from, to, prevFrom, prevTo, days: len, totals, prev, delta, byProject, series, notes, plan };
@@ -251,6 +363,14 @@ function projectInsights(p) {
   return out;
 }
 
+function ltvInsights(p) {
+  const l = p.ltv;
+  if (!l || l.sales < 5 || l.ltv_cac == null) return [];
+  if (l.ltv_cac < 1.5) return [{ level: 'warning', text: `1 mijoz 90 kunda ${mln(l.ltv)} so'm olib keladi (tannarxsiz ${mln(l.ltv_profit)}), uni olib kelish ${mln(l.cac_uzs)} so'm — LTV/CAC ${l.ltv_cac.toFixed(1)}: reklama zo'rg'a qoplanmoqda.` }];
+  if (l.ltv_cac >= 4) return [{ level: 'good', text: `LTV/CAC ${l.ltv_cac.toFixed(1)}: 1 mijoz olib kelishga ketgan pul ${l.ltv_cac.toFixed(1)} barobar qaytadi — reklamani ko'paytirsa bo'ladi.` }];
+  return [];
+}
+
 // Narx bo'yicha tavsiya: birlik iqtisodiyoti (1 sotuvdan foyda), konversiya va «qimmat» deganlar ulushi
 export function priceAdvice(p) {
   if (!p.reported.sales || p.sales < 3 || !p.avg_check) return null;
@@ -282,6 +402,30 @@ export function priceAdvice(p) {
   }
   return { ...base, verdict: 'keep', title: "Narx me'yorida",
     text: `1 sotuvdan ${mln(profitPerSale)} so'm foyda${expShare != null ? `, «qimmat» deganlar ${pct0(expShare)}` : ''}. Hozircha o'zgartirish shart emas.` };
+}
+
+// ---------- Oylar bo'yicha dinamika ----------
+const MONTH_KEYS = ['spend', 'spend_uzs', 'revenue', 'gross_profit', 'net_profit', 'net_margin', 'leads', 'qualified_share', 'sales', 'conv', 'cpl', 'cac', 'avg_check', 'roas', 'repeat_share'];
+export function monthly({ months = 6, projectId = null, asOf = today() } = {}) {
+  const out = [];
+  let m = asOf.slice(0, 7);
+  for (let i = 0; i < months; i++) {
+    const { from, to: end } = monthBounds(m);
+    const to = asOf < end ? asOf : end;
+    const len = daysBetween(from, to);
+    const { projects, rows } = loadRows(from, to, projectId);
+    const list = projects.map((p) => ({ id: p.id, name: p.name, color: p.color, kind: p.kind, ...projectStats(p, rows.filter((r) => r.project_id === p.id), len) }));
+    const t = totalsOf(list, rows);
+    // Konversiya — faqat sotuv bo'limi orqali ishlaydigan loyihalardan (avtovoronka xaridlari lidsiz)
+    const lp = list.filter((p) => p.kind !== 'auto');
+    t.conv = div(lp.reduce((a, p) => a + (p.sales || 0), 0), lp.reduce((a, p) => a + (p.leads || 0), 0));
+    if (!t.repeat_revenue) t.repeat_share = null;
+    for (const p of list) if (!p.repeat_revenue) p.repeat_share = null;
+    const pickM = (x) => Object.fromEntries(MONTH_KEYS.map((k) => [k, x[k] ?? null]));
+    out.push({ month: m, from, to, days: len, partial: to < end, has: rows.length > 0, totals: pickM(t), byProject: list.map((p) => ({ id: p.id, name: p.name, color: p.color, kind: p.kind, ...pickM(p) })) });
+    m = addDays(`${m}-01`, -1).slice(0, 7);
+  }
+  return out.reverse();
 }
 
 // ---------- Oylik reja ----------

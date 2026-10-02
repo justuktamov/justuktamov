@@ -3,10 +3,10 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getDb, getSetting, setSetting, today, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS } from './db.js';
+import { getDb, getSetting, setSetting, today, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from './db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText } from './reports.js';
 import { login, logout, userFromToken, changePassword, ensureUser, publicUser } from './auth.js';
-import { summary, loadRows, loadReasons, addDays, toCsv, monthBounds, sumRows, planProgress } from './metrics.js';
+import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, planProgress, monthly, estimateLag } from './metrics.js';
 import { startPolling, telegramStatus, sendMessage } from './telegram.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -84,7 +84,7 @@ route('GET', '/api/me', async (req, res) => {
   const user = requireUser(req);
   const tg = telegramStatus();
   send(res, 200, {
-    user, today: today(), planFields: PLAN_FIELDS, kinds: PROJECT_KINDS, reasons: REASONS, reasonKinds: REASON_KINDS,
+    user, today: today(), planFields: PLAN_FIELDS, kinds: PROJECT_KINDS, reasons: REASONS, reasonKinds: REASON_KINDS, channels: CHANNELS, channelFields: CHANNEL_FIELDS,
     reportStatus: getDb().prepare('SELECT status FROM daily_reports WHERE date = ?').get(today())?.status || null,
     telegram: { enabled: tg.enabled, bot: tg.bot, reportChat: Boolean(getSetting('report_chat_id')) },
   });
@@ -118,8 +118,14 @@ function checkName(name, exceptId = null) {
 }
 route('GET', '/api/projects', async (req, res) => {
   requireUser(req);
-  send(res, 200, getDb().prepare('SELECT * FROM projects ORDER BY active DESC, id').all());
+  // channels — JSON ro'yxat; lag_hint — ma'lumotdan taxmin qilingan lid → sotuv kechikishi (kun)
+  send(res, 200, getDb().prepare('SELECT * FROM projects ORDER BY active DESC, id').all().map(projectOut));
 });
+const projectOut = (p) => {
+  let channels = [];
+  try { channels = JSON.parse(p.channels || '[]'); } catch { channels = []; }
+  return { ...p, channels, lag_hint: p.active && p.kind !== 'auto' ? estimateLag(p.id) : null };
+};
 // Moliya sozlamalari: tannarx — tushumdan % (Stars xaridi, ROP bonusi, to'lov komissiyasi), doimiy — oyiga so'm (ish haqi, ijara)
 function projectMoney(b, p = {}) {
   const kind = b.kind === undefined ? (p.kind || 'leads') : b.kind;
@@ -127,15 +133,22 @@ function projectMoney(b, p = {}) {
   const varPct = b.var_cost_pct === undefined ? p.var_cost_pct ?? null : num(b.var_cost_pct);
   if (varPct != null && varPct > 100) throw new HttpError(400, "Tannarx 100% dan oshmaydi");
   const fixed = b.fixed_monthly === undefined ? p.fixed_monthly ?? null : num(b.fixed_monthly);
-  return { kind, varPct, fixed };
+  let channels = p.channels ?? null;
+  if (b.channels !== undefined) {
+    if (!Array.isArray(b.channels) || b.channels.some((c) => !CHANNELS[c])) throw new HttpError(400, "Kanal noto'g'ri");
+    channels = JSON.stringify([...new Set(b.channels)]);
+  }
+  const lag = b.sale_lag === undefined ? p.sale_lag ?? null : num(b.sale_lag);
+  if (lag != null && lag > 60) throw new HttpError(400, "Kechikish 60 kundan oshmaydi");
+  return { kind, varPct, fixed, channels, lag };
 }
 route('POST', '/api/projects', async (req, res) => {
   requireUser(req);
   const b = await readBody(req);
   const m = projectMoney(b);
-  const info = getDb().prepare('INSERT INTO projects (name, color, kind, var_cost_pct, fixed_monthly) VALUES (?, ?, ?, ?, ?)')
-    .run(checkName(b.name), b.color || null, m.kind, m.varPct, m.fixed);
-  send(res, 201, getProject(info.lastInsertRowid));
+  const info = getDb().prepare('INSERT INTO projects (name, color, kind, var_cost_pct, fixed_monthly, channels, sale_lag) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(checkName(b.name), b.color || null, m.kind, m.varPct, m.fixed, m.channels, m.lag);
+  send(res, 201, projectOut(getProject(info.lastInsertRowid)));
 });
 route('PUT', '/api/projects/:id', async (req, res, { id }) => {
   requireUser(req);
@@ -143,9 +156,9 @@ route('PUT', '/api/projects/:id', async (req, res, { id }) => {
   const p = getProject(id);
   if (!p) throw new HttpError(404, 'Loyiha topilmadi');
   const m = projectMoney(b, p);
-  getDb().prepare('UPDATE projects SET name = ?, color = ?, kind = ?, var_cost_pct = ?, fixed_monthly = ?, active = ? WHERE id = ?')
-    .run(b.name === undefined ? p.name : checkName(b.name, id), b.color ?? p.color, m.kind, m.varPct, m.fixed, b.active === undefined ? p.active : (b.active ? 1 : 0), id);
-  send(res, 200, getProject(id));
+  getDb().prepare('UPDATE projects SET name = ?, color = ?, kind = ?, var_cost_pct = ?, fixed_monthly = ?, channels = ?, sale_lag = ?, active = ? WHERE id = ?')
+    .run(b.name === undefined ? p.name : checkName(b.name, id), b.color ?? p.color, m.kind, m.varPct, m.fixed, m.channels, m.lag, b.active === undefined ? p.active : (b.active ? 1 : 0), id);
+  send(res, 200, projectOut(getProject(id)));
 });
 
 // ---- Kunlik raqamlar ----
@@ -155,10 +168,13 @@ route('GET', '/api/daily', async (req, res, _p, q) => {
   const { projects, rows } = loadRows(date, date);
   const { rows: prevRows } = loadRows(addDays(date, -1), addDays(date, -1));
   const reasons = loadReasons(date, date);
+  const ch = loadChannels(date, date);
   send(res, 200, {
     date,
     projects: projects.map((p) => ({
       id: p.id, name: p.name, color: p.color, kind: p.kind || 'leads',
+      channels: projectOut(p).channels,
+      channelRows: Object.fromEntries(ch.filter((r) => r.project_id === p.id).map((r) => [r.channel, r])),
       row: rows.find((r) => r.project_id === p.id) || {},
       prev: prevRows.find((r) => r.project_id === p.id) || {},
       reasons: reasons[p.id] || { bad: {}, lost: {} },
@@ -189,8 +205,27 @@ route('PUT', '/api/daily', async (req, res) => {
       reasons.push([kind, reason, num(raw)]);
     }
   }
+  // Kanallar: { instagram: {spend: 20, leads: 30}, ... }
+  const chans = [];
+  for (const [channel, map] of Object.entries(b.channels || {})) {
+    if (!CHANNELS[channel]) throw new HttpError(400, `Noma'lum kanal: ${channel}`);
+    const v = {};
+    for (const [f, raw] of Object.entries(map || {})) {
+      if (!CHANNEL_FIELDS[f]) throw new HttpError(400, `Noma'lum kanal maydoni: ${f}`);
+      v[f] = num(raw);
+    }
+    chans.push([channel, v]);
+  }
   db.exec('BEGIN');
   try {
+    for (const [channel, v] of chans) {
+      const cur = db.prepare('SELECT * FROM channel_daily WHERE project_id = ? AND date = ? AND channel = ?').get(p.id, b.date, channel) || {};
+      const row = Object.fromEntries(Object.keys(CHANNEL_FIELDS).map((f) => [f, f in v ? v[f] : cur[f] ?? null]));
+      if (Object.values(row).every((x) => x == null)) db.prepare('DELETE FROM channel_daily WHERE project_id = ? AND date = ? AND channel = ?').run(p.id, b.date, channel);
+      else db.prepare(`INSERT INTO channel_daily (project_id, date, channel, spend, clicks, leads, qualified, sales, revenue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT DO UPDATE SET spend = excluded.spend, clicks = excluded.clicks, leads = excluded.leads, qualified = excluded.qualified, sales = excluded.sales, revenue = excluded.revenue`)
+        .run(p.id, b.date, channel, row.spend, row.clicks, row.leads, row.qualified, row.sales, row.revenue);
+    }
     db.prepare('INSERT OR IGNORE INTO daily (project_id, date) VALUES (?, ?)').run(p.id, b.date);
     for (const [field, v] of changes) {
       db.prepare(`UPDATE daily SET ${field} = ?, updated_at = datetime('now') WHERE project_id = ? AND date = ?`).run(v, p.id, b.date);
@@ -204,13 +239,19 @@ route('PUT', '/api/daily', async (req, res) => {
     db.exec('ROLLBACK');
     throw e;
   }
-  send(res, 200, { ok: true, changed: changes.length });
+  send(res, 200, { ok: true, changed: changes.length + chans.length });
 });
 
 // ---- Statistika ----
 route('GET', '/api/summary', async (req, res, _p, q) => {
   requireUser(req);
   send(res, 200, summary({ ...period(q), projectId: q.get('project') ? Number(q.get('project')) : null }));
+});
+// Oylar bo'yicha dinamika: oxirgi N oy (joriy oy — bugungacha)
+route('GET', '/api/monthly', async (req, res, _p, q) => {
+  requireUser(req);
+  const months = Math.min(Math.max(Number(q.get('months')) || 6, 2), 24);
+  send(res, 200, monthly({ months, projectId: q.get('project') ? Number(q.get('project')) : null }));
 });
 route('GET', '/api/export.csv', async (req, res, _p, q) => {
   requireUser(req);

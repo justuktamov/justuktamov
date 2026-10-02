@@ -45,7 +45,45 @@ export function funnelBlock(p) {
       ${p.kind === 'auto' ? '' : `<span><small>1 sifatli lid</small><b>${fmtUsd(p.cost_per_qualified)}</b></span>`}
       <span><small>1 mijoz narxi</small><b>${fmtUsd(p.cac)}</b></span>
       <span><small>O'rtacha chek</small><b>${fmtSom(p.avg_check)}</b></span>
-    </div></div>`;
+    </div>
+    ${p.kind !== 'auto' ? `<p class="small muted conv-note">Konversiya (${p.conv_label}): <b>${fmtP(p.conv)}</b>${p.conv_note ? ` — ${esc(p.conv_note)}` : ''}${p.sale_lag ? '' : '. <a href="#/sozlamalar?tab=projects">Kechikishni sozlash</a>'}</p>` : ''}
+  </div>`;
+}
+
+// Kanallar: qaysi biri sifatli lid beradi, qayerda mijoz arzon
+export function channelsBlock(p) {
+  if (!p.channels?.length) {
+    return `<div class="sub-card"><h3>Reklama kanallari</h3><p class="small muted">Kanallar bo'yicha raqam kiritilmagan. «Bugungi hisobot» → 2-qadam → «Kanallar bo'yicha» bo'limida har kanal raqamini yozing — shunda qaysi kanal sifatli lid berishi ko'rinadi.</p></div>`;
+  }
+  const auto = p.kind === 'auto';
+  const best = (k, dir) => { const xs = p.channels.filter((c) => c[k] != null && (auto || c.leads >= 10 || k === 'roas')); if (xs.length < 2) return null; return xs.reduce((a, c) => ((dir > 0 ? c[k] > a[k] : c[k] < a[k]) ? c : a)).channel; };
+  const bestQ = best('qualified_share', 1), bestCac = best('cac', -1), worstCac = best('cac', 1);
+  const mark = (c, k, good, bad) => (c.channel === good ? ' class="best"' : c.channel === bad ? ' class="worst"' : '');
+  return `<div class="sub-card"><h3>Reklama kanallari</h3>
+    <div class="table-wrap"><table class="ch-table"><thead><tr><th>Kanal</th><th class="n">Xarajat</th><th class="n">Ulush</th>${auto ? '' : '<th class="n">Lid</th><th class="n">1 lid</th><th class="n">Sifatli</th>'}<th class="n">${auto ? 'Xarid' : 'Sotuv'}</th><th class="n">1 mijoz</th><th class="n">Tushum</th><th class="n">ROAS</th></tr></thead>
+    <tbody>${p.channels.map((c) => `<tr><td><b>${esc(c.label)}</b></td><td class="n">${fmtUsd(c.spend, 0)}</td><td class="n">${fmtP(c.spend_share, 0)}</td>
+      ${auto ? '' : `<td class="n">${fmtN(c.leads)}</td><td class="n">${fmtUsd(c.cpl)}</td><td class="n"><span${mark(c, 'q', bestQ)}>${fmtP(c.qualified_share, 0)}</span></td>`}
+      <td class="n">${fmtN(c.sales)}</td><td class="n"><span${mark(c, 'cac', bestCac, worstCac)}>${fmtUsd(c.cac, 0)}</span></td><td class="n">${fmtSom(c.revenue)}</td><td class="n">${c.roas == null ? '—' : fmtN(c.roas, 1)}</td></tr>`).join('')}</tbody></table></div>
+    <p class="small muted" style="margin:8px 0 0"><span class="best">yashil</span> — eng yaxshi, <span class="worst">qizil</span> — eng qimmat kanal. Xulosa «Xulosa» blokida.</p></div>`;
+}
+
+// Mijoz qiymati: 1 yangi mijoz 90 kunda qancha pul olib keladi (qayta sotuvlar bilan) va uni olib kelish narxi
+export function ltvBlock(p) {
+  const l = p.ltv;
+  if (!l || !l.sales) return `<div class="sub-card"><h3>Mijoz qiymati (LTV)</h3><p class="small muted">90 kunda sotuv yo'q — hisoblab bo'lmaydi.</p></div>`;
+  const ratio = l.ltv_cac;
+  const cls = ratio == null ? '' : ratio >= 3 ? 'good' : ratio >= 1.5 ? 'warn' : 'crit';
+  const word = ratio == null ? '' : ratio >= 3 ? 'yaxshi' : ratio >= 1.5 ? "o'rtacha" : 'past';
+  return `<div class="sub-card"><h3>Mijoz qiymati (LTV) <span class="muted small">· 90 kun</span></h3>
+    <div class="unit" style="margin:0;padding:0;border:0">
+      <span><small>1 mijozdan jami pul</small><b>${fmtSom(l.ltv)}</b></span>
+      <span><small>tannarxdan keyin</small><b>${fmtSom(l.ltv_profit)}</b></span>
+      <span><small>1 mijozni olib kelish</small><b>${fmtSom(l.cac_uzs)}</b></span>
+      <span><small>Qayta sotuv ulushi</small><b>${fmtP(l.repeat_share, 0)}</b></span>
+    </div>
+    ${ratio != null ? `<p class="ltv-ratio"><span class="pill ${cls}">LTV/CAC ${fmtN(ratio, 1)} — ${word}</span> 1 mijozga sarflangan reklama puli ${fmtN(ratio, 1)} barobar qaytadi (3 dan yuqori — yaxshi).</p>` : ''}
+    ${l.reported ? '' : '<p class="small muted" style="margin:6px 0 0">Qayta sotuvlar kiritilmagan — LTV faqat birinchi xariddan hisoblangan.</p>'}
+  </div>`;
 }
 
 export function qualityBlock(p) {

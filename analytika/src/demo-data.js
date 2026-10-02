@@ -36,23 +36,51 @@ const CREATIVES = [
 ];
 // Oylik reja: joriy sur'atga nisbatan (>1 — reja qiyinroq). DIZIPRO da sotuv rejasi alohida — «lid ko'p, sotuv past»
 const PLAN_K = [1.0, 1.05, 1.6, 1.25];
+// Lid → sotuv kechikishi (kun): kursni odam 1-2 haftada o'ylab oladi
+const LAG = [0, 7, 10, 3];
+// Kanallar: [kanal, byudjet ulushi, lid berish kuchi, sifat koeffitsienti, sotuv koeffitsienti]
+// VIZART: Instagram lidi ko'p, lekin sifatsiz; DIZIPRO: blogerga pul ketyapti, sotuv yo'q
+const CH = [
+  [['telegram_ads', 0.7, 1, 1, 1.1], ['channel_post', 0.3, 1, 1, 0.8]],
+  [['instagram', 0.6, 1.3, 0.55, 0.5], ['telegram_ads', 0.4, 0.8, 1.5, 1.6]],
+  [['instagram', 0.5, 1, 0.9, 1.1], ['telegram_ads', 0.3, 0.9, 1.3, 1.3], ['blogger', 0.2, 0.7, 0.6, 0]],
+  [['telegram_ads', 0.65, 1, 1.1, 1.1], ['youtube', 0.35, 0.8, 0.8, 0.8]],
+];
+// Qayta sotuv ehtimoli (kunlik sotuvlar ichida) va qayta chek ulushi
+const REPEAT = [[0.35, 0.8], [0.04, 0.5], [0.03, 0.4], [0.18, 0.9]];
+
+// Butun sonni og'irliklar bo'yicha bo'lish; qoldiq kasr qismiga qarab tasodifiy taqsimlanadi
+function split(total, weights, rand) {
+  const sum = weights.reduce((a, w) => a + w, 0) || 1;
+  const exact = weights.map((w) => (total * w) / sum);
+  const out = exact.map(Math.floor);
+  for (let left = total - out.reduce((a, x) => a + x, 0); left > 0; left--) {
+    const fr = exact.map((x, j) => Math.max(x - out[j], 0) + 1e-9);
+    let r = rand() * fr.reduce((a, x) => a + x, 0), j = 0;
+    while (r > fr[j] && j < fr.length - 1) r -= fr[j++];
+    out[j] += 1;
+  }
+  return out;
+}
 const PLAN_SALES_K = [null, null, 3.8, null];
 
 // end — bugun: SELFENG raqamlari hali kiritilmagan, VIZART va SELFENG sotuvi kutilmoqda
-export function generateDemo(end, days = 45) {
+export function generateDemo(end, days = 150) {
   let seed = 42;
   const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   const jitter = (x, k = 0.25) => x * (1 - k + rand() * 2 * k);
-  const projects = [], daily = [], plans = [], reasons = [];
+  const projects = [], daily = [], plans = [], reasons = [], channels = [];
 
   PROJECTS.forEach(([name, cpc, c2l, l2s, check, budget], i) => {
     const id = i + 1;
-    projects.push({ id, name, color: COLORS[i], ...MONEY[i] });
+    projects.push({ id, name, color: COLORS[i], ...MONEY[i], sale_lag: LAG[i] || null, channels: JSON.stringify(CH[i].map(([c]) => c)) });
     const auto = MONEY[i].kind === 'auto';
+    const leadHist = [];
     for (let k = days - 1; k >= 0; k--) {
       const date = addDays(end, -k);
       const today0 = k === 0;
-      const growth = 1 + (days - 1 - k) * (i === 1 ? 0.012 : i === 3 ? -0.004 : 0.006);
+      // Oxirgi 45 kunda trend; undan oldin — oyma-oy biroz tebranadigan tekis daraja
+      const growth = (1 + (44 - Math.min(k, 44)) * (i === 1 ? 0.012 : i === 3 ? -0.004 : 0.006)) * (k > 44 ? 0.9 + 0.12 * Math.sin(k / 23 + i) : 1);
       const weekend = [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay()) ? 0.8 : 1;
       const spend = Math.round(jitter(budget * growth * weekend) * 100) / 100;
       const clicks = Math.round(spend / jitter(cpc, 0.15));
@@ -60,11 +88,17 @@ export function generateDemo(end, days = 45) {
       const leads = Math.round(clicks * jitter(c2l, 0.2) * (today0 && i === 1 ? 0.5 : 1));
       const qualified = Math.round(leads * jitter(i === 2 ? 0.22 : 0.5, 0.15));
       const potential = Math.min(Math.round(leads * jitter(0.22, 0.2)), leads - qualified);
-      const sales = Math.round(leads * jitter(l2s, 0.35));
+      // Sotuv — LAG kun oldingi lidlardan
+      leadHist.push(leads);
+      const src = leadHist[leadHist.length - 1 - LAG[i]] ?? leads;
+      const sales = Math.round(src * jitter(l2s, 0.35));
       const revenue = Math.round(sales * jitter(check, 0.1) / 1000) * 1000;
       const noData = today0 && i === 3;
       const noSales = today0 && i % 2 === 1;
       const unqualified = leads - qualified - potential;
+      const [rp, rk] = REPEAT[i];
+      const repeatSales = Math.min(sales, Math.round(sales * jitter(rp, 0.5)));
+      const repeatRevenue = Math.round(repeatSales * check * rk * jitter(1, 0.1) / 1000) * 1000;
       daily.push({
         project_id: id, date,
         spend: noData ? null : spend, impressions: noData ? null : Math.round(clicks * jitter(55)), clicks: noData ? null : clicks,
@@ -72,10 +106,25 @@ export function generateDemo(end, days = 45) {
         starts: auto ? leads : null,
         leads: auto || noData ? null : leads, qualified: auto || noData ? null : qualified, potential: auto || noData ? null : potential, unqualified: auto || noData ? null : unqualified,
         sales: noSales ? null : sales, revenue: noSales ? null : revenue,
+        repeat_sales: noSales || k > 40 ? null : repeatSales, repeat_revenue: noSales || k > 40 ? null : Math.min(repeatRevenue, revenue),
         creative_best: k > 2 || noData ? null : CREATIVES[i][0], creative_worst: k > 2 || noData ? null : CREATIVES[i][1],
         note_target: today0 && i === 1 ? "Instagramda 1 ta reklama moderatsiyadan o'tmadi" : null,
         note_sales: k === 1 && i === 2 ? "Qo'ng'iroqlarga javob bermayapti, narxni eshitib o'ylab ko'raman deyishyapti" : null,
       });
+      // Kanallar bo'yicha bo'linish (oxirgi 30 kun — PM shundan beri kiritadi)
+      if (!noData && k < 30) {
+        const cfg = CH[i];
+        const sp = split(Math.round(spend * 100), cfg.map((c) => c[1]), rand).map((x) => x / 100);
+        const cl = split(clicks, cfg.map((c) => c[1]), rand);
+        const ld = split(leads, cfg.map((c) => c[1] * c[2]), rand);
+        const ql = split(qualified, cfg.map((c, j) => ld[j] * c[3]), rand);
+        const sl = noSales ? null : split(sales, cfg.map((c, j) => ld[j] * c[4]), rand);
+        const rv = noSales ? null : split(Math.round(revenue / 1000), sl.map((x) => x || 0), rand);
+        cfg.forEach(([channel], j) => channels.push({
+          project_id: id, date, channel, spend: sp[j], clicks: cl[j], leads: auto ? null : ld[j], qualified: auto ? null : Math.min(ql[j], ld[j]),
+          sales: sl ? sl[j] : null, revenue: rv ? (sl[j] ? rv[j] * 1000 : 0) : null,
+        }));
+      }
       if (!auto && !noData) {
         const spread = (kind, mix, total) => {
           for (const [reason, share] of Object.entries(mix)) {
@@ -124,5 +173,5 @@ export function generateDemo(end, days = 45) {
       director_comment: k === 1 ? "STARPAY byudjetini 20% oshiringlar. DIZIPRO bo'yicha ertaga ROP bilan uchrashamiz." : 'Qabul qilindi.',
     });
   }
-  return { projects, daily, plans, reports, reasons };
+  return { projects, daily, plans, reports, reasons, channels };
 }
