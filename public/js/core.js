@@ -1,4 +1,4 @@
-// Umumiy yordamchilar: API, formatlash, karkas (yon panel), davr filtri, kirish, mavzu, Telegram Mini App
+// Umumiy yordamchilar: API, formatlash, karkas (yon panel), davr filtri, kirish, mavzu
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 export const app = () => $('#app');
@@ -22,17 +22,12 @@ export const monthLabel = (m) => `${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice
 export const initials = (name) => String(name || '?').split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
 // ---------- API ----------
-// Mini App ichida cookie ishonchsiz — Bearer token sessiya xotirasida saqlanadi
-let token = null;
-try { token = sessionStorage.getItem('tg_token'); } catch { /* xotira yo'q */ }
-
 export async function api(path, opts = {}) {
   const headers = {};
   if (opts.body) headers['content-type'] = 'application/json';
-  if (token) headers.authorization = `Bearer ${token}`;
   const res = await fetch(path, { method: opts.method || 'GET', headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
   const data = res.headers.get('content-type')?.includes('json') ? await res.json() : await res.text();
-  if (res.status === 401 && !['/api/login', '/api/tg-login'].includes(path)) {
+  if (res.status === 401 && path !== '/api/login') {
     state.me = null;
     renderLogin();
     throw new Error(data.error || 'Tizimga kiring');
@@ -70,57 +65,21 @@ export async function downloadCsv(params) {
   await downloadFile(`hisobot_${params.get('from')}_${params.get('to')}.csv`, text);
 }
 
-export function modal(inner) {
-  const back = document.createElement('div');
-  back.className = 'modal-back';
-  back.innerHTML = `<div class="modal" role="dialog" aria-modal="true">${inner}</div>`;
-  const close = () => { back.remove(); document.removeEventListener('keydown', onKey); };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
-  back.addEventListener('click', (e) => { if (e.target === back || e.target.closest('[data-close]')) close(); });
-  document.addEventListener('keydown', onKey);
-  document.body.append(back);
-  back.querySelector('input, select, textarea')?.focus();
-  return { el: back.querySelector('.modal'), close };
-}
-
-export const botLink = (slug, tag) => {
-  const bot = state.me?.telegram?.bot;
-  const payload = tag ? `${slug}__${tag}` : slug;
-  return bot ? `https://t.me/${bot}?start=${payload}` : `t.me/<bot>?start=${payload}`;
-};
-
 // ---------- Ikonkalar ----------
 const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 export const ICONS = {
-  dash: svg('<path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/>'),
-  entry: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/>'),
-  ads: svg('<path d="m3 11 18-8v18L3 13z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>'),
-  ai: svg('<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"/><path d="M19 17l.8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8Z"/>'),
   set: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>'),
-  user: svg('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
   logo: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round"><path d="M5 19v-6M10 19V6M15 19v-5M20 19V9"/></svg>',
   copy: svg('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>'),
   plus: svg('<path d="M12 5v14M5 12h14"/>'),
   dl: svg('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'),
-  edit: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/>'),
-  trash: svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15"/>'),
   moon: svg('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'),
   sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
-  x: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
-  tg: svg('<path d="m22 3-20 8 7 2 2 7 4-5 5 4z"/><path d="m9 13 13-10"/>'),
-  tasks: svg('<rect x="4" y="4" width="16" height="16" rx="4"/><path d="m8.5 12 2.5 2.5 4.5-5"/>'),
-  money: svg('<rect x="2" y="6" width="20" height="12" rx="3"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>'),
-  alert: svg('<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>'),
   home: svg('<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/>'),
-  report: svg('<path d="M9 4h6l1 2h3v15H5V6h3z"/><path d="M9 12l2 2 4-4"/>'),
   chart: svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
-  team: svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>'),
   archive: svg('<rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v11h14V9M10 13h4"/>'),
-  bell: svg('<path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>'),
   check: svg('<path d="m5 12 5 5 9-10"/>'),
-  clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
   send: svg('<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>'),
-  play: svg('<circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4z"/>'),
   cal: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
 };
 
@@ -175,20 +134,6 @@ export function groupSeries(series, keys) {
   }
   return { labels: [...weeks.keys()].map((d) => shortDate(d)), rows: [...weeks.values()], weekly: true };
 }
-export function sparkline(values, color = 'var(--series-1)') {
-  const v = values.map((x) => Number(x) || 0);
-  if (v.length < 2 || v.every((x) => x === 0)) return '';
-  const max = Math.max(...v), min = Math.min(...v);
-  const W = 100, H = 30, span = max - min || 1;
-  const pts = v.map((x, i) => [(i / (v.length - 1)) * W, H - 3 - ((x - min) / span) * (H - 6)]);
-  const line = pts.map((p) => p.map((n) => n.toFixed(1)).join(',')).join(' ');
-  const [lx, ly] = pts.at(-1);
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
-    <polygon points="0,${H} ${line} ${W},${H}" fill="${color}" opacity=".12"></polygon>
-    <polyline points="${line}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"></polyline>
-    <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="2.4" fill="${color}" vector-effect="non-scaling-stroke"></circle></svg>`;
-}
-
 // ---------- Kichik komponentlar ----------
 export function delta(v, invert = false) {
   if (v == null) return '<span class="delta flat" title="Oldingi davrda ma\'lumot yo\'q">—</span>';
@@ -196,46 +141,12 @@ export function delta(v, invert = false) {
   const cls = Math.abs(v) < 0.005 ? 'flat' : good ? 'up' : 'down';
   return `<span class="delta ${cls}" title="Oldingi davrga nisbatan">${v > 0 ? '▲' : v < 0 ? '▼' : ''} ${fmtP(Math.abs(v), 0)}</span>`;
 }
-export function kpi({ label, value, unit = '', sub = '', d, invert = false, spark = null, color }) {
+export function kpi({ label, value, unit = '', sub = '', d, invert = false }) {
   return `<div class="kpi"><div class="top"><span class="label">${label}</span>${d !== undefined ? delta(d, invert) : ''}</div>
-    <div class="value">${value}${unit ? `<small>${unit}</small>` : ''}</div>${sub ? `<div class="sub">${sub}</div>` : ''}
-    ${spark ? `<div class="spark">${sparkline(spark, color)}</div>` : ''}</div>`;
-}
-export const INSIGHT_LABEL = { critical: 'Muhim', warning: 'Diqqat', good: 'Yaxshi', info: "Ma'lumot" };
-export function insightsHtml(list) {
-  return list.length
-    ? `<div class="insights">${list.map((i) => `<div class="insight ${i.level}"><span class="ic">${INSIGHT_LABEL[i.level]}</span><span>${esc(i.text)}</span></div>`).join('')}</div>`
-    : '<div class="muted small">Hozircha ogohlantirish yo\'q — ko\'rsatkichlar me\'yorida.</div>';
+    <div class="value">${value}${unit ? `<small>${unit}</small>` : ''}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
 }
 export function spinnerBlock(text = 'Yuklanmoqda…') {
   return `<div class="empty"><div class="row" style="justify-content:center"><div class="spinner"></div><span>${text}</span></div></div>`;
-}
-
-// Markdown (AI javobi uchun) — avval escape, keyin oddiy belgilash
-export function md(src) {
-  const lines = esc(src).split('\n');
-  let html = '', list = null, table = [];
-  const inline = (s) => s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/(^|\s)\*(\S.*?)\*/g, '$1<i>$2</i>');
-  const flushList = () => { if (list) { html += `</${list}>`; list = null; } };
-  const flushTable = () => {
-    if (!table.length) return;
-    const rows = table.filter((r) => !/^\|?\s*:?-{2,}/.test(r)).map((r) => r.replace(/^\||\|$/g, '').split('|').map((c) => inline(c.trim())));
-    html += `<div class="table-wrap"><table><thead><tr>${rows[0].map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.slice(1).map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-    table = [];
-  };
-  for (const raw of lines) {
-    const l = raw.trimEnd();
-    if (/^\s*\|/.test(l)) { flushList(); table.push(l.trim()); continue; }
-    flushTable();
-    let m;
-    if ((m = l.match(/^(#{1,4})\s+(.*)/))) { flushList(); const h = Math.min(m[1].length + 1, 3); html += `<h${h}>${inline(m[2])}</h${h}>`; }
-    else if ((m = l.match(/^\s*[-*•]\s+(.*)/))) { if (list !== 'ul') { flushList(); html += '<ul>'; list = 'ul'; } html += `<li>${inline(m[1])}</li>`; }
-    else if ((m = l.match(/^\s*\d+[.)]\s+(.*)/))) { if (list !== 'ol') { flushList(); html += '<ol>'; list = 'ol'; } html += `<li>${inline(m[1])}</li>`; }
-    else if (!l.trim()) flushList();
-    else { flushList(); html += `<p>${inline(l)}</p>`; }
-  }
-  flushList(); flushTable();
-  return html;
 }
 
 // ---------- Davr filtri ----------
@@ -281,16 +192,12 @@ function demoMenu() {
     <button class="btn small ghost" data-demo-reset title="Namuna ma'lumotni qaytarish">↺</button>`;
 }
 
-// Ilova bitta foydalanuvchi — proekt menejer uchun: hamma uchun bosh sahifa «Bugun»
-export function homeRoute() { return '#/'; }
-
 function navItems() {
   const sent = ['submitted', 'reviewed'].includes(state.me.reportStatus);
   const items = [
     ['#/', 'Bugun', ICONS.home, sent ? null : '!'],
     ['#/hisobotlar', 'Hisobotlar', ICONS.archive],
-    ['#/loyihalar', 'Loyihalar', ICONS.chart],
-    ['#/reklama', 'Kreativlar', ICONS.ads],
+    ['#/loyihalar', 'Statistika', ICONS.chart],
   ];
   return { items, bottom: [['#/sozlamalar', 'Sozlamalar', ICONS.set]] };
 }
@@ -304,13 +211,11 @@ export const isStale = (rid) => rid !== state.renderId;
 export function shell(content) {
   state.renderId = (state.renderId || 0) + 1;
   destroyCharts();
-  document.querySelectorAll('.modal-back').forEach((m) => m.remove()); // sahifa almashganda ochiq oyna qolmasin
   const route = location.hash.split('?')[0] || '#/';
   const { items, bottom } = navItems();
   const active = (href) => route === href || (href !== '#/' && route.startsWith(href));
   const link = ([href, label, icon, badge]) => `<a href="${href}" class="${active(href) ? 'active' : ''}"><span class="ic">${icon}</span><span>${label}</span>${badge ? `<span class="badge">${badge}</span>` : ''}</a>`;
   const u = state.me.user;
-  const projects = state.projects.filter((p) => p.active);
   const dark = isDark();
   const mobileItems = [...items, ...bottom];
   app().innerHTML = `
@@ -320,10 +225,9 @@ export function shell(content) {
       <aside class="sidebar">
         <div class="logo"><span class="logo-mark">${ICONS.logo}</span><span>Analitika<small>kunlik hisobot</small></span></div>
         <nav class="nav" aria-label="Asosiy">${items.map(link).join('')}</nav>
-        ${projects.length ? `<div class="nav-label">Loyiha sahifalari</div><nav class="nav" aria-label="Loyihalar">${projects.map((p) => `<a href="#/loyiha/${p.id}" class="${route === `#/loyiha/${p.id}` ? 'active' : ''}"><span class="dotic"><span class="dot" style="background:${esc(p.color || '#4c86ff')};color:${esc(p.color || '#4c86ff')};margin:0"></span></span><span>${esc(p.name)}</span></a>`).join('')}</nav>` : ''}
         <div class="side-foot">
           <nav class="nav">${bottom.map(link).join('')}</nav>
-          <a class="side-user" href="#/profil" style="text-decoration:none"><span class="avatar">${esc(initials(u.name))}</span><span>${esc(u.name)}<small>Proekt menejer</small></span></a>
+          <a class="side-user" href="#/sozlamalar?tab=profil" style="text-decoration:none"><span class="avatar">${esc(initials(u.name))}</span><span>${esc(u.name)}<small>Proekt menejer</small></span></a>
           <div class="side-actions"><button id="themeBtn">${dark ? 'Yorug\' rejim' : 'Tungi rejim'}</button><button id="logout">Chiqish</button></div>
         </div>
       </aside>
@@ -332,7 +236,7 @@ export function shell(content) {
           <div class="crumbs"><span class="pill">${ICONS.cal.replace('<svg', '<svg width="13" height="13"')} ${dayLabel(state.me.today)}</span>${window.DEMO ? demoMenu() : ''}</div>
           <div class="top-actions">
             <button class="circle-btn" id="themeBtnTop" aria-label="Mavzuni almashtirish">${dark ? ICONS.sun : ICONS.moon}</button>
-            <a class="avatar" href="#/profil" style="width:42px;height:42px;text-decoration:none" title="Profil">${esc(initials(u.name))}</a>
+            <a class="avatar" href="#/sozlamalar?tab=profil" style="width:42px;height:42px;text-decoration:none" title="Profil">${esc(initials(u.name))}</a>
           </div>
         </div>
         ${window.DEMO ? `<div class="demo-mobile">${demoMenu()}</div>` : ''}${content}
@@ -345,18 +249,11 @@ export function shell(content) {
   $('#themeBtnTop').onclick = toggle;
   $('#logout').onclick = async () => {
     await api('/api/logout', { method: 'POST', body: {} }).catch(() => {});
-    token = null;
-    try { sessionStorage.removeItem('tg_token'); } catch { /* */ }
     state.me = null;
     renderLogin();
   };
   document.querySelectorAll('[data-demo-reset]').forEach((b) => { b.onclick = () => window.__demoReset?.(); });
-
 }
-
-// Ochiq menyu tashqarisiga bosilsa yoki Esc bosilsa yopiladi
-document.addEventListener('click', (e) => { document.querySelectorAll('.menu[open]').forEach((m) => { if (!m.contains(e.target)) m.open = false; }); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('.menu[open]').forEach((m) => { m.open = false; }); });
 
 // ---------- Kirish ----------
 export function renderLogin(message = '') {
@@ -366,16 +263,16 @@ export function renderLogin(message = '') {
       <div class="login-art">
         <div class="logo" style="padding:0"><span class="logo-mark">${ICONS.logo}</span><span>Analitika<small>loyihalar voronkasi</small></span></div>
         <div style="display:grid;gap:22px">
-          <h2>Har bir so'm qayerga ketyapti va qancha sotuv olib kelyapti</h2>
+          <h2>Har kuni: targetolog va ROP dan raqamlar → tahlil → direktorga hisobot</h2>
           <div class="flow-demo">
             <div><span>Xarajat</span><i style="width:100%"></i><span class="num">$30</span></div>
             <div><span>Kliklar</span><i style="width:80%"></i><span class="num">1000</span></div>
-            <div><span>Bot start</span><i style="width:100%"></i><span class="num">2500</span></div>
-            <div><span>Lidlar</span><i style="width:30%"></i><span class="num">375</span></div>
+            <div><span>Lidlar</span><i style="width:30%"></i><span class="num">300</span></div>
+            <div><span>Sifatli</span><i style="width:15%"></i><span class="num">140</span></div>
             <div><span>Sotuvlar</span><i style="width:6%"></i><span class="num">25</span></div>
           </div>
         </div>
-        <p class="small" style="margin:0;color:#c9d4f5">Har kuni 4 qadam: target → sotuv → tekshirish → direktorga</p>
+        <p class="small" style="margin:0;color:#c9d4f5">4 qadam: target → sotuv → tahlil → yuborish</p>
       </div>
       <div class="login-form"><form id="loginForm">
         <h1>Kirish</h1>
@@ -396,31 +293,9 @@ export function renderLogin(message = '') {
   };
 }
 
-// Telegram Mini App: initData orqali avtomatik kirish
-async function telegramLogin() {
-  const wa = window.Telegram?.WebApp;
-  if (!wa?.initData) return null;
-  wa.ready();
-  wa.expand();
-  try { if (!localStorage.getItem('theme') && wa.colorScheme) applyTheme(wa.colorScheme); } catch { /* */ }
-  try {
-    const r = await api('/api/tg-login', { method: 'POST', body: { initData: wa.initData } });
-    token = r.token;
-    try { sessionStorage.setItem('tg_token', token); } catch { /* */ }
-    return r;
-  } catch (e) {
-    return { error: e.message };
-  }
-}
-
 export async function boot() {
   applyTheme();
-  let me = await fetchMe();
-  if (!me) {
-    const tg = await telegramLogin();
-    if (tg?.error) return renderLogin(tg.error);
-    me = tg ? await fetchMe() : null;
-  }
+  const me = await fetchMe();
   if (!me) return renderLogin();
   state.me = me;
   state.projects = await api('/api/projects');
@@ -430,8 +305,7 @@ export async function boot() {
 }
 
 async function fetchMe() {
-  const headers = token ? { authorization: `Bearer ${token}` } : {};
-  const r = await fetch('/api/me', { headers }).catch(() => null);
+  const r = await fetch('/api/me').catch(() => null);
   return r?.ok ? r.json() : null;
 }
 

@@ -12,7 +12,7 @@ const { createApp } = await import('../src/server.js');
 let server, base;
 before(async () => {
   getDb();
-  createUser({ name: 'Dilshod', login: 'pm', password: 'secret123', role: 'pm' });
+  createUser({ name: 'Dilshod', login: 'pm', password: 'secret123' });
   server = createApp().listen(0);
   await new Promise((r) => server.once('listening', r));
   base = `http://127.0.0.1:${server.address().port}`;

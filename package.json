@@ -1,7 +1,7 @@
 {
   "name": "loyihalar-analitika",
   "version": "1.0.0",
-  "description": "Menejerlar kunlik hisoboti, voronka analitikasi, Telegram integratsiya va AI tahlil",
+  "description": "Proekt menejerning direktorga kunlik hisoboti: target va sotuv raqamlari, tahlil, Telegram",
   "main": "src/server.js",
   "directories": {
     "build:demo": "node demo/build.mjs",
@@ -14,7 +14,6 @@
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.131.0",
     "chart.js": "^4.5.1"
   },
   "private": true,
