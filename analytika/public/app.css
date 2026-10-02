@@ -814,12 +814,9 @@ input, select, textarea { color-scheme: light; }
   background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
 /* Doska: ustunni yig'ish — faqat loyiha nomi qoladi */
 .col-head { grid-template-columns: auto auto 1fr auto; }
-.col-toggle { width: 28px; height: 28px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--pc) 30%, #fff); background: #fff; color: #4a5262; display: grid; place-items: center; cursor: pointer; padding: 0; transition: transform .2s; }
+.col-toggle { transform: rotate(90deg); width: 28px; height: 28px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--pc) 30%, #fff); background: #fff; color: #4a5262; display: grid; place-items: center; cursor: pointer; padding: 0; transition: transform .2s; }
 .col-toggle:hover { color: #10131a; box-shadow: 0 0 10px color-mix(in srgb, var(--pc) 45%, transparent); }
-.col.collapsed { padding: 12px 8px; align-items: center; cursor: pointer; }
+.col.collapsed { align-self: start; min-height: 0; cursor: pointer; }
 .col.collapsed:hover { transform: none; }
 .col.collapsed > :not(.col-head) { display: none; }
-.col.collapsed .col-head { grid-template-columns: auto; justify-items: center; gap: 12px; padding: 0; }
-.col.collapsed .col-head .pill, .col.collapsed .col-name small { display: none; }
-.col.collapsed .col-toggle { transform: rotate(180deg); }
-.col.collapsed .col-name h2 { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 16px; white-space: nowrap; }
+.col.collapsed .col-toggle { transform: rotate(-90deg); }
