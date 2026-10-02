@@ -19,6 +19,7 @@ Kirganda — **doska**, CRM dagi kabi: har bir loyiha alohida rangli ustun, yonm
 - **Pul:** tushum → − reklama → foyda → − tannarx → − doimiy xarajat → sof foyda, har biri tushumning necha foizi; yonida har kungi tushum va xarajat grafigi;
 - **Voronka**, **Lid sifati** («nega sifatsiz» sabablari, sifatsiz lidlarga ketgan pul), **Nega sotib olmadi**;
 - **Narx** tavsiyasi (1 sotuvdan sof foyda, zararsizlik narxi) va **Xulosa** (zarar sababi, past konversiya, qimmatlashgan lid, targetolog va ROP izohlari);
+- **Ko'p reklama = ko'p foydami?** — oxirgi 30 kun reytingi: eng ko'p reklama ketgan kun tushum, sof foyda va ROMI (sof foyda ÷ reklama) bo'yicha nechanchi o'rinda, eng foydali 5 kun va eng ko'p reklama ketgan 5 kun, ko'p va kam sarflangan kunlar sof foydasi solishtiriladi, eng foydali kunlardagi o'rtacha byudjet — kunlik byudjet uchun mo'ljal;
 - oylik reja va kunma-kun jadval.
 
 ### Oylik reja

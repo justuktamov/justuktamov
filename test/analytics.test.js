@@ -115,3 +115,17 @@ test('LTV: qayta sotuvlar bilan 1 mijoz qiymati, LTV/CAC; oylik dinamika', async
   assert.equal(m[0].has, false);
   assert.ok(m[0].month < m[1].month, 'eski oy birinchi');
 });
+
+test("ko'p reklama = ko'p foydami: kunlar reytingi", async () => {
+  const { spendDays } = await import('../src/metrics.js');
+  const mk = (i, spend, net) => ({ date: `2026-09-${String(i).padStart(2, '0')}`, has: true, spend, spend_uzs: spend * 10000, revenue: net + spend * 10000, net, romi: net / (spend * 10000) });
+  assert.equal(spendDays([mk(1, 10, 1)]), null, 'kam kun — xulosa yo\'q');
+  const s = spendDays([mk(1, 100, 300000), mk(2, 50, 900000), mk(3, 40, 800000), mk(4, 30, 500000), mk(5, 20, 400000), mk(6, 10, 200000), { ...mk(7, 0, 0), has: false }]);
+  assert.equal(s.n, 6);
+  assert.equal(s.max.date, '2026-09-01');
+  assert.equal(s.max.place.net, 5);
+  assert.equal(s.max.place.romi, 6);
+  assert.equal(s.topNet[0].date, '2026-09-02');
+  assert.equal(s.compare.k, 3);
+  assert.equal(s.compare.hi_net, (300000 + 900000 + 800000) / 3);
+});

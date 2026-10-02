@@ -175,6 +175,30 @@ function channelMismatch(p) {
   return over.length ? [{ level: 'warning', text: `Kanallar yig'indisi jamidan katta: ${over.join('; ')}. 2-qadamdagi raqamlarni tekshiring.` }] : [];
 }
 
+// ---------- Ko'p pul tikilgan kun — eng foydali kunmi? ----------
+// Reklama va tushum kiritilgan kunlar reytingi: eng ko'p reklama ketgan kun tushum, sof foyda va ROMI bo'yicha nechanchi o'rinda;
+// eng foydali 5 kun va eng ko'p reklama ketgan 5 kun; ko'p va kam sarflangan kunlar sof foydasi solishtiriladi
+export function spendDays(series, top = 5) {
+  const days = series.filter((d) => d.has && d.spend > 0);
+  if (days.length < 6) return null;
+  const rankBy = (k) => [...days].sort((a, b) => (b[k] ?? -Infinity) - (a[k] ?? -Infinity));
+  const byNet = rankBy('net'), bySpend = rankBy('spend');
+  const place = (list, d) => list.indexOf(d) + 1;
+  const maxDay = bySpend[0];
+  const avg = (list, k) => list.reduce((a, d) => a + d[k], 0) / list.length;
+  const k = Math.min(top, Math.floor(days.length / 2));
+  const hi = bySpend.slice(0, k), lo = bySpend.slice(-k);
+  const pick = (d) => ({ date: d.date, spend: d.spend, spend_uzs: d.spend_uzs, revenue: d.revenue, net: d.net, romi: d.romi });
+  return {
+    n: days.length,
+    max: { ...pick(maxDay), place: { revenue: place(rankBy('revenue'), maxDay), net: place(byNet, maxDay), romi: place(rankBy('romi'), maxDay) } },
+    topNet: byNet.slice(0, top).map(pick),
+    topSpend: bySpend.slice(0, top).map(pick),
+    compare: { k, hi_spend: avg(hi, 'spend'), lo_spend: avg(lo, 'spend'), hi_net: avg(hi, 'net'), lo_net: avg(lo, 'net') },
+    best_spend: avg(byNet.slice(0, k), 'spend'),
+  };
+}
+
 // ---------- Lid → sotuv kechikishi ----------
 // Kurslarda odam bugun lid bo'lib, bir-ikki haftadan keyin sotib oladi. Konversiya — sotuvlar ÷ «kechikish» kun oldingi lidlar.
 // Ma'lumotdan taxmin: kunlik lid va sotuv qatorlari qaysi siljishda eng ko'p mos tushadi (0–21 kun)
@@ -283,16 +307,20 @@ export function summary({ from, to, projectId = null }) {
   for (const k of Object.keys(totals)) if (typeof totals[k] === 'number') delta[k] = pctChange(totals[k], prev[k]);
 
   // Kunma-kun: pul oqimi (tushum, barcha xarajat, sof foyda) — jami va loyihalar bo'yicha
-  const dayStats = (d, list) => {
-    let revenue = 0, costs = 0;
+  const dayRate = usdRate();
+  const { rows: rows30 } = loadRows(addDays(to, -29), to, projectId);
+  const dayStats = (d, list, src = rows) => {
+    let revenue = 0, costs = 0, has = false;
     const out = { date: d, spend: 0, clicks: 0, starts: 0, leads: 0, qualified: 0, sales: 0 };
     for (const p of list) {
-      const r = rows.find((x) => x.project_id === p.id && x.date === d);
+      const r = src.find((x) => x.project_id === p.id && x.date === d);
+      if (r && r.spend != null && r.revenue != null) has = true;
       const s = projectStats(p, r ? [r] : [], 1);
       revenue += s.revenue; costs += s.costs;
       for (const k of ['spend', 'clicks', 'starts', 'leads', 'qualified', 'sales']) out[k] += s[k];
     }
-    return { ...out, revenue, costs, net: revenue - costs, cpl: div(out.spend, out.leads) };
+    const spendUzs = out.spend * dayRate;
+    return { ...out, revenue, costs, net: revenue - costs, cpl: div(out.spend, out.leads), spend_uzs: spendUzs, romi: div(revenue - costs, spendUzs), has };
   };
   const series = [];
   for (let d = from; d <= to; d = addDays(d, 1)) series.push(dayStats(d, projects));
@@ -300,6 +328,10 @@ export function summary({ from, to, projectId = null }) {
     const proj = projects.find((x) => x.id === p.id);
     p.series = [];
     for (let d = from; d <= to; d = addDays(d, 1)) p.series.push(dayStats(d, [proj]));
+    // Kunlar reytingi — tanlangan davrdan qat'i nazar oxirgi 30 kun (6–7 kun xulosa uchun kam)
+    const s30 = [];
+    for (let d = addDays(to, -29); d <= to; d = addDays(d, 1)) s30.push(dayStats(d, [proj], rows30));
+    p.spend_days = spendDays(s30);
   }
 
   // Targetolog va ROP izohlari, kreativlar — kunlar bo'yicha

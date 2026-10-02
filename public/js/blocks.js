@@ -67,6 +67,43 @@ export function channelsBlock(p) {
     <p class="small muted" style="margin:8px 0 0"><span class="best">yashil</span> — eng yaxshi, <span class="worst">qizil</span> — eng qimmat kanal. Xulosa «Xulosa» blokida.</p></div>`;
 }
 
+// Ko'p pul tikilgan kun — eng foydali kunmi? ROMI = sof foyda ÷ reklama (so'mda)
+export function spendDaysBlock(p) {
+  const s = p.spend_days;
+  const head = `<div class="card-head"><h3>Ko'p reklama = ko'p foydami?</h3><span class="muted small">oxirgi 30 kun, kunlar reytingi</span></div>`;
+  if (!s) return `<div class="sub-card">${head}<p class="small muted">Oxirgi 30 kunda kamida 6 kunlik reklama va tushum kerak.</p></div>`;
+  const m = s.max;
+  const yes = m.place.net <= 3;
+  const romi = (x) => (x == null ? '—' : fmtP(x, 0));
+  const rank = (label, n) => `<div class="sd-rank ${n <= 3 ? 'good' : n > s.n / 2 ? 'bad' : 'mid'}"><small>${label}</small><b>${n}-o'rin</b></div>`;
+  const inBoth = new Set(s.n >= 15 ? s.topNet.map((d) => d.date).filter((d) => s.topSpend.some((x) => x.date === d)) : []);
+  const row = (d, i, withRank) => `<tr class="${d.date === m.date ? 'sd-max' : ''}">${withRank ? `<td>${i + 1}</td>` : ''}<td><b>${shortDate(d.date)}</b>${inBoth.has(d.date) ? ' <span class="sd-both" title="Ikkala ro\'yxatda ham bor">★</span>' : ''}</td>
+    <td class="n">${fmtUsd(d.spend, 0)}</td>${withRank ? `<td class="n sd-rev">${fmtUzs(d.revenue)}</td>` : ''}<td class="n ${d.net < 0 ? 'neg' : 'pos'}">${signed(d.net, false)}</td><td class="n">${romi(d.romi)}</td></tr>`;
+  const c = s.compare;
+  const times = c.lo_spend > 0 ? c.hi_spend / c.lo_spend : null;
+  const diff = c.lo_net !== 0 ? (c.hi_net - c.lo_net) / Math.abs(c.lo_net) : null;
+  const verdict = diff == null || times == null ? ''
+    : diff < 0 ? `${fmtN(times, 1)} barobar ko'p sarflab, sof foyda ${fmtP(-diff, 0)} <b class="neg">kam</b>.`
+    : diff < times - 1 ? `${fmtN(times, 1)} barobar ko'p sarflab, sof foyda atigi ${fmtP(diff, 0)} ko'p — qo'shimcha reklama o'zini to'liq oqlamayapti.`
+    : `${fmtN(times, 1)} barobar ko'p sarflab, sof foyda ${fmtP(diff, 0)} ko'p — reklamani oshirish o'zini oqlayapti.`;
+  return `<div class="sub-card sd">${head}
+    <p class="sd-answer"><b>${yes ? 'Ha' : "Yo'q"}.</b> Eng ko'p reklama ketgan kun — <b>${shortDate(m.date)}</b> (${fmtUsd(m.spend, 0)} = ${fmtSom(m.spend_uzs)}). ${s.n} kundan u:</p>
+    <div class="sd-ranks">${rank('Tushum bo\'yicha', m.place.revenue)}${rank('Sof foyda bo\'yicha', m.place.net)}${rank('ROMI bo\'yicha', m.place.romi)}</div>
+    <div class="sd-grid">
+      <div><h4>Eng ko'p sof foyda bergan ${s.topNet.length} kun</h4><div class="table-wrap"><table class="sd-table"><thead><tr><th>#</th><th>Kun</th><th class="n">Reklama</th><th class="n sd-rev">Tushum</th><th class="n">Sof foyda</th><th class="n">ROMI</th></tr></thead>
+        <tbody>${s.topNet.map((d, i) => row(d, i, true)).join('')}</tbody></table></div></div>
+      <div><h4>Eng ko'p reklama ketgan ${s.topSpend.length} kun</h4><div class="table-wrap"><table class="sd-table"><thead><tr><th>Kun</th><th class="n">Reklama</th><th class="n">Sof foyda</th><th class="n">ROMI</th></tr></thead>
+        <tbody>${s.topSpend.map((d, i) => row(d, i, false)).join('')}</tbody></table></div></div>
+    </div>
+    <div class="sd-sum">
+      <p>Eng ko'p reklama ketgan ${c.k} kunning o'rtacha sof foydasi <b>${signed(c.hi_net)}</b>, eng kam ketgan ${c.k} kunniki (o'rtacha ${fmtUsd(c.lo_spend, 0)}) — <b>${signed(c.lo_net)}</b>. ${verdict}</p>
+      <p>Eng foydali kunlarda reklama o'rtacha <b>${fmtUsd(s.best_spend, 0)}</b> bo'lgan${!yes ? ' — kunlik byudjet uchun shu mo\'ljal' : ''}.</p>
+      ${p.sale_lag ? `<p class="muted small">Sotuv lid tushgandan o'rtacha ${p.sale_lag} kun keyin bo'ladi — kunlik solishtirish taxminiy.</p>` : ''}
+    </div>
+    <p class="muted small" style="margin:6px 0 0">ROMI = sof foyda ÷ reklama.${inBoth.size ? " ★ — ikkala ro'yxatda ham bor." : ''}</p>
+  </div>`;
+}
+
 // Mijoz qiymati: 1 yangi mijoz 90 kunda qancha pul olib keladi (qayta sotuvlar bilan) va uni olib kelish narxi
 export function ltvBlock(p) {
   const l = p.ltv;

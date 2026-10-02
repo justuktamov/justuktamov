@@ -830,3 +830,21 @@ input, select, textarea { color-scheme: light; }
 .col.collapsed:hover { transform: none; }
 .col.collapsed > :not(.col-head) { display: none; }
 .col.collapsed .col-toggle { transform: rotate(-90deg); }
+/* Ko'p reklama = ko'p foydami? */
+.sd-answer { margin: 4px 0 10px; font-size: 14.5px; }
+.sd-ranks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.sd-rank { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); display: grid; gap: 2px; }
+.sd-rank small { font-size: 11.5px; color: var(--text-3); font-weight: 600; }
+.sd-rank b { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.sd-rank.good { background: #e9f7ee; border-color: #c9ecd5; } .sd-rank.good b { color: #17803a; }
+.sd-rank.mid { background: #fff7e6; border-color: #f5e1b5; } .sd-rank.mid b { color: #9a6200; }
+.sd-rank.bad { background: #fdeeee; border-color: #f7cfd0; } .sd-rank.bad b { color: #c52a2a; }
+.sd-grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 16px; }
+.sd-grid h4 { margin: 0 0 6px; font-size: 13.5px; }
+.sd-table td, .sd-table th { padding: 7px 8px; font-size: 13px; white-space: nowrap; }
+.sd-table tr.sd-max td { background: #fff7e6; }
+.sd-both { color: #e8a200; }
+.sd-sum { margin-top: 12px; padding: 10px 14px; border-radius: 12px; background: var(--surface-2); }
+.sd-sum p { margin: 4px 0; font-size: 13.5px; line-height: 1.5; }
+@media (max-width: 860px) { .sd-grid { grid-template-columns: minmax(0, 1fr); } .sd-rank b { font-size: 17px; } }
+@media (max-width: 600px) { .sd-table .sd-rev { display: none; } }
