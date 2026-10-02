@@ -153,6 +153,7 @@ export function dateButton(id, value, label = 'Sana') {
 let calClose = null;
 export function openCalendar(anchor, { value, min = null, max = null, onPick }) {
   calClose?.();
+  menuClose?.();
   let view = value.slice(0, 7);
   const pop = document.createElement('div');
   pop.className = 'cal';
@@ -198,6 +199,78 @@ export function openCalendar(anchor, { value, min = null, max = null, onPick }) 
   (pop.querySelector('.cal-day.sel:not([disabled])') || pop.querySelector('.cal-day:not([disabled])'))?.focus();
 }
 
+// ---------- Tanlash ro'yxati va rang ----------
+// Brauzerning o'z <select> va rang oynasi o'rniga: yashirin input (forma uchun) + tugma + ochiladigan oyna
+let menuClose = null;
+function openMenu(anchor, html, onPick, cls = '') {
+  menuClose?.();
+  const pop = document.createElement('div');
+  pop.className = `menu-pop ${cls}`;
+  pop.setAttribute('role', 'listbox');
+  pop.innerHTML = html;
+  document.body.append(pop);
+  const r = anchor.getBoundingClientRect();
+  pop.style.minWidth = `${Math.max(r.width, 160)}px`;
+  const w = pop.offsetWidth, h = pop.offsetHeight;
+  const below = r.bottom + h + 8 < window.innerHeight || r.top < h + 8;
+  pop.style.top = `${(below ? r.bottom + 6 : r.top - h - 6) + window.scrollY}px`;
+  pop.style.left = `${Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - w - 8))}px`;
+  pop.addEventListener('click', (e) => {
+    const it = e.target.closest('[data-v]');
+    if (it) { close(); onPick(it.dataset.v); anchor.focus(); }
+  });
+  const outside = (e) => { if (!pop.contains(e.target) && !anchor.contains(e.target)) close(); };
+  const key = (e) => {
+    const items = [...pop.querySelectorAll('[data-v]')];
+    const i = items.indexOf(document.activeElement);
+    if (e.key === 'Escape') { close(); anchor.focus(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); items[Math.min(i + 1, items.length - 1)]?.focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); items[Math.max(i - 1, 0)]?.focus(); }
+  };
+  function close() { pop.remove(); document.removeEventListener('mousedown', outside); document.removeEventListener('keydown', key); menuClose = null; }
+  setTimeout(() => { document.addEventListener('mousedown', outside); document.addEventListener('keydown', key); });
+  menuClose = close;
+  (pop.querySelector('.on') || pop.querySelector('[data-v]'))?.focus();
+}
+
+// options: [[qiymat, yozuv], ...]; attrs — yashirin inputga (name / data-f / id)
+export function selectHtml(options, value, attrs = '', label = '') {
+  const cur = options.find(([v]) => String(v) === String(value)) || options[0];
+  return `<span class="sel" data-options='${esc(JSON.stringify(options))}'><input type="hidden" ${attrs} value="${esc(cur[0])}">
+    <button type="button" class="sel-btn" aria-haspopup="listbox" aria-label="${esc(label)}"><span>${esc(cur[1])}</span><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button></span>`;
+}
+
+export const COLORS = ['#2a78d6', '#3b5bdb', '#7048e8', '#ae3ec9', '#d6336c', '#e8642d', '#f08c00', '#eda100', '#2f9e44', '#1baf7a', '#0c8599', '#495057'];
+export function colorHtml(value, attrs = '') {
+  return `<span class="color-pick"><input type="hidden" ${attrs} value="${esc(value)}"><button type="button" class="swatch-btn" style="--c:${esc(value)}" aria-label="Rang tanlash"></button></span>`;
+}
+
+document.addEventListener('click', (e) => {
+  const sb = e.target.closest('.sel-btn');
+  if (sb) {
+    const wrap = sb.closest('.sel');
+    const input = wrap.querySelector('input');
+    const options = JSON.parse(wrap.dataset.options);
+    openMenu(sb, options.map(([v, l]) => `<button type="button" role="option" data-v="${esc(v)}" class="menu-item ${String(v) === input.value ? 'on' : ''}">${esc(l)}${String(v) === input.value ? '<span class="tick-mark">✓</span>' : ''}</button>`).join(''), (v) => {
+      input.value = v;
+      sb.querySelector('span').textContent = options.find(([x]) => String(x) === v)[1];
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    return;
+  }
+  const cb = e.target.closest('.swatch-btn');
+  if (cb) {
+    const input = cb.parentElement.querySelector('input');
+    openMenu(cb, `<div class="swatches">${COLORS.map((c) => `<button type="button" data-v="${c}" class="swatch ${c.toLowerCase() === input.value.toLowerCase() ? 'on' : ''}" style="--c:${c}" aria-label="${c}"></button>`).join('')}</div>`, (v) => {
+      input.value = v;
+      cb.style.setProperty('--c', v);
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }, 'color-menu');
+  }
+});
+
+export const TIMES = Array.from({ length: 36 }, (_, i) => { const m = 6 * 60 + i * 30; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${m % 60 ? '30' : '00'}`; });
+
 // ---------- Davr filtri ----------
 export function computePeriod() {
   const t = state.me.today;
@@ -208,13 +281,12 @@ export function computePeriod() {
   const n = Number(state.period) || 7;
   return { from: addDays(t, -(n - 1)), to: t };
 }
-export function filtersHtml({ project = true } = {}) {
+export function filtersHtml() {
   const opts = [['1', 'Bugun'], ['y', 'Kecha'], ['7', '7 kun'], ['30', '30 kun'], ['month', 'Shu oy'], ['90', '90 kun'], ['custom', 'Oraliq']];
   const { from, to } = computePeriod();
   return `<div class="filters">
     <div class="seg" id="periodSeg" role="group" aria-label="Davr">${opts.map(([v, l]) => `<button data-v="${v}" class="${state.period === v ? 'on' : ''}">${l}</button>`).join('')}</div>
     ${state.period === 'custom' ? `<span class="range">${dateButton('fFrom', from, 'Boshlanish')}<span class="muted">—</span>${dateButton('fTo', to, 'Tugash')}</span>` : ''}
-    ${project ? `<select id="fProject" aria-label="Loyiha"><option value="">Barcha loyihalar</option>${state.projects.filter((p) => p.active).map((p) => `<option value="${p.id}" ${String(state.project) === String(p.id) ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>` : ''}
   </div>`;
 }
 export function bindFilters(rerenderPage) {
@@ -225,8 +297,6 @@ export function bindFilters(rerenderPage) {
     state.period = v;
     rerenderPage();
   };
-  const fp = $('#fProject');
-  if (fp) fp.onchange = (e) => { state.project = e.target.value; rerenderPage(); };
   const f = $('#fFrom'), t = $('#fTo');
   if (f) {
     const { from, to } = computePeriod();
@@ -264,6 +334,7 @@ export const isStale = (rid) => rid !== state.renderId;
 export function shell(content) {
   state.renderId = (state.renderId || 0) + 1;
   calClose?.();
+  menuClose?.();
   destroyCharts();
   const route = location.hash.split('?')[0] || '#/';
   const { items, bottom } = navItems();
