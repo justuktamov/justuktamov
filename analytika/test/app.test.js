@@ -2,104 +2,104 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 process.env.DB_PATH = ':memory:';
-process.env.USD_RATE = '12500';
 
 const { getDb, today } = await import('../src/db.js');
 const { createUser } = await import('../src/auth.js');
-const { derive, summary, addDays } = await import('../src/metrics.js');
-const { recordEvent } = await import('../src/telegram.js');
+const { addDays } = await import('../src/metrics.js');
 const { createApp } = await import('../src/server.js');
 
 let server, base;
 before(async () => {
   getDb();
-  createUser({ name: 'Rahbar', login: 'admin', password: 'secret123', role: 'admin' });
-  createUser({ name: 'Target', login: 'target', password: 'secret123', role: 'target' });
-  createUser({ name: 'Fotima', login: 'fotima', password: 'secret123', role: 'lead' });
+  createUser({ name: 'Dilshod', login: 'pm', password: 'secret123' });
   server = createApp().listen(0);
   await new Promise((r) => server.once('listening', r));
   base = `http://127.0.0.1:${server.address().port}`;
 });
 after(() => server.close());
 
-async function session(login) {
-  const r = await fetch(`${base}/api/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ login, password: 'secret123' }) });
+async function session() {
+  const r = await fetch(`${base}/api/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ login: 'PM', password: 'secret123' }) });
   assert.equal(r.status, 200);
   const cookie = r.headers.get('set-cookie').split(';')[0];
-  return (path, opts = {}) => fetch(`${base}${path}`, {
+  const call = (path, opts = {}) => fetch(`${base}${path}`, {
     method: opts.method || 'GET',
     headers: { cookie, ...(opts.body ? { 'content-type': 'application/json' } : {}) },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
+  call.json = async (path, opts) => (await call(path, opts)).json();
+  return call;
 }
 
-test('derive: PDF dagi misol — 1000 klik, 2500 start → 1500 organik, 1% konversiya', () => {
-  const zero = { impressions: 0, qualified: 0, revenue: 0, payments: 0, repeat_sales: 0, repeat_revenue: 0, joins: 0 };
-  const t = derive({ ...zero, spend: 30, clicks: 1000, starts: 2500, leads: 500, sales: 25 }, 12500);
-  assert.equal(t.organic, 1500);
-  assert.equal(t.organic_share, 0.6);
-  assert.equal(t.start_to_sale, 0.01);
-  assert.equal(t.lead_to_sale, 0.05);
-  assert.equal(t.cpc, 0.03);
-  assert.equal(t.spend_uzs, 375000);
+test('kirish: noto\'g\'ri parol va kirmagan foydalanuvchi rad etiladi', async () => {
+  let r = await fetch(`${base}/api/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ login: 'pm', password: 'x' }) });
+  assert.equal(r.status, 401);
+  r = await fetch(`${base}/api/me`);
+  assert.equal(r.status, 401);
+  // CSRF: JSON bo'lmagan o'zgartiruvchi so'rov
+  const pm = await session();
+  r = await pm('/api/projects', { method: 'POST' });
+  assert.equal(r.status, 415);
 });
 
-test("rol bo'yicha kiritish huquqi va voronka", async () => {
-  const admin = await session('admin');
-  const target = await session('target');
-  const fotima = await session('fotima');
-  const p = await (await admin('/api/projects', { method: 'POST', body: { name: "SMM Pro", slug: 'smm' } })).json();
-  assert.equal(p.slug, 'smm');
+test('profil: ism, Telegram ID, parol', async () => {
+  const pm = await session();
+  let r = await pm('/api/me', { method: 'PUT', body: { telegram_id: 'abc' } });
+  assert.equal(r.status, 400);
+  const u = await pm.json('/api/me', { method: 'PUT', body: { name: 'Dilshod A.', telegram_id: '123456789' } });
+  assert.equal(u.telegram_id, '123456789');
+  assert.equal((await pm.json('/api/me')).user.name, 'Dilshod A.');
+  r = await pm('/api/me/password', { method: 'PUT', body: { old: 'xato', new: 'yangi123' } });
+  assert.equal(r.status, 400);
+});
+
+test('loyiha, kunlik raqamlar, statistika, reja va CSV', async () => {
+  const pm = await session();
+  const p = await pm.json('/api/projects', { method: 'POST', body: { name: 'STARPAY', color: '#2a78d6' } });
+  let r = await pm('/api/projects', { method: 'POST', body: { name: 'starpay' } });
+  assert.equal(r.status, 409, 'bir xil nom');
+
   const d = today();
+  r = await pm('/api/daily', { method: 'PUT', body: { project_id: p.id, date: d, values: { spend: '-5' } } });
+  assert.equal(r.status, 400);
+  r = await pm('/api/daily', { method: 'PUT', body: { project_id: p.id, date: d, values: { starts: 5 } } });
+  assert.equal(r.status, 400, "noma'lum maydon");
+  r = await pm('/api/daily', { method: 'PUT', body: { project_id: p.id, date: addDays(d, 5), values: { spend: 5 } } });
+  assert.equal(r.status, 400, 'kelajak');
+  await pm.json('/api/daily', { method: 'PUT', body: { project_id: p.id, date: addDays(d, -1), values: { spend: 20, clicks: 200, leads: 40, sales: 10, revenue: 1000000 } } });
+  const w = await pm.json('/api/daily', { method: 'PUT', body: { project_id: p.id, date: d, values: { spend: '30,5', clicks: 300, leads: 50, qualified: 20, sales: 15, revenue: '1 500 000', creative_best: 'Stories' } } });
+  assert.equal(w.changed, 7);
 
-  let r = await target('/api/daily', { method: 'PUT', body: { project_id: p.id, date: d, values: { spend: '40', clicks: '1 000' } } });
-  assert.equal(r.status, 200);
-  r = await target('/api/daily', { method: 'PUT', body: { project_id: p.id, date: d, values: { leads: 5 } } });
-  assert.equal(r.status, 403, 'targetolog lid kirita olmaydi');
-  r = await fotima('/api/daily', { method: 'PUT', body: { project_id: p.id, date: d, values: { leads: 300, bot_starts: 1800 }, reasons: { expensive: 40, not_target: 90 } } });
-  assert.equal(r.status, 200);
-  r = await fotima('/api/projects', { method: 'POST', body: { name: 'X' } });
-  assert.equal(r.status, 403);
+  const day = await pm.json(`/api/daily?date=${d}`);
+  assert.equal(day.projects[0].row.spend, 30.5);
+  assert.equal(day.projects[0].prev.leads, 40);
 
-  // Bot avtomatik sanagan startlar qo'lda kiritilganidan ustun
-  recordEvent(p.id, 'start', 1);
-  recordEvent(p.id, 'start', 1); // takror /start bir marta sanaladi
-  recordEvent(p.id, 'start', 2);
+  const s = await pm.json(`/api/summary?from=${addDays(d, -1)}&to=${d}`);
+  assert.equal(s.totals.leads, 90);
+  assert.equal(s.totals.sales, 25);
+  assert.equal(s.totals.cpl, 50.5 / 90);
+  assert.equal(s.series.length, 2);
+  assert.equal(s.notes[0].creative_best, 'Stories');
 
-  const s = await (await admin(`/api/summary?from=${addDays(d, -6)}&to=${d}`)).json();
-  assert.equal(s.totals.clicks, 1000);
-  assert.equal(s.totals.leads, 300);
-  assert.equal(s.totals.starts, 2);
-  assert.equal(s.reasons[0].reason, 'not_target');
-  assert.ok(!s.insights.some((i) => i.text.includes('birorta ham sotuv')), 'sotuv kiritilmagan — ogohlantirish yo\'q');
-  const madina = await (await admin('/api/users', { method: 'POST', body: { name: 'Madina', login: 'madina', password: 'secret123', role: 'sales' } })).json();
-  assert.equal(madina.role, 'sales');
-  const sales = await session('madina');
-  r = await sales('/api/daily', { method: 'PUT', body: { project_id: p.id, date: d, values: { sales: 0, revenue: 0 } } });
-  assert.equal(r.status, 200);
-  const s2 = await (await admin(`/api/summary?from=${d}&to=${d}`)).json();
-  assert.ok(s2.insights.some((i) => i.text.includes('birorta ham sotuv')), JSON.stringify([s2.byProject[0].reported, s2.insights]));
+  await pm.json('/api/plans', { method: 'PUT', body: { month: d.slice(0, 7), project_id: p.id, values: { leads: 1000, sales: 100 } } });
+  assert.equal((await pm.json(`/api/plans?month=${d.slice(0, 7)}`)).rows[0].leads, 1000);
 
-  const daily = await (await fotima(`/api/daily?date=${d}`)).json();
-  assert.equal(daily.projects[0].row.auto_start, 2);
-  assert.ok(daily.missing.some((m) => m.role === 'finance' && !m.filled));
+  const csv = await (await pm(`/api/export.csv?from=${d}&to=${d}`)).text();
+  assert.match(csv, /date,project,spend/);
+  assert.match(csv, /STARPAY,30\.5/);
 
-  const audit = await (await admin('/api/audit')).json();
-  assert.ok(audit.some((a) => a.field === 'spend' && a.new_value === '40'));
+  await pm.json(`/api/projects/${p.id}`, { method: 'PUT', body: { active: false } });
+  assert.equal((await pm.json(`/api/daily?date=${d}`)).projects.length, 0, 'arxivdagi loyiha kunlik ro\'yxatda yo\'q');
 });
 
-test('tracking API kalit bilan ishlaydi', async () => {
-  const admin = await session('admin');
-  const p = await (await admin('/api/projects', { method: 'POST', body: { name: 'Python' } })).json();
-  let r = await fetch(`${base}/api/track`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: 'wrong', event: 'start' }) });
-  assert.equal(r.status, 401);
-  r = await fetch(`${base}/api/track`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: p.track_key, event: 'lead', tg_user_id: 7 }) });
-  assert.equal(r.status, 200);
-  const s = summary({ from: today(), to: today(), projectId: p.id });
-  assert.equal(s.totals.leads, 1);
-});
-
-test("kirmagan foydalanuvchi ma'lumot ko'ra olmaydi", async () => {
-  const r = await fetch(`${base}/api/summary`);
-  assert.equal(r.status, 401);
+test('sozlamalar: vaqt va kurs tekshiriladi', async () => {
+  const pm = await session();
+  let r = await pm('/api/settings', { method: 'PUT', body: { report_time: '25' } });
+  assert.equal(r.status, 400);
+  r = await pm('/api/settings', { method: 'PUT', body: { usd_rate: '0' } });
+  assert.equal(r.status, 400);
+  await pm.json('/api/settings', { method: 'PUT', body: { report_chat_id: '-100123', reminder_time: '18:30', usd_rate: '12900' } });
+  const st = await pm.json('/api/settings');
+  assert.equal(st.reminder_time, '18:30');
+  assert.equal((await pm.json('/api/me')).telegram.reportChat, true);
 });

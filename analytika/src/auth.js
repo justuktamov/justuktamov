@@ -1,4 +1,5 @@
-import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+// Kirish: login + parol (scrypt), sessiya tokeni cookie da
+import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { getDb } from './db.js';
 
 const SESSION_DAYS = 30;
@@ -17,10 +18,10 @@ export function verifyPassword(password, stored) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-export function createUser({ name, login, password, role, telegram_id = null }) {
+export function createUser({ name, login, password, telegram_id = null }) {
   const info = getDb()
-    .prepare('INSERT INTO users (name, login, password_hash, role, telegram_id) VALUES (?, ?, ?, ?, ?)')
-    .run(name, login.trim().toLowerCase(), hashPassword(password), role, telegram_id);
+    .prepare("INSERT INTO users (name, login, password_hash, role, telegram_id) VALUES (?, ?, ?, 'pm', ?)")
+    .run(name, login.trim().toLowerCase(), hashPassword(password), telegram_id);
   return Number(info.lastInsertRowid);
 }
 
@@ -46,28 +47,6 @@ export function changePassword(userId, oldPassword, newPassword) {
   return true;
 }
 
-// Telegram Mini App: initData imzosini tekshirish (core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app)
-export function verifyTelegramInitData(initData, botToken, maxAgeSec = 86400, now = Date.now()) {
-  if (!initData || !botToken) return null;
-  const params = new URLSearchParams(initData);
-  const hash = params.get('hash');
-  if (!hash) return null;
-  params.delete('hash');
-  const check = [...params.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => `${k}=${v}`).join('\n');
-  const secret = createHmac('sha256', 'WebAppData').update(botToken).digest();
-  const expected = createHmac('sha256', secret).update(check).digest('hex');
-  const a = Buffer.from(expected, 'hex');
-  const b = Buffer.from(hash, 'hex');
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  const authDate = Number(params.get('auth_date'));
-  if (!authDate || now / 1000 - authDate > maxAgeSec) return null;
-  try { return JSON.parse(params.get('user') || 'null'); } catch { return null; }
-}
-
-export function userByTelegramId(tgId) {
-  return getDb().prepare('SELECT * FROM users WHERE telegram_id = ? AND active = 1').get(String(tgId));
-}
-
 export function logout(token) {
   if (token) getDb().prepare('DELETE FROM sessions WHERE token = ?').run(token);
 }
@@ -82,15 +61,14 @@ export function userFromToken(token) {
 }
 
 export function publicUser(u) {
-  let projectIds = null;
-  try { projectIds = u.project_ids ? JSON.parse(u.project_ids) : null; } catch { projectIds = null; }
-  return { id: u.id, name: u.name, login: u.login, role: u.role, telegram_id: u.telegram_id, active: !!u.active, project_ids: projectIds };
+  return { id: u.id, name: u.name, login: u.login, telegram_id: u.telegram_id };
 }
 
-export function ensureAdmin() {
-  const count = getDb().prepare('SELECT COUNT(*) AS n FROM users').get().n;
-  if (count > 0) return null;
+// Birinchi ishga tushirish: proekt menejer uchun login yaratiladi
+export function ensureUser() {
+  if (getDb().prepare('SELECT COUNT(*) AS n FROM users').get().n > 0) return null;
+  const login = process.env.ADMIN_LOGIN || 'pm';
   const password = process.env.ADMIN_PASSWORD || randomBytes(6).toString('base64url');
-  createUser({ name: 'Rahbar', login: 'admin', password, role: 'admin' });
-  return password;
+  createUser({ name: 'Proekt menejer', login, password });
+  return { login, password };
 }

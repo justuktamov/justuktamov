@@ -1,6 +1,6 @@
 // Proekt menejerning direktorga kunlik hisoboti: qoralama → yuborildi → ko'rib chiqildi
 import { getDb } from './db.js';
-import { summary, recommendations, missingReport, addDays, dailyAdvice, PROJECT_STATUS, ADVICE_WHO } from './metrics.js';
+import { summary, weekStatus, addDays, dailyAdvice, PROJECT_STATUS, ADVICE_WHO } from './metrics.js';
 
 const nowIso = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
 
@@ -14,22 +14,20 @@ export function getReport(date) {
   return { ...r, project_notes: notes, author_name: name(r.author_id), reviewer_name: name(r.reviewed_by) };
 }
 
-// Hisobot sahifasi uchun hamma narsa bitta javobda: kun raqamlari, 7 kunlik tavsiyalar, kim kiritmagani
+// Hisobot sahifasi uchun hamma narsa bitta javobda: kun raqamlari, tahlil, 7 kunlik holat
 export function reportBundle(date) {
   const day = summary({ from: date, to: date });
-  const rec = recommendations({ from: addDays(date, -6), to: date });
+  const week = weekStatus({ from: addDays(date, -6), to: date });
   // Direktorning oxirgi javobi (kechagi yoki undan oldingi hisobotga) — PM bugun shuni bajaradi
   const prev = getDb().prepare('SELECT date, director_comment FROM daily_reports WHERE date < ? AND director_comment IS NOT NULL ORDER BY date DESC LIMIT 1').get(date);
   return {
     date,
     report: getReport(date),
-    advice: dailyAdvice(date, day, rec),
+    advice: dailyAdvice(date, day, week),
     adviceWho: ADVICE_WHO,
     prevReply: prev && prev.date >= addDays(date, -3) ? { date: prev.date, text: prev.director_comment } : null,
-    day: { totals: day.totals, byProject: day.byProject, delta: day.delta, prevFrom: day.prevFrom },
-    rec,
-    plan: day.plan,
-    missing: missingReport(date),
+    day: { totals: day.totals, byProject: day.byProject },
+    week,
     statuses: PROJECT_STATUS,
   };
 }
@@ -64,18 +62,6 @@ export function saveDraft(date, userId, { summary: text, tomorrow, project_notes
 export function submitReport(date, userId) {
   if (!getReport(date)) saveDraft(date, userId, {});
   getDb().prepare("UPDATE daily_reports SET status = 'submitted', submitted_at = ?, author_id = ? WHERE date = ?").run(nowIso(), userId, date);
-  return getReport(date);
-}
-
-export function reviewReport(date, userId, comment) {
-  const cur = getReport(date);
-  if (!cur || cur.status === 'draft') {
-    const err = new Error('Hisobot hali yuborilmagan');
-    err.status = 409;
-    throw err;
-  }
-  getDb().prepare("UPDATE daily_reports SET status = 'reviewed', reviewed_by = ?, reviewed_at = ?, director_comment = ? WHERE date = ?")
-    .run(userId, nowIso(), String(comment ?? '').trim().slice(0, 2000) || null, date);
   return getReport(date);
 }
 
@@ -123,10 +109,10 @@ export function reportText(date) {
     `💰 Sotuv <b>${n(t.sales)}</b> · <b>${sum(t.total_revenue)} so'm</b> · lid→sotuv <b>${p(t.lead_to_sale)}</b>`,
   ];
   for (const pr of b.day.byProject) {
-    const rec = b.rec.projects.find((x) => x.id === pr.id);
+    const wk = b.week.projects.find((x) => x.id === pr.id);
     const note = r.project_notes?.[pr.id] || {};
     const adv = b.advice[pr.id] || { problems: [], proposals: [] };
-    const status = note.status || adv.status || rec?.status || 'nodata';
+    const status = note.status || adv.status || wk?.status || 'nodata';
     const q = [['sifatli', pr.qualified, 'qualified'], ['potensial', pr.potential, 'potential'], ['sifatsiz', pr.unqualified, 'unqualified']]
       .filter(([, , f]) => pr.reported[f]).map(([l, v]) => `${l} ${n(v)}`);
     lines.push('', `${ICON[status]} <b>${esc(pr.name)}</b> — ${esc(PROJECT_STATUS[status])}`);
@@ -140,8 +126,8 @@ export function reportText(date) {
   }
   if (r.summary) lines.push('', `<b>Xulosa:</b> ${esc(r.summary)}`);
   if (r.tomorrow) lines.push(`<b>Ertaga:</b> ${esc(r.tomorrow)}`);
-  const up = b.rec.allocation.filter((a) => a.change > 0.02).map((a) => esc(a.name));
-  const down = b.rec.allocation.filter((a) => a.change < -0.02).map((a) => esc(a.name));
+  const up = b.week.allocation.filter((a) => a.change > 0.02).map((a) => esc(a.name));
+  const down = b.week.allocation.filter((a) => a.change < -0.02).map((a) => esc(a.name));
   if (up.length || down.length) lines.push('', `<b>Byudjet (7 kun asosida):</b>${up.length ? ` ↑ ${up.join(', ')}` : ''}${down.length ? ` · ↓ ${down.join(', ')}` : ''}`);
   lines.push('', '↩️ <i>Yechimingizni shu xabarga javob (reply) qilib yozing — PM ga yetkaziladi.</i>');
   return lines.join('\n');

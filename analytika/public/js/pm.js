@@ -3,7 +3,7 @@ import {
   $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtUzs, fmtP, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, shortDate, copyText,
 } from './core.js';
 
-export const STATUS_PILL = { unprofitable: 'crit', sales_issue: 'crit', creative: 'warn', needs_leads: 'info', scale: 'lime', good: 'good', nodata: '' };
+const STATUS_PILL = { unprofitable: 'crit', sales_issue: 'crit', creative: 'warn', needs_leads: 'info', scale: 'lime', good: 'good', nodata: '' };
 // Holat oddiy tilda: PM direktorga nima deyishini darhol tushunsin
 const MEANING = {
   good: 'Hammasi joyida',
@@ -45,15 +45,6 @@ export function dateNav(date, onChange) {
   return `<div class="filters"><button class="btn small icon" id="dPrev" aria-label="Oldingi kun">←</button>
     <input type="date" id="dPick" value="${date}" max="${state.me.today}" aria-label="Sana">
     <button class="btn small icon" id="dNext" aria-label="Keyingi kun" ${isToday ? 'disabled' : ''}>→</button></div>`;
-}
-
-export function creativeList(list, empty) {
-  if (!list.length) return `<div class="muted small">${empty}</div>`;
-  return `<div class="clist">${list.map((c) => `<div class="citem" title="${esc(c.verdict_reason)}">
-    <span class="dot" style="background:${esc(c.project_color || '#4c86ff')};color:${esc(c.project_color || '#4c86ff')}"></span>
-    <span class="cname"><b>${esc(c.name)}</b><small>${esc(c.project_name)} · ${fmtUsd(c.spend, 0)}</small></span>
-    <span class="pill ${c.verdict === 'bad' ? 'crit' : 'good'}">${esc(c.verdict_short)}</span>
-    ${c.creative_url ? `<a class="circle-btn sm" href="${esc(c.creative_url)}" target="_blank" rel="noopener" aria-label="Kreativni ochish">${ICONS.play}</a>` : ''}</div>`).join('')}</div>`;
 }
 
 const filled = (row, fields) => fields.every((f) => row[f] != null);
@@ -309,10 +300,10 @@ function cplText(spend, leads) {
 
 // Kompaniya loyihalari — birinchi kirishda bir bosishda qo'shiladi
 const OUR_PROJECTS = [
-  { name: 'STARPAY', kind: 'loyiha', color: '#2a78d6', about: 'Telegram Premium va Stars savdosi' },
-  { name: 'VIZART', kind: 'kurs', color: '#eb6834', about: "interyer va exteryer online o'quv markazi" },
-  { name: 'DIZIPRO', kind: 'kurs', color: '#1baf7a', about: "3D modeling online o'quv markazi" },
-  { name: 'SELFENG', kind: 'kurs', color: '#eda100', about: 'online general ingliz tili' },
+  { name: 'STARPAY', color: '#2a78d6', about: 'Telegram Premium va Stars savdosi' },
+  { name: 'VIZART', color: '#eb6834', about: "interyer va exteryer online o'quv markazi" },
+  { name: 'DIZIPRO', color: '#1baf7a', about: "3D modeling online o'quv markazi" },
+  { name: 'SELFENG', color: '#eda100', about: 'online general ingliz tili' },
 ];
 
 function renderOnboarding(box) {
@@ -365,4 +356,3 @@ export async function renderArchive() {
   });
 }
 
-export { shortDate };
