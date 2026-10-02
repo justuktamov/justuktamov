@@ -4,7 +4,9 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getDb, getSetting, setSetting, today, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from './db.js';
-import { reportBundle, saveDraft, submitReport, listReports, reportText } from './reports.js';
+import { reportBundle, saveDraft, submitReport, listReports, reportText, getReport, saveAiAnalysis } from './reports.js';
+import { aiStatus, analyze, AiError } from './ai/index.js';
+import { buildAiInput, hashInput } from './ai/prompt.js';
 import { login, logout, userFromToken, changePassword, ensureUser, publicUser } from './auth.js';
 import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, planProgress, monthly, estimateLag, parseRate } from './metrics.js';
 import { startPolling, telegramStatus, sendMessage } from './telegram.js';
@@ -318,7 +320,34 @@ route('PUT', '/api/plans', async (req, res) => {
 // ---- PM hisoboti ----
 route('GET', '/api/report', async (req, res, _p, q) => {
   requireUser(req);
-  send(res, 200, reportBundle(isDate(q.get('date')) ? q.get('date') : today()));
+  send(res, 200, { ...reportBundle(isDate(q.get('date')) ? q.get('date') : today()), aiStatus: aiStatus() });
+});
+// AI tahlil (3-qadam): natija saqlanadi va PM ga ko'rsatiladi; PM o'qib, tuzatib, o'zi saqlaydi.
+// Bir kun uchun bir vaqtda bitta so'rov (har chaqiruv pullik)
+const aiBusy = new Set();
+route('POST', '/api/report/ai', async (req, res) => {
+  requireUser(req);
+  const b = await readBody(req);
+  if (!isDate(b.date) || b.date > today()) throw new HttpError(400, "Sana noto'g'ri");
+  const st = aiStatus();
+  if (!st.enabled) throw new HttpError(503, `AI ulanmagan: ${st.reason}`);
+  if (getReport(b.date)?.status === 'reviewed') throw new HttpError(409, "Direktor ko'rib chiqqan hisobotni o'zgartirib bo'lmaydi");
+  if (aiBusy.has(b.date)) throw new HttpError(429, 'AI tahlil allaqachon ketyapti — kuting');
+  const input = buildAiInput(reportBundle(b.date));
+  if (!input.projects.length) throw new HttpError(400, 'Avval raqamlarni kiriting — tahlil qiladigan loyiha yo\'q');
+  aiBusy.add(b.date);
+  try {
+    const result = await analyze(input);
+    send(res, 200, saveAiAnalysis(b.date, result, hashInput(input)));
+  } catch (e) {
+    if (e instanceof AiError) {
+      console.error('AI:', e.message);
+      throw new HttpError(502, e.message);
+    }
+    throw e;
+  } finally {
+    aiBusy.delete(b.date);
+  }
 });
 route('PUT', '/api/report', async (req, res) => {
   const u = requireUser(req);
@@ -350,7 +379,7 @@ route('GET', '/api/reports', async (req, res, _p, q) => {
 const SETTING_KEYS = ['usd_rate', 'report_chat_id', 'report_time', 'reminder_time'];
 route('GET', '/api/settings', async (req, res) => {
   requireUser(req);
-  send(res, 200, { ...Object.fromEntries(SETTING_KEYS.map((k) => [k, getSetting(k)])), telegram: telegramStatus() });
+  send(res, 200, { ...Object.fromEntries(SETTING_KEYS.map((k) => [k, getSetting(k)])), telegram: telegramStatus(), ai: aiStatus() });
 });
 route('PUT', '/api/settings', async (req, res) => {
   requireUser(req);

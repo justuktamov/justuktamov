@@ -59,6 +59,7 @@ function checkColor(v) {
   if (typeof v !== 'string' || !/^#[0-9a-f]{6}$/i.test(v)) throw new HttpError(400, "Rang noto'g'ri (#rrggbb)");
   return v.toLowerCase();
 }
+const DEMO_AI = { enabled: false, provider: null, label: null, model: null, reason: "Demoda AI tahlil yo'q — haqiqiy serverda DeepSeek kaliti bilan ishlaydi" };
 const needUser = () => { if (!me) throw new HttpError(401, 'Tizimga kiring'); return me; };
 function period(q) {
   const to = isDate(q.get('to')) ? q.get('to') : TODAY;
@@ -241,7 +242,9 @@ const routes = {
     if (Object.values(v).some((x) => x != null)) store.plans.push({ project_id: pid, month: b.month, ...v });
     return { ok: true };
   },
-  'GET /api/report': (_b, _p, q) => { needUser(); return reportBundle(isDate(q.get('date')) ? q.get('date') : TODAY); },
+  'GET /api/report': (_b, _p, q) => { needUser(); return { ...reportBundle(isDate(q.get('date')) ? q.get('date') : TODAY), aiStatus: DEMO_AI }; },
+  // Demoda AI xizmati yo'q (kalit faqat serverda bo'ladi)
+  'POST /api/report/ai': () => { needUser(); throw new HttpError(503, DEMO_AI.reason); },
   'GET /api/report/preview': (_b, _p, q) => { needUser(); return { text: reportText(isDate(q.get('date')) ? q.get('date') : TODAY) }; },
   'PUT /api/report': (b) => {
     const u = needUser();
@@ -257,7 +260,7 @@ const routes = {
     });
   },
   'GET /api/reports': () => { needUser(); return listReports(90); },
-  'GET /api/settings': () => { needUser(); return { ...store.settings, telegram: { enabled: false, running: false, bot: null } }; },
+  'GET /api/settings': () => { needUser(); return { ...store.settings, telegram: { enabled: false, running: false, bot: null }, ai: DEMO_AI }; },
   'PUT /api/settings': (b) => {
     needUser();
     if (b.usd_rate !== undefined && b.usd_rate !== '' && b.usd_rate !== null) {

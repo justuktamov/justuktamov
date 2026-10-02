@@ -172,6 +172,7 @@ function migrate(db) {
       reviewed_by INTEGER,
       reviewed_at TEXT,
       director_comment TEXT,
+      ai_analysis TEXT,
       updated_at TEXT
     );
     CREATE TABLE IF NOT EXISTS settings (
@@ -187,6 +188,9 @@ function migrate(db) {
   for (const [c, t] of [['kind', "TEXT NOT NULL DEFAULT 'leads'"], ['var_cost_pct', 'REAL'], ['fixed_monthly', 'REAL'], ['channels', 'TEXT'], ['sale_lag', 'REAL']]) {
     if (pcols.length && !pcols.includes(c)) db.exec(`ALTER TABLE projects ADD COLUMN ${c} ${t}`);
   }
+  // AI tahlil natijasi (JSON): hisobot kuni bo'yicha
+  const rcols = db.prepare('PRAGMA table_info(daily_reports)').all().map((c) => c.name);
+  if (rcols.length && !rcols.includes('ai_analysis')) db.exec('ALTER TABLE daily_reports ADD COLUMN ai_analysis TEXT');
 }
 
 export function getSetting(key, fallback = null) {

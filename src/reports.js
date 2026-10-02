@@ -1,6 +1,7 @@
 // Proekt menejerning direktorga kunlik hisoboti: qoralama → yuborildi → ko'rib chiqildi
 import { getDb, nowLocal } from './db.js';
 import { summary, weekStatus, addDays, dailyAdvice, PROJECT_STATUS, ADVICE_WHO } from './metrics.js';
+import { buildAiInput, hashInput, aiText } from './ai/prompt.js';
 
 const nowIso = () => nowLocal();
 const reviewedError = () => Object.assign(new Error("Direktor ko'rib chiqqan hisobotni o'zgartirib bo'lmaydi"), { status: 409 });
@@ -12,7 +13,10 @@ export function getReport(date) {
   const name = (id) => users.find((u) => u.id === id)?.name || null;
   let notes = {};
   try { notes = JSON.parse(r.project_notes || '{}'); } catch { /* buzilgan JSON — bo'sh */ }
-  return { ...r, project_notes: notes, author_name: name(r.author_id), reviewer_name: name(r.reviewed_by) };
+  let ai = null;
+  try { ai = r.ai_analysis ? JSON.parse(r.ai_analysis) : null; } catch { /* buzilgan JSON — yo'q deb hisoblanadi */ }
+  const { ai_analysis: _raw, ...rest } = r;
+  return { ...rest, project_notes: notes, ai, author_name: name(r.author_id), reviewer_name: name(r.reviewed_by) };
 }
 
 // Hisobot sahifasi uchun hamma narsa bitta javobda: kun raqamlari, tahlil, 7 kunlik holat
@@ -21,7 +25,7 @@ export function reportBundle(date) {
   const week = weekStatus({ from: addDays(date, -6), to: date });
   // Direktorning oxirgi javobi (kechagi yoki undan oldingi hisobotga) — PM bugun shuni bajaradi
   const prev = getDb().prepare('SELECT date, director_comment FROM daily_reports WHERE date < ? AND director_comment IS NOT NULL ORDER BY date DESC LIMIT 1').get(date);
-  return {
+  const bundle = {
     date,
     report: getReport(date),
     advice: dailyAdvice(date, day, week),
@@ -31,6 +35,28 @@ export function reportBundle(date) {
     week,
     statuses: PROJECT_STATUS,
   };
+  bundle.ai = aiView(bundle);
+  return bundle;
+}
+
+// Saqlangan AI tahlil: har loyiha uchun tayyor matn; stale — raqamlar tahlildan keyin o'zgargan
+function aiView(bundle) {
+  const a = bundle.report?.ai;
+  if (!a?.projects) return null;
+  return {
+    at: a.at, provider: a.provider, model: a.model, xulosa: a.xulosa || '', ertaga: a.ertaga || '',
+    texts: Object.fromEntries(Object.entries(a.projects).map(([id, x]) => [id, aiText(x)])),
+    stale: a.input_hash !== hashInput(buildAiInput(bundle)),
+  };
+}
+
+// AI natijasini saqlaydi. Hisobot qatori bo'lmasa — muallifsiz qoralama yaratiladi (PM hali tahlil qadamini saqlamagan)
+export function saveAiAnalysis(date, result, inputHash) {
+  if (getReport(date)?.status === 'reviewed') throw reviewedError();
+  getDb().prepare("INSERT INTO daily_reports (date, status, updated_at) VALUES (?, 'draft', ?) ON CONFLICT(date) DO NOTHING").run(date, nowIso());
+  const data = { at: nowIso(), provider: result.provider, model: result.model, input_hash: inputHash, projects: result.projects, xulosa: result.xulosa, ertaga: result.ertaga };
+  getDb().prepare('UPDATE daily_reports SET ai_analysis = ? WHERE date = ?').run(JSON.stringify(data), date);
+  return reportBundle(date).ai;
 }
 
 function cleanNotes(notes) {
@@ -129,7 +155,8 @@ export function reportText(date) {
     if (adv.worst) lines.push(`   👎 Ishlamayotgan: ${esc(adv.worst)}`);
     for (const pb of adv.problems) lines.push(`   ⚠️ ${esc(pb.text)}`);
     const proposal = note.comment || adv.proposals.join('\n');
-    for (const l of proposal.split('\n').map((x) => x.replace(/^[•\-\s]+/, '').trim()).filter(Boolean)) lines.push(`   💡 ${esc(l)}`);
+    // 🔎 — tahlil (AI yoki PM yozgan), qolgan qatorlar — takliflar
+    for (const l of proposal.split('\n').map((x) => x.replace(/^[•\-\s]+/, '').trim()).filter(Boolean)) lines.push(l.startsWith('🔎') ? `   ${esc(l)}` : `   💡 ${esc(l)}`);
   }
   if (r.summary) lines.push('', `<b>Xulosa:</b> ${esc(r.summary)}`);
   if (r.tomorrow) lines.push(`<b>Ertaga:</b> ${esc(r.tomorrow)}`);
