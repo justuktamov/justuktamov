@@ -76,15 +76,20 @@ async function tabPlans(body) {
   const projects = state.projects.filter((p) => p.active);
   const val = (pid, k) => plans.rows.find((r) => r.project_id === pid)?.[k] ?? '';
   body.innerHTML = `<div class="card">
-    <div class="card-head"><h2>Reja: ${monthLabel(planMonth)}</h2>
-      <div class="filters"><input type="month" id="planMonth" value="${planMonth}" aria-label="Oy"><button class="btn small" id="copyPrev">O'tgan oydan nusxa</button></div></div>
+    <div class="card-head"><h2>Oylik reja</h2>
+      <div class="filters"><span class="month-nav"><button type="button" class="btn small icon" data-mshift="-1" aria-label="Oldingi oy">‹</button><b>${monthLabel(planMonth)}</b><button type="button" class="btn small icon" data-mshift="1" aria-label="Keyingi oy">›</button></span><button class="btn small" id="copyPrev">O'tgan oydan nusxa</button></div></div>
     <p class="small muted" style="margin:0 0 12px">Lid va sotuv rejasidan «lid ko'p, sotuv kam» signali hisoblanadi (reja konversiyasi = sotuv ÷ lid).</p>
     <div class="table-wrap"><table><thead><tr><th>Loyiha</th>${Object.values(planFields).map((l) => `<th>${esc(l)}</th>`).join('')}<th></th></tr></thead><tbody>
       ${projects.map((p) => `<tr data-id="${p.id}"><td><span class="dot" style="background:${esc(p.color || 'var(--series-1)')}"></span>${esc(p.name)}</td>
         ${Object.keys(planFields).map((k) => `<td><input data-k="${k}" inputmode="decimal" value="${val(p.id, k)}" placeholder="—" style="width:130px" aria-label="${esc(planFields[k])}"></td>`).join('')}
         <td><button class="btn small primary" data-a="save">Saqlash</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">Avval loyiha qo\'shing</td></tr>'}
     </tbody></table></div></div>`;
-  $('#planMonth').onchange = (e) => { if (e.target.value) { planMonth = e.target.value; renderSettings(); } };
+  body.querySelectorAll('[data-mshift]').forEach((b) => { b.onclick = () => {
+    const [y, m] = planMonth.split('-').map(Number);
+    const d = new Date(Date.UTC(y, m - 1 + Number(b.dataset.mshift), 1));
+    planMonth = d.toISOString().slice(0, 7);
+    renderSettings();
+  }; });
   const save = (tr) => api('/api/plans', { method: 'PUT', body: { month: planMonth, project_id: Number(tr.dataset.id), values: Object.fromEntries($$('[data-k]', tr).map((el) => [el.dataset.k, el.value])) } });
   body.querySelector('tbody').onclick = async (e) => {
     if (e.target.closest('[data-a]')?.dataset.a !== 'save') return;
