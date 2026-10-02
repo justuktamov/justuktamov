@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { getDb, getSetting, setSetting, today, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS } from './db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText } from './reports.js';
 import { login, logout, userFromToken, changePassword, ensureUser, publicUser } from './auth.js';
-import { summary, loadRows, loadReasons, addDays, toCsv } from './metrics.js';
+import { summary, loadRows, loadReasons, addDays, toCsv, monthBounds, sumRows, planProgress } from './metrics.js';
 import { startPolling, telegramStatus, sendMessage } from './telegram.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -224,8 +224,18 @@ route('GET', '/api/export.csv', async (req, res, _p, q) => {
 route('GET', '/api/plans', async (req, res, _p, q) => {
   requireUser(req);
   const month = isMonth(q.get('month')) ? q.get('month') : today().slice(0, 7);
-  send(res, 200, { month, rows: getDb().prepare('SELECT * FROM plans WHERE month = ?').all(month) });
+  send(res, 200, { month, rows: getDb().prepare('SELECT * FROM plans WHERE month = ?').all(month), prev: prevMonthFacts(month) });
 });
+// O'tgan oy fakti — reja kiritishda mo'ljal uchun
+function prevMonthFacts(month) {
+  const prev = addDays(`${month}-01`, -1).slice(0, 7);
+  const { from, to } = monthBounds(prev);
+  const { projects, rows } = loadRows(from, to);
+  return Object.fromEntries(projects.map((p) => {
+    const t = sumRows(rows.filter((r) => r.project_id === p.id));
+    return [p.id, { month: prev, budget: t.spend, leads: t.leads, sales: t.sales, revenue: t.revenue, has: t.days > 0 }];
+  }));
+}
 route('PUT', '/api/plans', async (req, res) => {
   requireUser(req);
   const b = await readBody(req);
@@ -334,6 +344,27 @@ export function createApp() {
   });
 }
 
+export async function sendPlanAlerts(d = today()) {
+  const month = d.slice(0, 7);
+  const key = `plan_alerts_${month}`;
+  let sent = [];
+  try { sent = JSON.parse(getSetting(key, '[]')); } catch { sent = []; }
+  const fresh = [];
+  for (const item of planProgress(month, null, d).items) {
+    for (const a of item.alerts.filter((x) => x.level === 'critical')) {
+      const id = `${item.project_id}:${a.metric}`;
+      if (!sent.includes(id)) { sent.push(id); fresh.push({ item, a }); }
+    }
+  }
+  if (!fresh.length) return [];
+  setSetting(key, JSON.stringify(sent));
+  const esc = (x) => String(x).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+  const text = ['<b>📅 Oylik reja — ogohlantirish</b>', ...fresh.map(({ item, a }) => `\n<b>${esc(item.name)}</b>\n⚠️ ${esc(a.text)}\n💡 ${esc(a.fix)}`)].join('\n');
+  const chats = new Set([getSetting('report_chat_id'), ...getDb().prepare('SELECT telegram_id FROM users WHERE active = 1 AND telegram_id IS NOT NULL').all().map((x) => x.telegram_id)].filter(Boolean));
+  for (const c of chats) await sendMessage(c, text);
+  return fresh;
+}
+
 // Rejalashtiruvchi (Toshkent vaqti): PM ga eslatma; PM yubormasa — direktorga avtomatik hisobot
 function startScheduler() {
   const tz = process.env.TZ_NAME || 'Asia/Tashkent';
@@ -348,6 +379,11 @@ function startScheduler() {
           const pms = getDb().prepare('SELECT telegram_id FROM users WHERE active = 1 AND telegram_id IS NOT NULL').all();
           for (const x of pms) await sendMessage(x.telegram_id, "⏰ Bugungi hisobot hali yuborilmagan. Ilovada «Bugun» bo'limini oching — 4 qadam.");
         }
+      }
+      // Oylik reja: loyiha rejadan jiddiy orqada qolsa — bir marta xabar (har ko'rsatkich uchun oyiga bir marta)
+      if (hm === getSetting('reminder_time', '19:00') && getSetting('last_plan_check') !== d) {
+        setSetting('last_plan_check', d);
+        await sendPlanAlerts(d);
       }
       if (hm === getSetting('report_time', '21:00') && getSetting('last_report') !== d) {
         setSetting('last_report', d);

@@ -4,11 +4,11 @@
 import { store } from './fake-sqlite.js';
 import { today, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS } from '../src/db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText } from '../src/reports.js';
-import { summary, loadRows, loadReasons, addDays, toCsv } from '../src/metrics.js';
+import { summary, loadRows, loadReasons, addDays, toCsv, monthBounds, sumRows } from '../src/metrics.js';
 import { generateDemo, DEMO_USER } from '../src/demo-data.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v9';
+const SAVE_KEY = 'analitika-demo-v10';
 let me = null;
 
 function seed() {
@@ -178,7 +178,13 @@ const routes = {
   'GET /api/plans': (_b, _p, q) => {
     needUser();
     const month = isMonth(q.get('month')) ? q.get('month') : TODAY.slice(0, 7);
-    return { month, rows: store.plans.filter((p) => p.month === month) };
+    const prev = addDays(`${month}-01`, -1).slice(0, 7);
+    const { from, to } = monthBounds(prev);
+    const { projects, rows } = loadRows(from, to);
+    return {
+      month, rows: store.plans.filter((p) => p.month === month),
+      prev: Object.fromEntries(projects.map((p) => { const t = sumRows(rows.filter((r) => r.project_id === p.id)); return [p.id, { month: prev, budget: t.spend, leads: t.leads, sales: t.sales, revenue: t.revenue, has: t.days > 0 }]; })),
+    };
   },
   'PUT /api/plans': (b) => {
     needUser();

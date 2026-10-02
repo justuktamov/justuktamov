@@ -316,10 +316,10 @@ export function planProgress(month, projectId = null, asOf = today()) {
     const proj = allProjects.find((p) => p.id === pl.project_id);
     if (!proj) return null;
     const fact = sumRows(rows.filter((r) => r.project_id === pl.project_id));
-    return {
-      project_id: pl.project_id, name: proj.name, color: proj.color,
-      metrics: Object.fromEntries(Object.entries(factKey).map(([k, f]) => [k, metric(fact[f], pl[k], k)])),
-    };
+    const metrics = Object.fromEntries(Object.entries(factKey).map(([k, f]) => [k, metric(fact[f], pl[k], k)]));
+    if (proj.kind === 'auto') metrics.leads = { fact: metrics.leads.fact, plan: null }; // avtovoronkada lid rejasi yo'q
+    const item = { project_id: pl.project_id, name: proj.name, color: proj.color, kind: proj.kind || 'leads', metrics };
+    return { ...item, ...planAlerts(item, elapsed, days) };
   }).filter(Boolean);
 
   const total = {};
@@ -329,6 +329,68 @@ export function planProgress(month, projectId = null, asOf = today()) {
     total[k] = metric(withPlan.reduce((a, i) => a + i.metrics[k].fact, 0), withPlan.reduce((a, i) => a + i.metrics[k].plan, 0), k);
   }
   return { month, from, to, days, elapsed, items, total, hasPlans: items.length > 0 };
+}
+
+// Rejadan orqada qolsa — nimada kamchilik: byudjet sarflanmayaptimi, lid qimmatmi, sotuv bo'limimi, chek kichikmi.
+// need — qolgan kunlarda kuniga qancha kerak
+export function planAlerts(item, elapsed, days) {
+  const m = item.metrics;
+  const remaining = days - elapsed;
+  const need = {};
+  for (const k of ['budget', 'leads', 'sales', 'revenue']) {
+    if (m[k]?.plan && remaining > 0) need[k] = Math.max((m[k].plan - m[k].fact) / remaining, 0);
+  }
+  const alerts = [];
+  if (elapsed < 5) return { alerts, need, remaining };
+  const add = (level, who, metric, text, fix) => alerts.push({ level, who, metric, text, fix });
+  const behind = (k) => m[k]?.plan && ['behind', 'risk'].includes(m[k].status);
+  const lvl = (k) => (m[k].status === 'behind' ? 'critical' : 'warning');
+  const b = m.budget;
+  const spentShare = b?.plan && b.expected ? b.fact / b.expected : null; // byudjet kutilganga nisbatan
+  const auto = item.kind === 'auto';
+  const usd = (x) => `$${fmt(x)}`;
+
+  if (!auto && behind('leads')) {
+    const planCpl = b?.plan ? b.plan / m.leads.plan : null;
+    const nowCpl = m.leads.fact ? b?.fact / m.leads.fact : null;
+    const head = `Lid rejadan orqada: ${fmt(m.leads.fact)} / ${fmt(m.leads.plan)} (kutilgan ${fmt(m.leads.expected)}). Kuniga ${fmt(Math.ceil(need.leads || 0))} ta lid kerak.`;
+    if (spentShare != null && spentShare < 0.85) {
+      add(lvl('leads'), 'target', 'leads', `${head} Sabab: byudjet to'liq sarflanmayapti — kutilgan ${usd(b.expected)}, sarflangan ${usd(b.fact)}.`, "Targetolog reklamani ko'paytirsin: byudjet bor, ishlatilmayapti");
+    } else if (planCpl && nowCpl && nowCpl > planCpl * 1.15) {
+      add(lvl('leads'), 'target', 'leads', `${head} Sabab: lid qimmat — rejada 1 lid $${planCpl.toFixed(2)}, hozir $${nowCpl.toFixed(2)}.`, 'Kreativ va auditoriyani yangilash kerak — shu pulga ko\'proq lid olish uchun');
+    } else {
+      add(lvl('leads'), 'target', 'leads', head, "Byudjetni oshirish yoki yangi reklama kanalini qo'shish kerak");
+    }
+  }
+  if (behind('sales')) {
+    const head = `${auto ? 'Xarid' : 'Sotuv'} rejadan orqada: ${fmt(m.sales.fact)} / ${fmt(m.sales.plan)} (kutilgan ${fmt(m.sales.expected)}). Kuniga ${fmt(Math.ceil(need.sales || 0))} ta kerak.`;
+    if (!auto && m.leads?.plan && !behind('leads')) {
+      const planConv = m.sales.plan / m.leads.plan;
+      const nowConv = m.leads.fact ? m.sales.fact / m.leads.fact : 0;
+      add(lvl('sales'), 'sales', 'sales', `${head} Lid yetarli — sabab sotuvda: konversiya rejada ${pct(planConv)}, hozir ${pct(nowConv)}.`, "Sotuv bo'limi rahbari bilan gaplashish: qo'ng'iroq tezligi, skript, potensial lidlarga qayta qo'ng'iroq");
+    } else if (!auto && behind('leads')) {
+      add(lvl('sales'), 'target', 'sales', `${head} Sabab: lid kam (yuqoriga qarang).`, 'Avval lid sonini tiklash kerak');
+    } else if (auto && b?.plan) {
+      const planCac = b.plan / m.sales.plan;
+      const nowCac = m.sales.fact ? b.fact / m.sales.fact : null;
+      add(lvl('sales'), nowCac && nowCac > planCac * 1.15 ? 'target' : 'director', 'sales',
+        `${head}${nowCac ? ` 1 xarid narxi rejada $${planCac.toFixed(2)}, hozir $${nowCac.toFixed(2)}.` : ''}`,
+        nowCac && nowCac > planCac * 1.15 ? 'Reklama qimmatlashgan — kreativni yangilash kerak' : "Bot ssenariysi va to'lov sahifasini tekshirish kerak");
+    } else {
+      add(lvl('sales'), 'sales', 'sales', head, "Sotuv bo'limi bilan gaplashish kerak");
+    }
+  }
+  if (behind('revenue') && !behind('sales') && m.sales?.plan) {
+    const planCheck = m.revenue.plan / m.sales.plan;
+    const nowCheck = m.sales.fact ? m.revenue.fact / m.sales.fact : 0;
+    add(lvl('revenue'), 'director', 'revenue', `Tushum rejadan orqada: ${mln(m.revenue.fact)} / ${mln(m.revenue.plan)} so'm. Sotuv soni rejada, lekin o'rtacha chek kichik: rejada ${mln(planCheck)}, hozir ${mln(nowCheck)} so'm.`, 'Chegirmalar va arzon tariflarni tekshirish kerak');
+  } else if (behind('revenue') && !alerts.length) {
+    add(lvl('revenue'), 'director', 'revenue', `Tushum rejadan orqada: ${mln(m.revenue.fact)} / ${mln(m.revenue.plan)} so'm. Kuniga ${mln(need.revenue || 0)} so'm kerak.`, 'Sotuvni tezlashtirish kerak');
+  }
+  if (b?.plan && b.status === 'over') {
+    add('warning', 'target', 'budget', `Byudjet tez sarflanyapti: shu sur'atda oy oxirigacha ${usd(b.forecast)} ketadi (reja ${usd(b.plan)}).`, `Kunlik byudjetni ${usd(need.budget || 0)} ga tushirish kerak`);
+  }
+  return { alerts, need, remaining };
 }
 
 // ---------- Loyiha holati (7 kun) va byudjet taqsimoti ----------
@@ -381,7 +443,6 @@ export const ADVICE_WHO = { target: 'Targetolog', sales: "Sotuv bo'limi", direct
 export function dailyAdvice(date, day, week) {
   const { rows } = loadRows(addDays(date, -6), date);
   const plan = day.plan;
-  const remaining = plan.days - plan.elapsed;
   const rank = (k) => STATUS_ORDER.indexOf(k);
   const out = {};
   for (const p of day.byProject) {
@@ -410,11 +471,9 @@ export function dailyAdvice(date, day, week) {
       add('target', `Lidlarning ${pct0(p.unqualified_share)} sifatsiz (${fmt(p.unqualified)} ta)${badTop ? ` · asosiy sabab — «${badTop.label}»` : ''}`,
         "Targetolog bilan auditoriyani qayta sozlash kerak — reklama noto'g'ri odamlarga ketyapti", 'creative');
     }
-    const pl = plan.items.find((i) => i.project_id === p.id)?.metrics.leads;
-    if (!auto && pl?.plan && plan.elapsed >= 5 && remaining > 0 && ['behind', 'risk'].includes(pl.status) && p.reported.leads) {
-      const need = Math.ceil((pl.plan - pl.fact) / remaining);
-      if (p.leads < need) add('target', `Lid rejadan orqada: kuniga ${fmt(need)} ta kerak, bugun ${fmt(p.leads)} ta`, "Byudjetni oshirish yoki yangi reklama kanalini qo'shish kerak", 'needs_leads');
-    }
+    // Oylik reja: orqada qolgan bo'lsa — sababi bilan
+    const pi = plan.items.find((i) => i.project_id === p.id);
+    for (const a of (pi?.alerts || []).slice(0, 2)) add(a.who, `📅 ${a.text}`, a.fix, a.metric === 'leads' ? 'needs_leads' : a.metric === 'sales' ? 'sales_issue' : null);
 
     // Sotuv: konversiya, potensial lidlar
     const salesIn = p.reported.sales > 0;

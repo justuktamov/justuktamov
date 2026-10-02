@@ -95,13 +95,17 @@ export function generateDemo(end, days = 45) {
     const dim = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
     const round = (x, step) => Math.round(x / step) * step;
     const sk = PLAN_SALES_K[i] || PLAN_K[i];
-    plans.push({
-      project_id: id, month,
-      budget: round(perDay('spend') * dim * 0.95, 50),
-      leads: auto ? null : round(perDay('leads') * dim * PLAN_K[i], 10),
-      sales: round(perDay('sales') * dim * sk, 5),
-      revenue: round(perDay('revenue') * dim * sk, 1_000_000),
-    });
+    // Joriy va o'tgan oy rejasi (o'tgan oyda «nega orqada» ogohlantirishlari ko'rinadi)
+    const prevMonth = addDays(`${month}-01`, -1).slice(0, 7);
+    for (const [mo, d] of [[month, dim], [prevMonth, new Date(Date.UTC(Number(prevMonth.slice(0, 4)), Number(prevMonth.slice(5, 7)), 0)).getUTCDate()]]) {
+      plans.push({
+        project_id: id, month: mo,
+        budget: round(perDay('spend') * d * 0.95, 50),
+        leads: auto ? null : round(perDay('leads') * d * PLAN_K[i], 10),
+        sales: round(perDay('sales') * d * sk, 5),
+        revenue: round(perDay('revenue') * d * sk, 1_000_000),
+      });
+    }
   });
 
   // O'tgan 3 kunlik hisobotlar — direktor javob bergan; bugungisini PM o'zi tayyorlaydi

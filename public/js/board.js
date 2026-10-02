@@ -1,7 +1,7 @@
 // Bosh sahifa — doska: har bir loyiha alohida ustun (CRM dagi kabi). Ustun bosilsa — loyihaning to'liq sahifasi.
 import {
   $, esc, api, state, shell, filtersHtml, bindFilters, computePeriod, fmtN, fmtUsd, fmtSom, fmtP,
-  spinnerBlock, downloadCsv, toast, ICONS, isStale,
+  spinnerBlock, downloadCsv, toast, ICONS, isStale, monthLabel,
 } from './core.js';
 import { signed, statusOf } from './blocks.js';
 
@@ -28,8 +28,14 @@ export async function renderBoard() {
     <span><small>Tushum</small><b>${fmtSom(t.revenue)}</b></span>
     <span><small>Sof foyda</small><b class="${t.net_profit < 0 ? 'neg' : 'pos'}">${signed(t.net_profit)}</b></span>
     <span><small>Marja</small><b>${fmtP(t.net_margin, 0)}</b></span>`;
-  box.innerHTML = `<div class="board" style="--n:${s.byProject.length}">${s.byProject.map(column).join('')}</div>`;
+  // Shu oy uchun rejasi yo'q loyihalar — eslatma
+  const missing = s.byProject.filter((p) => !s.plan.items.some((i) => i.project_id === p.id));
+  const banner = missing.length && s.plan.month === state.me.today.slice(0, 7)
+    ? `<div class="plan-banner"><span>📅</span><div><b>${monthName(s.plan.month)} uchun reja kiritilmagan:</b> ${missing.map((p) => esc(p.name)).join(', ')}.
+        <span class="muted">Reja bo'lsa, dastur orqada qolishni va uning sababini oldindan aytadi.</span></div><a class="btn small primary" href="#/sozlamalar?tab=plans">Reja kiritish</a></div>` : '';
+  box.innerHTML = `${banner}<div class="board" style="--n:${s.byProject.length}">${s.byProject.map((p) => column(p, s.plan)).join('')}</div>`;
   box.querySelector('.board').addEventListener('click', (e) => {
+    if (e.target.closest('a')) return; // ichidagi havola (Reja kiritish) o'zi ishlasin
     const col = e.target.closest('[data-open]');
     if (col) location.hash = `#/loyiha/${col.dataset.open}`;
   });
@@ -39,7 +45,23 @@ export async function renderBoard() {
   });
 }
 
-function column(p) {
+const monthName = (m) => { const n = monthLabel(m).split(' ')[0]; return n[0].toUpperCase() + n.slice(1); };
+const PLAN_ROWS = [['revenue', 'Tushum'], ['sales', 'Sotuv'], ['leads', 'Lid']];
+
+function planTile(p, plan) {
+  const pi = plan.items.find((i) => i.project_id === p.id);
+  if (!pi) return `<div class="tile"><small>Oylik reja</small><p class="why">Kiritilmagan</p><a class="btn small" href="#/sozlamalar?tab=plans">Reja kiritish</a></div>`;
+  const rows = PLAN_ROWS.filter(([k]) => pi.metrics[k]?.plan).map(([k, l]) => {
+    const m = pi.metrics[k];
+    const st = m.status === 'behind' ? 'crit' : m.status === 'risk' ? 'warn' : 'good';
+    return `<div class="pm-row"><span>${l}</span><i class="pm-track"><i class="pm-fill ${st}" style="width:${Math.min(m.pct * 100, 100)}%"></i><i class="pm-mark" style="left:${Math.min(m.expected_pct * 100, 100)}%"></i></i><b>${fmtP(m.pct, 0)}</b></div>`;
+  }).join('');
+  const a = pi.alerts[0];
+  return `<div class="tile"><small>Oylik reja · ${plan.elapsed}/${plan.days} kun</small>${rows}
+    ${a ? `<p class="plan-warn ${a.level}">${esc(a.text)}</p>` : plan.elapsed >= 5 ? '<p class="plan-ok">✓ Reja bo\'yicha</p>' : '<p class="why">Oy boshi — xulosa 5-kundan</p>'}</div>`;
+}
+
+function column(p, plan) {
   const [cls, label] = statusOf(p);
   const auto = p.kind === 'auto';
   const issue = p.insights.find((i) => i.level === 'critical') || p.insights.find((i) => i.level === 'warning');
@@ -68,6 +90,7 @@ function column(p) {
         <div class="kv"><span>Sifatsiz</span><b>${fmtP(p.unqualified_share, 0)}</b></div>
         ${badTop ? `<p class="why">Nega: «${esc(badTop.label)}» — ${fmtP(badTop.share, 0)}</p>` : ''}` : '<p class="why">Kiritilmagan</p>'}
     </div>`}
+    ${planTile(p, plan)}
     ${issue ? `<div class="tile issue ${issue.level}"><small>${issue.level === 'critical' ? 'Muhim' : 'Diqqat'}</small><p>${esc(issue.text)}</p></div>` : ''}
     ${p.price ? `<div class="tile price-tile"><small>Narx</small><p><b>${{ up: '↑', down: '↓', keep: '=', cost: '!' }[p.price.verdict]}</b> ${esc(p.price.title)}</p></div>` : ''}
     <div class="col-foot">Batafsil →</div>

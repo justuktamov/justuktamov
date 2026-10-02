@@ -139,18 +139,28 @@ const planVal = (k, x) => (k === 'revenue' ? fmtSom(x) : k === 'budget' ? fmtUsd
 
 export function planCard(plan, cls = 'card mt') {
   const head = `<div class="card-head"><h2>Oylik reja</h2><span class="muted">${monthLabel(plan.month)} · ${plan.elapsed}/${plan.days} kun</span></div>`;
-  if (!plan.hasPlans) return `<div class="${cls}">${head}<div class="plan-empty"><span>Bu oyga reja yo'q</span><a class="btn small" href="#/sozlamalar?tab=plans">Reja kiritish</a></div></div>`;
-  const src = plan.items.length === 1 ? plan.items[0].metrics : plan.total;
+  if (!plan.hasPlans) return `<div class="${cls}">${head}<div class="plan-empty"><span>Bu oyga reja kiritilmagan. Reja bo'lsa, dastur orqada qolganingizni va sababini aytib turadi.</span><a class="btn small primary" href="#/sozlamalar?tab=plans">Reja kiritish</a></div></div>`;
+  const one = plan.items.length === 1 ? plan.items[0] : null;
+  const src = one ? one.metrics : plan.total;
+  const alerts = one ? one.alerts : [];
+  const need = one ? one.need : null;
+  const needLine = need && one.remaining > 0 && plan.elapsed >= 1
+    ? [['leads', (x) => `${fmtN(Math.ceil(x))} lid`], ['sales', (x) => `${fmtN(Math.ceil(x))} ${one.kind === 'auto' ? 'xarid' : 'sotuv'}`], ['revenue', (x) => fmtSom(x)], ['budget', (x) => `${fmtUsd(x, 0)} reklama`]]
+      .filter(([k]) => need[k] != null).map(([k, f]) => f(need[k])) : [];
   return `<div class="${cls}">${head}<div class="plans">${['revenue', 'sales', 'leads', 'budget'].filter((k) => src[k]?.plan).map((k) => {
     const m = src[k];
-    const [cls, label] = PLAN_STATUS[m.status] || ['', ''];
+    const [pcls, label] = PLAN_STATUS[m.status] || ['', ''];
     const fill = ['ahead', 'ok', 'early'].includes(m.status) ? '' : m.status;
     return `<div class="pbar">
       <div class="pbar-top"><b>${PLAN_LABEL[k]}</b><span class="pbar-nums">${planVal(k, m.fact)} / ${planVal(k, m.plan)} · <b>${fmtP(m.pct, 0)}</b></span></div>
       <div class="ptrack"><div class="pfill ${fill}" style="width:${Math.min(m.pct * 100, 100)}%"></div>
         <div class="pmark" style="left:calc(${Math.min(m.expected_pct * 100, 100)}% - 1px)" title="Bugungacha kutilgan: ${fmtP(m.expected_pct, 0)}"></div></div>
-      <div class="pfoot"><span class="pill ${cls}">${label}</span><span>Prognoz: ${planVal(k, m.forecast)} (${fmtP(m.forecast_pct, 0)})</span></div>
+      <div class="pfoot"><span class="pill ${pcls}">${label}</span><span>Prognoz: ${planVal(k, m.forecast)} (${fmtP(m.forecast_pct, 0)})</span></div>
     </div>`;
-  }).join('')}</div></div>`;
+  }).join('')}</div>
+  ${needLine.length ? `<p class="need-line">Rejaga yetish uchun qolgan ${one.remaining} kunda <b>kuniga</b>: ${needLine.join(' · ')}</p>` : ''}
+  ${alerts.length ? `<h4>Nega orqada</h4><div class="plan-alerts">${alerts.map((a) => `<div class="insight ${a.level}"><span class="ic">${a.level === 'critical' ? 'Orqada' : 'Xavf'}</span><span>${esc(a.text)}<br><b>Nima qilish kerak:</b> ${esc(a.fix)}</span></div>`).join('')}</div>`
+    : one && plan.elapsed >= 5 ? '<p class="ok-line" style="margin-top:10px">✓ Reja bo\'yicha ketyapti</p>' : ''}
+</div>`;
 }
 
