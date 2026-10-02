@@ -1,6 +1,6 @@
 // Proekt menejerning kunlik ishi — 4 qadam: target raqamlari → sotuv raqamlari → tekshirish → direktorga yuborish
 import {
-  $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtUzs, fmtP, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, shortDate, copyText, dateButton, openCalendar,
+  $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtUzs, fmtSom, fmtP, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, shortDate, copyText, dateButton, openCalendar,
 } from './core.js';
 
 const STATUS_PILL = { unprofitable: 'crit', sales_issue: 'crit', creative: 'warn', needs_leads: 'info', scale: 'lime', good: 'good', nodata: '' };
@@ -164,8 +164,8 @@ export async function renderToday() {
           ${empty ? `<div class="nodata">Bugungi raqamlar hali kiritilmagan. <button type="button" class="btn small" data-step-go="target">Kiritish</button></div>` : `
           <div class="mini">
             <div><small>Reklama</small><b>${fmtUsd(p.spend, 0)}</b></div>
-            <div><small>Tushum</small><b>${revIn ? fmtUzs(p.revenue) : '—'}</b></div>
-            ${revIn ? `<div><small>${p.net_profit < 0 ? 'Zarar' : 'Sof foyda'}</small><b class="${p.net_profit < 0 ? 'neg' : 'pos'}">${fmtUzs(p.net_profit)}</b></div>` : '<div><small>Sof foyda</small><b class="muted" title="Tushum kiritilmagan">—</b></div>'}
+            <div><small>Tushum</small><b>${revIn ? fmtSom(p.revenue) : '—'}</b></div>
+            ${revIn ? `<div><small>${p.net_profit < 0 ? 'Zarar' : 'Sof foyda'}</small><b class="${p.net_profit < 0 ? 'neg' : 'pos'}">${fmtSom(p.net_profit)}</b></div>` : '<div><small>Sof foyda</small><b class="muted" title="Tushum kiritilmagan">—</b></div>'}
             <div title="${esc(p.conv_label)}"><small>Konversiya</small><b>${p.reported.sales ? fmtP(p.conv) : '—'}</b></div>
           </div>
           ${issues.length ? `<ul class="problems">${issues.slice(0, 3).map((x) => `<li><span class="who ${x.who}">${WHO_SHORT[x.who] || ''}</span><span>${esc(x.text)}</span></li>`).join('')}</ul>`
@@ -207,7 +207,7 @@ export async function renderToday() {
       <h2>${date === state.me.today ? 'Bugungi hisobot yuborildi' : 'Hisobot yuborilgan'}</h2>
       <p class="muted">${String(report.submitted_at || '').slice(11, 16)} da yuborildi${report.status === 'reviewed' ? ' · direktor javob berdi' : ' · direktor javobini kutyapmiz'}</p>
       ${report.director_comment ? `<div class="reply-banner" style="text-align:left"><span class="eyebrow">Direktor yechimi</span><p>${esc(report.director_comment).replace(/\n/g, '<br>')}</p></div>` : ''}
-      <div class="nums big-nums"><span><b>${fmtUsd(t.spend, 0)}</b>xarajat</span><span><b>${fmtUzs(t.net_profit)}</b>sof foyda</span><span><b>${fmtN(t.leads)}</b>lid</span><span><b>${fmtN(t.sales)}</b>sotuv</span><span><b>${fmtUzs(t.revenue)}</b>tushum</span></div>
+      <div class="nums big-nums"><span><b>${fmtUsd(t.spend, 0)}</b>xarajat</span><span><b>${fmtSom(t.net_profit)}</b>sof foyda</span><span><b>${fmtN(t.leads)}</b>lid</span><span><b>${fmtN(t.sales)}</b>sotuv</span><span><b>${fmtUzs(t.revenue)}</b>tushum</span></div>
       <div class="row" style="justify-content:center"><button class="btn" data-step-go="send">Xabarni ko'rish</button><button class="btn ghost" data-step-go="target">Raqamlarni o'zgartirish</button></div>
       <p class="small muted">Ertaga shu yerda yangi hisobot boshlanadi.</p>
     </section>`;

@@ -1,6 +1,6 @@
 // Bosh sahifa — doska: har bir loyiha alohida ustun (CRM dagi kabi). Ustun bosilsa — loyihaning to'liq sahifasi.
 import {
-  $, esc, api, state, shell, filtersHtml, bindFilters, computePeriod, fmtN, fmtUsd, fmtUzs, fmtP,
+  $, esc, api, state, shell, filtersHtml, bindFilters, computePeriod, fmtN, fmtUsd, fmtSom, fmtP,
   spinnerBlock, downloadCsv, toast, ICONS, isStale,
 } from './core.js';
 import { signed, statusOf } from './blocks.js';
@@ -25,7 +25,7 @@ export async function renderBoard() {
   const t = s.totals;
   $('#totals').innerHTML = `
     <span><small>Reklama</small><b>${fmtUsd(t.spend, 0)}</b></span>
-    <span><small>Tushum</small><b>${fmtUzs(t.revenue)}</b></span>
+    <span><small>Tushum</small><b>${fmtSom(t.revenue)}</b></span>
     <span><small>Sof foyda</small><b class="${t.net_profit < 0 ? 'neg' : 'pos'}">${signed(t.net_profit)}</b></span>
     <span><small>Marja</small><b>${fmtP(t.net_margin, 0)}</b></span>`;
   box.innerHTML = `<div class="board" style="--n:${s.byProject.length}">${s.byProject.map(column).join('')}</div>`;
@@ -53,7 +53,7 @@ function column(p) {
     <div class="tile money">
       <small>Sof foyda</small>
       <b class="big ${p.net_profit < 0 ? 'neg' : 'pos'}">${signed(p.net_profit)}</b>
-      <div class="kv"><span>Tushum</span><b>${fmtUzs(p.revenue)}</b></div>
+      <div class="kv"><span>Tushum</span><b>${fmtSom(p.revenue)}</b></div>
       <div class="kv"><span>Reklama</span><b>${fmtUsd(p.spend, 0)}</b></div>
       <div class="kv"><span>Marja</span><b>${fmtP(p.net_margin, 0)}</b></div>
     </div>

@@ -1,10 +1,11 @@
 // Loyiha ma'lumoti bloklari: pul, voronka, lid sifati, sabablar, narx, xulosa, jadval, grafik, reja
 import {
-  esc, state, fmtN, fmtUsd, fmtUzs, fmtP, cssVar, chartBase, groupSeries, monthLabel, shortDate,
+  esc, state, fmtN, fmtUsd, fmtUzs, fmtSom, fmtP, cssVar, chartBase, groupSeries, monthLabel, shortDate,
 } from './core.js';
 
 export const dot = (c) => `<span class="dot" style="--dc:${esc(c || 'var(--series-1)')}"></span>`;
-export const signed = (x) => (x > 0 ? `+${fmtUzs(x)}` : fmtUzs(x));
+// unit=false — so'm yonida alohida yozilganda (masalan, KPI kartasida)
+export const signed = (x, unit = true) => (x == null ? '—' : `${x > 0 ? '+' : ''}${fmtUzs(x)}${unit ? " so'm" : ''}`);
 const LEVEL = { critical: ['crit', 'Muhim'], warning: ['warn', 'Diqqat'], info: ['info', "Ma'lumot"], good: ['good', 'Yaxshi'] };
 
 // Loyiha holati bitta so'z bilan: eng jiddiy xulosa bo'yicha
@@ -18,7 +19,7 @@ export function statusOf(p) {
 export function moneyBlock(p) {
   const base = Math.max(p.revenue, p.costs, 1);
   const row = (label, v, cls = '', bar = true) => `<div class="wf ${cls}"><span>${label}</span>
-    ${bar ? `<i style="width:${Math.min(Math.abs(v) / base * 100, 100)}%"></i>` : '<i class="none"></i>'}<b>${fmtUzs(v)}</b><em>${p.revenue ? fmtP(v / p.revenue, 0) : ''}</em></div>`;
+    ${bar ? `<i style="width:${Math.min(Math.abs(v) / base * 100, 100)}%"></i>` : '<i class="none"></i>'}<b>${fmtSom(v)}</b><em>${p.revenue ? fmtP(v / p.revenue, 0) : ''}</em></div>`;
   const noCosts = p.var_cost_pct == null && p.fixed_monthly == null;
   return `<div class="sub-card"><h3>Pul</h3>
     ${row('Tushum', p.revenue, 'in')}
@@ -43,7 +44,7 @@ export function funnelBlock(p) {
       <span><small>${p.unit_label}</small><b>${fmtUsd(p.unit_cost)}</b></span>
       ${p.kind === 'auto' ? '' : `<span><small>1 sifatli lid</small><b>${fmtUsd(p.cost_per_qualified)}</b></span>`}
       <span><small>1 mijoz narxi</small><b>${fmtUsd(p.cac)}</b></span>
-      <span><small>O'rtacha chek</small><b>${fmtUzs(p.avg_check)}</b></span>
+      <span><small>O'rtacha chek</small><b>${fmtSom(p.avg_check)}</b></span>
     </div></div>`;
 }
 
@@ -80,9 +81,9 @@ export function priceBlock(p) {
   return `<div class="sub-card"><h3>Narx</h3>
     <div class="price ${cls}"><span class="pi">${PRICE_ICON[a.verdict]}</span><div><b>${esc(a.title)}</b><p>${esc(a.text)}</p></div></div>
     <div class="unit">
-      <span><small>O'rtacha chek</small><b>${fmtUzs(a.avg_check)}</b></span>
+      <span><small>O'rtacha chek</small><b>${fmtSom(a.avg_check)}</b></span>
       <span><small>1 sotuvdan sof foyda</small><b class="${a.profit_per_sale < 0 ? 'neg' : 'pos'}">${signed(a.profit_per_sale)}</b></span>
-      <span><small>Zararsizlik narxi</small><b>${fmtUzs(a.breakeven)}</b></span>
+      <span><small>Zararsizlik narxi</small><b>${fmtSom(a.breakeven)}</b></span>
     </div></div>`;
 }
 
@@ -105,7 +106,7 @@ export function dailyTable(p) {
   return `<div class="table-wrap"><table><thead><tr><th>Sana</th><th class="n">Reklama</th><th class="n">Klik</th>${auto ? '<th class="n">Start</th>' : '<th class="n">Lid</th><th class="n">Sifatli</th>'}<th class="n">Sotuv</th><th class="n">Tushum</th><th class="n">Xarajat</th><th class="n">Sof foyda</th></tr></thead>
     <tbody>${rows.map((r) => `<tr><td>${shortDate(r.date)}</td><td class="n">${fmtUsd(r.spend, 0)}</td><td class="n">${fmtN(r.clicks)}</td>
       ${auto ? `<td class="n">${fmtN(r.starts)}</td>` : `<td class="n">${fmtN(r.leads)}</td><td class="n">${fmtN(r.qualified)}</td>`}
-      <td class="n">${fmtN(r.sales)}</td><td class="n">${fmtUzs(r.revenue)}</td><td class="n">${fmtUzs(r.costs)}</td><td class="n ${r.net < 0 ? 'neg' : 'pos'}">${signed(r.net)}</td></tr>`).join('')}</tbody></table></div>`;
+      <td class="n">${fmtN(r.sales)}</td><td class="n">${fmtSom(r.revenue)}</td><td class="n">${fmtSom(r.costs)}</td><td class="n ${r.net < 0 ? 'neg' : 'pos'}">${signed(r.net)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
 // ---------- Grafik: har kungi tushum va barcha xarajat (bir o'q — ikkalasi ham so'mda) ----------
@@ -113,7 +114,7 @@ export function drawFlow(el, series, key) {
   if (!el || !window.Chart) return;
   const base = chartBase();
   const { labels, rows } = groupSeries(series, ['revenue', 'costs', 'net']);
-  const mlnTick = (v) => (Math.abs(v) >= 1e6 ? `${(v / 1e6).toFixed(0)} mln` : v);
+  const mlnTick = (v) => (Math.abs(v) >= 1e6 ? `${(v / 1e6).toFixed(0)} mln so'm` : `${v} so'm`);
   const chart = new Chart(el, {
     type: 'bar',
     data: { labels, datasets: [
@@ -123,7 +124,7 @@ export function drawFlow(el, series, key) {
     options: { ...base,
       plugins: { ...base.plugins, tooltip: { ...base.plugins.tooltip, callbacks: {
         label: (c) => ` ${c.dataset.label}: ${fmtUzs(c.raw)} so'm`,
-        footer: (items) => { const r = rows[items[0].dataIndex]; return `Sof foyda: ${signed(r.revenue - r.costs)} so'm`; },
+        footer: (items) => { const r = rows[items[0].dataIndex]; return `Sof foyda: ${signed(r.revenue - r.costs)}`; },
       } } },
       scales: { ...base.scales, y: { ...base.scales.y, ticks: { ...base.scales.y.ticks, callback: mlnTick } } } },
   });
@@ -134,7 +135,7 @@ export function drawFlow(el, series, key) {
 // ---------- Oylik reja ----------
 const PLAN_LABEL = { revenue: 'Tushum', sales: 'Sotuvlar', leads: 'Lidlar', budget: 'Reklama byudjeti' };
 const PLAN_STATUS = { early: ['info', 'Oy boshi'], ahead: ['good', "Reja bo'yicha"], risk: ['warn', 'Xavf ostida'], behind: ['crit', 'Orqada'], ok: ['good', "Me'yorida"], over: ['warn', 'Tez sarflanyapti'] };
-const planVal = (k, x) => (k === 'revenue' ? fmtUzs(x) : k === 'budget' ? fmtUsd(x, 0) : fmtN(x));
+const planVal = (k, x) => (k === 'revenue' ? fmtSom(x) : k === 'budget' ? fmtUsd(x, 0) : fmtN(x));
 
 export function planCard(plan, cls = 'card mt') {
   const head = `<div class="card-head"><h2>Oylik reja</h2><span class="muted">${monthLabel(plan.month)} · ${plan.elapsed}/${plan.days} kun</span></div>`;
