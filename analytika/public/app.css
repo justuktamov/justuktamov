@@ -25,7 +25,7 @@
   --brand-ink: var(--accent-ink);
   --brand-soft: var(--accent-soft);
   --series-1: #4c86ff;
-  --series-2: #ff7a45;
+  --series-2: #e8642d;
   --series-3: #36c98e;
   --series-4: #f3b52c;
   --good: #7ee08a; --good-bg: rgba(126, 224, 138, .13);
@@ -464,3 +464,93 @@ details.extra[open] > summary { margin-bottom: 8px; }
 }
 .note-parts { display: flex; flex-wrap: wrap; gap: 4px 14px; }
 .who.director { background: var(--blue-soft); color: var(--text); }
+
+/* ---------- Loyihalar: yig'iladigan ro'yxat ---------- */
+.mb { margin-bottom: 16px; }
+.neg { color: var(--crit); }
+.pos { color: var(--good); }
+.insight.critical { background: var(--crit-bg); } .insight.critical .ic { color: var(--crit); background: var(--crit-bg); }
+.chart-box.short { height: 200px; }
+.proj-list { display: grid; gap: 10px; }
+.proj { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); backdrop-filter: var(--blur); overflow: hidden; }
+.proj.open { border-color: var(--border-strong); }
+.proj-head { width: 100%; display: grid; grid-template-columns: minmax(170px, 1.4fr) repeat(5, minmax(0, 1fr)) auto 22px; align-items: center; gap: 12px;
+  padding: 14px 18px; background: transparent; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.proj-head:hover { background: var(--surface-2); }
+.proj-name { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.proj-name b { font-size: 16px; }
+.proj-name small { color: var(--text-3); font-size: 11.5px; font-weight: 600; flex-basis: 100%; padding-left: 18px; margin-top: -4px; }
+.proj-m { display: grid; gap: 1px; min-width: 0; }
+.proj-m small { font-size: 11px; color: var(--text-3); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proj-m b { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chev { font-size: 18px; color: var(--text-3); transition: transform .2s; justify-self: end; line-height: 1; }
+.proj.open .chev { transform: rotate(180deg); }
+.proj-body:empty { display: none; }
+.proj-body { padding: 4px 18px 18px; display: grid; gap: 12px; border-top: 1px solid var(--border); padding-top: 16px; }
+.proj-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.sub-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; min-width: 0; }
+.sub-card h3 { font-size: 14px; margin: 0 0 10px; }
+.sub-card h4 { font-size: 12.5px; margin: 14px 0 8px; color: var(--text-2); }
+.sub-card .card-head h3 { margin: 0; }
+details.sub-card > summary { cursor: pointer; }
+details.sub-card[open] > summary { margin-bottom: 10px; }
+/* Pul: tushumdan sof foydagacha */
+.wf { display: grid; grid-template-columns: 118px minmax(0, 1fr) auto 38px; align-items: center; gap: 8px; font-size: 13px; padding: 3px 0; }
+.wf > span { color: var(--text-2); }
+.wf > i { height: 8px; border-radius: 4px; background: var(--series-2); opacity: .85; }
+.wf.in > i { background: var(--series-1); }
+.wf > i.none { background: none; }
+.wf > b { font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; }
+.wf > em { font-style: normal; color: var(--text-3); text-align: right; font-size: 12px; }
+.wf.pos > b, .wf.pos > span { color: var(--good); } .wf.neg > b, .wf.neg > span { color: var(--crit); }
+.wf.total { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 7px; font-weight: 700; font-size: 14px; }
+/* Voronka va sabablar — bitta rang (miqdor) */
+.fn, .rb { display: grid; gap: 6px; }
+.fn-row, .rb-row { display: grid; grid-template-columns: 82px minmax(0, 1fr) auto 50px; align-items: center; gap: 8px; font-size: 13px; }
+.rb-row { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 40px; }
+.fn-row > span, .rb-row > span { color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fn-row > i, .rb-row > i { height: 8px; border-radius: 4px; background: var(--series-1); }
+.fn-row > b, .rb-row > b { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.fn-row > em { font-style: normal; color: var(--text-3); font-size: 12px; text-align: right; }
+.unit { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.unit span { display: grid; gap: 1px; }
+.unit small { font-size: 11px; color: var(--text-3); font-weight: 600; }
+.unit b { font-size: 14.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Lid sifati: sifatli / potensial / sifatsiz — holat ranglari, yozuv bilan */
+.qbar { display: flex; gap: 2px; height: 14px; border-radius: 6px; overflow: hidden; }
+.qbar i { min-width: 3px; }
+.q-good { background: var(--good); } .q-mid { background: var(--warn); } .q-bad { background: var(--crit); }
+.qlegend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 12.5px; color: var(--text-2); }
+.qlegend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; }
+/* Narx tavsiyasi */
+.price { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: start; }
+.price .pi { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; font-size: 17px; }
+.price.good .pi { background: var(--good-bg); color: var(--good); } .price.warn .pi { background: var(--warn-bg); color: var(--warn); }
+.price.info .pi { background: var(--info-bg); color: var(--info); } .price.crit .pi { background: var(--crit-bg); color: var(--crit); }
+.price p { margin: 3px 0 0; font-size: 13px; color: var(--text-2); line-height: 1.45; }
+.notes { display: grid; gap: 6px; font-size: 13px; }
+.notes > div { display: flex; flex-wrap: wrap; gap: 3px 12px; }
+@media (max-width: 1100px) {
+  .proj-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 860px) {
+  .proj-head { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 10px; padding: 13px 14px; }
+  .proj-name { grid-column: 1 / 3; }
+  .proj-head .pill { grid-column: 3; grid-row: 1; justify-self: end; }
+  .chev { display: none; }
+  .proj-body { padding: 12px; }
+  .proj-grid { grid-template-columns: minmax(0, 1fr); }
+  .wf { grid-template-columns: 104px minmax(0, 1fr) auto 34px; }
+}
+
+.tbl-title { font-size: 15px; margin: 4px 0 -6px; }
+.reasons-in { display: grid; gap: 14px; }
+.rin { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; }
+.rin > b { display: flex; align-items: center; }
+.rin-kind { display: grid; gap: 6px; }
+.rin-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.rin-grid label { display: grid; gap: 4px; font-size: 12px; color: var(--text-2); }
+.rin-grid label span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rin-grid .cell-in { width: 100%; }
+@media (max-width: 1100px) { .rin-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .rin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

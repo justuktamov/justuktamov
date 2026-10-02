@@ -1,7 +1,7 @@
 // Ilova qobig'ini keshlaydi: internet yomon bo'lsa ham tez ochiladi. API so'rovlari doim tarmoqdan.
-const CACHE = 'analytika-v7';
+const CACHE = 'analytika-v8';
 const SHELL = ['/', '/app.css', '/app.js', '/vendor/chart.js', '/manifest.webmanifest', '/icons/icon-192.png',
-  '/js/core.js', '/js/pm.js', '/js/stats.js', '/js/settings.js'];
+  '/js/core.js', '/js/pm.js', '/js/overview.js', '/js/settings.js'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

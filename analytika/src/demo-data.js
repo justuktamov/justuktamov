@@ -3,13 +3,29 @@ import { addDays } from './metrics.js';
 
 export const DEMO_USER = { name: 'Dilshod', login: 'pm', password: 'demo1234' };
 
-// [nom, CPC $, klik→lid, lid→sotuv, o'rtacha chek so'm, kunlik byudjet $]
+// [nom, CPC $, klik→lid (avtovoronkada klik→start), lid→sotuv (start→xarid), o'rtacha chek so'm, kunlik byudjet $]
 const PROJECTS = [
-  ['STARPAY', 0.12, 0.48, 0.35, 95_000, 60], // Telegram Premium va Stars: arzon chek, yuqori konversiya
+  ['STARPAY', 0.12, 1.4, 0.12, 95_000, 60], // Telegram Premium va Stars: avtovoronka, arzon chek
   ['VIZART', 0.3, 0.12, 0.06, 2_400_000, 70], // interyer/exteryer
   ['DIZIPRO', 0.2, 0.24, 0.015, 2_900_000, 70], // 3D modeling: lid ko'p, sotuv past
-  ['SELFENG', 0.25, 0.24, 0.08, 890_000, 35], // general English
+  ['SELFENG', 0.25, 0.24, 0.08, 890_000, 35], // general English: doimiy xarajat katta — zararda
 ];
+// Turi va xarajatlar: tannarx — tushumdan %, doimiy — oyiga so'm
+const MONEY = [
+  { kind: 'auto', var_cost_pct: 85, fixed_monthly: 15_000_000 },
+  { kind: 'leads', var_cost_pct: 15, fixed_monthly: 30_000_000 },
+  { kind: 'leads', var_cost_pct: 15, fixed_monthly: 25_000_000 },
+  { kind: 'leads', var_cost_pct: 15, fixed_monthly: 40_000_000 },
+];
+// «Nega?» — sabablar ulushi (ROP aytadi)
+const BAD_MIX = [null,
+  { not_target: 0.3, no_money: 0.3, no_answer: 0.2, curious: 0.2 },
+  { not_target: 0.45, curious: 0.3, age: 0.1, no_answer: 0.15 },
+  { no_answer: 0.35, not_target: 0.25, age: 0.2, curious: 0.2 }];
+const LOST_MIX = [null,
+  { expensive: 0.45, thinking: 0.2, later: 0.15, competitor: 0.1, no_trust: 0.05, other: 0.05 },
+  { thinking: 0.3, expensive: 0.2, later: 0.25, no_trust: 0.15, other: 0.1 },
+  { thinking: 0.35, later: 0.3, competitor: 0.2, expensive: 0.15 }];
 const COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100'];
 // Targetolog aytgan eng yaxshi / ishlamayotgan kreativ
 const CREATIVES = [
@@ -27,11 +43,12 @@ export function generateDemo(end, days = 45) {
   let seed = 42;
   const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   const jitter = (x, k = 0.25) => x * (1 - k + rand() * 2 * k);
-  const projects = [], daily = [], plans = [];
+  const projects = [], daily = [], plans = [], reasons = [];
 
   PROJECTS.forEach(([name, cpc, c2l, l2s, check, budget], i) => {
     const id = i + 1;
-    projects.push({ id, name, color: COLORS[i] });
+    projects.push({ id, name, color: COLORS[i], ...MONEY[i] });
+    const auto = MONEY[i].kind === 'auto';
     for (let k = days - 1; k >= 0; k--) {
       const date = addDays(end, -k);
       const today0 = k === 0;
@@ -47,16 +64,28 @@ export function generateDemo(end, days = 45) {
       const revenue = Math.round(sales * jitter(check, 0.1) / 1000) * 1000;
       const noData = today0 && i === 3;
       const noSales = today0 && i % 2 === 1;
+      const unqualified = leads - qualified - potential;
       daily.push({
         project_id: id, date,
         spend: noData ? null : spend, impressions: noData ? null : Math.round(clicks * jitter(55)), clicks: noData ? null : clicks,
         new_creatives: noData ? null : i === 1 && k < 9 ? 0 : (k + i) % 3 === 0 ? 1 : 0,
-        leads: noData ? null : leads, qualified: noData ? null : qualified, potential: noData ? null : potential, unqualified: noData ? null : leads - qualified - potential,
+        starts: auto ? leads : null,
+        leads: auto || noData ? null : leads, qualified: auto || noData ? null : qualified, potential: auto || noData ? null : potential, unqualified: auto || noData ? null : unqualified,
         sales: noSales ? null : sales, revenue: noSales ? null : revenue,
         creative_best: k > 2 || noData ? null : CREATIVES[i][0], creative_worst: k > 2 || noData ? null : CREATIVES[i][1],
         note_target: today0 && i === 1 ? "Instagramda 1 ta reklama moderatsiyadan o'tmadi" : null,
         note_sales: k === 1 && i === 2 ? "Qo'ng'iroqlarga javob bermayapti, narxni eshitib o'ylab ko'raman deyishyapti" : null,
       });
+      if (!auto && !noData) {
+        const spread = (kind, mix, total) => {
+          for (const [reason, share] of Object.entries(mix)) {
+            const c = Math.round(total * share * jitter(1, 0.3));
+            if (c > 0) reasons.push({ project_id: id, date, kind, reason, count: c });
+          }
+        };
+        spread('bad', BAD_MIX[i], unqualified);
+        if (!noSales) spread('lost', LOST_MIX[i], Math.round(Math.max(leads - unqualified - sales, 0) * 0.6));
+      }
     }
 
     // Oylik reja: oxirgi 14 kun sur'ati bo'yicha × koeffitsient
@@ -69,7 +98,7 @@ export function generateDemo(end, days = 45) {
     plans.push({
       project_id: id, month,
       budget: round(perDay('spend') * dim * 0.95, 50),
-      leads: round(perDay('leads') * dim * PLAN_K[i], 10),
+      leads: auto ? null : round(perDay('leads') * dim * PLAN_K[i], 10),
       sales: round(perDay('sales') * dim * sk, 5),
       revenue: round(perDay('revenue') * dim * sk, 1_000_000),
     });
@@ -91,5 +120,5 @@ export function generateDemo(end, days = 45) {
       director_comment: k === 1 ? "STARPAY byudjetini 20% oshiringlar. DIZIPRO bo'yicha ertaga ROP bilan uchrashamiz." : 'Qabul qilindi.',
     });
   }
-  return { projects, daily, plans, reports };
+  return { projects, daily, plans, reports, reasons };
 }

@@ -48,7 +48,7 @@ test("PM tahlili: lid narxi oshgani, sifatsiz lidlar va past sotuv aniqlanadi; d
   const b = await pm.json(`/api/report?date=${d}`);
   const adv = b.advice[p.id];
   const text = adv.problems.map((x) => x.text).join(' | ');
-  assert.match(text, /Lid narxi ko'tarildi: \$5\.00 \(odatda \$2\.00/);
+  assert.match(text, /1 lid narxi ko'tarildi: \$5\.00 \(odatda \$2\.00/);
   assert.match(text, /50% sifatsiz/);
   assert.match(text, /12 ta lid, birorta ham sotuv yo'q/);
   assert.match(text, /ROP: Javob bermayapti/);

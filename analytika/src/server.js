@@ -3,10 +3,10 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getDb, getSetting, setSetting, today, FIELDS, TEXT_FIELDS, PLAN_FIELDS } from './db.js';
+import { getDb, getSetting, setSetting, today, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS } from './db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText } from './reports.js';
 import { login, logout, userFromToken, changePassword, ensureUser, publicUser } from './auth.js';
-import { summary, loadRows, addDays, toCsv } from './metrics.js';
+import { summary, loadRows, loadReasons, addDays, toCsv } from './metrics.js';
 import { startPolling, telegramStatus, sendMessage } from './telegram.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -84,7 +84,7 @@ route('GET', '/api/me', async (req, res) => {
   const user = requireUser(req);
   const tg = telegramStatus();
   send(res, 200, {
-    user, today: today(), planFields: PLAN_FIELDS,
+    user, today: today(), planFields: PLAN_FIELDS, kinds: PROJECT_KINDS, reasons: REASONS, reasonKinds: REASON_KINDS,
     reportStatus: getDb().prepare('SELECT status FROM daily_reports WHERE date = ?').get(today())?.status || null,
     telegram: { enabled: tg.enabled, bot: tg.bot, reportChat: Boolean(getSetting('report_chat_id')) },
   });
@@ -120,10 +120,21 @@ route('GET', '/api/projects', async (req, res) => {
   requireUser(req);
   send(res, 200, getDb().prepare('SELECT * FROM projects ORDER BY active DESC, id').all());
 });
+// Moliya sozlamalari: tannarx — tushumdan % (Stars xaridi, ROP bonusi, to'lov komissiyasi), doimiy — oyiga so'm (ish haqi, ijara)
+function projectMoney(b, p = {}) {
+  const kind = b.kind === undefined ? (p.kind || 'leads') : b.kind;
+  if (!PROJECT_KINDS[kind]) throw new HttpError(400, "Loyiha turi noto'g'ri");
+  const varPct = b.var_cost_pct === undefined ? p.var_cost_pct ?? null : num(b.var_cost_pct);
+  if (varPct != null && varPct > 100) throw new HttpError(400, "Tannarx 100% dan oshmaydi");
+  const fixed = b.fixed_monthly === undefined ? p.fixed_monthly ?? null : num(b.fixed_monthly);
+  return { kind, varPct, fixed };
+}
 route('POST', '/api/projects', async (req, res) => {
   requireUser(req);
   const b = await readBody(req);
-  const info = getDb().prepare('INSERT INTO projects (name, color) VALUES (?, ?)').run(checkName(b.name), b.color || null);
+  const m = projectMoney(b);
+  const info = getDb().prepare('INSERT INTO projects (name, color, kind, var_cost_pct, fixed_monthly) VALUES (?, ?, ?, ?, ?)')
+    .run(checkName(b.name), b.color || null, m.kind, m.varPct, m.fixed);
   send(res, 201, getProject(info.lastInsertRowid));
 });
 route('PUT', '/api/projects/:id', async (req, res, { id }) => {
@@ -131,8 +142,9 @@ route('PUT', '/api/projects/:id', async (req, res, { id }) => {
   const b = await readBody(req);
   const p = getProject(id);
   if (!p) throw new HttpError(404, 'Loyiha topilmadi');
-  getDb().prepare('UPDATE projects SET name = ?, color = ?, active = ? WHERE id = ?')
-    .run(b.name === undefined ? p.name : checkName(b.name, id), b.color ?? p.color, b.active === undefined ? p.active : (b.active ? 1 : 0), id);
+  const m = projectMoney(b, p);
+  getDb().prepare('UPDATE projects SET name = ?, color = ?, kind = ?, var_cost_pct = ?, fixed_monthly = ?, active = ? WHERE id = ?')
+    .run(b.name === undefined ? p.name : checkName(b.name, id), b.color ?? p.color, m.kind, m.varPct, m.fixed, b.active === undefined ? p.active : (b.active ? 1 : 0), id);
   send(res, 200, getProject(id));
 });
 
@@ -142,12 +154,14 @@ route('GET', '/api/daily', async (req, res, _p, q) => {
   const date = isDate(q.get('date')) ? q.get('date') : today();
   const { projects, rows } = loadRows(date, date);
   const { rows: prevRows } = loadRows(addDays(date, -1), addDays(date, -1));
+  const reasons = loadReasons(date, date);
   send(res, 200, {
     date,
     projects: projects.map((p) => ({
-      id: p.id, name: p.name, color: p.color,
+      id: p.id, name: p.name, color: p.color, kind: p.kind || 'leads',
       row: rows.find((r) => r.project_id === p.id) || {},
       prev: prevRows.find((r) => r.project_id === p.id) || {},
+      reasons: reasons[p.id] || { bad: {}, lost: {} },
     })),
   });
 });
@@ -166,9 +180,29 @@ route('PUT', '/api/daily', async (req, res) => {
     const v = FIELDS[field] ? num(raw) : (String(raw ?? '').trim().slice(0, 500) || null);
     if ((old[field] ?? null) !== v) changes.push([field, v]);
   }
-  db.prepare('INSERT OR IGNORE INTO daily (project_id, date) VALUES (?, ?)').run(p.id, b.date);
-  for (const [field, v] of changes) {
-    db.prepare(`UPDATE daily SET ${field} = ?, updated_at = datetime('now') WHERE project_id = ? AND date = ?`).run(v, p.id, b.date);
+  // Sabablar: { bad: {not_target: 5}, lost: {expensive: 3} } — bo'sh qiymat o'chiradi
+  const reasons = [];
+  for (const [kind, map] of Object.entries(b.reasons || {})) {
+    if (!REASONS[kind]) throw new HttpError(400, `Noma'lum sabab turi: ${kind}`);
+    for (const [reason, raw] of Object.entries(map || {})) {
+      if (!REASONS[kind][reason]) throw new HttpError(400, `Noma'lum sabab: ${reason}`);
+      reasons.push([kind, reason, num(raw)]);
+    }
+  }
+  db.exec('BEGIN');
+  try {
+    db.prepare('INSERT OR IGNORE INTO daily (project_id, date) VALUES (?, ?)').run(p.id, b.date);
+    for (const [field, v] of changes) {
+      db.prepare(`UPDATE daily SET ${field} = ?, updated_at = datetime('now') WHERE project_id = ? AND date = ?`).run(v, p.id, b.date);
+    }
+    for (const [kind, reason, c] of reasons) {
+      if (!c) db.prepare('DELETE FROM reasons WHERE project_id = ? AND date = ? AND kind = ? AND reason = ?').run(p.id, b.date, kind, reason);
+      else db.prepare('INSERT INTO reasons (project_id, date, kind, reason, count) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO UPDATE SET count = excluded.count').run(p.id, b.date, kind, reason, Math.round(c));
+    }
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
   }
   send(res, 200, { ok: true, changed: changes.length });
 });
