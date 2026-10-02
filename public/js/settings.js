@@ -31,22 +31,32 @@ const kindSelect = (v, attrs = '') => selectHtml(Object.entries(state.me.kinds),
 
 async function tabProjects(body) {
   await reloadProjects();
-  body.innerHTML = `<div class="card">
-    <div class="card-head"><h2>Loyihalar</h2></div>
-    <p class="small muted" style="margin:0 0 12px;max-width:80ch"><b>Tannarx</b> — tushumdan foizda ketadigan xarajat (Stars/Premium xaridi, ROP bonusi, to'lov komissiyasi).
-      <b>Doimiy xarajat</b> — oyiga so'mda (ish haqi, ijara, mentorlar). Shu ikkisidan <b>sof foyda</b> hisoblanadi.
-      <b>Avtovoronka</b> — odam botga kirib o'zi sotib oladi: lid kuzatilmaydi, faqat klik, bot start va xarid.</p>
-    <div class="table-wrap"><table><thead><tr><th>Loyiha</th><th>Rang</th><th>Turi</th><th>Tannarx, %</th><th>Doimiy xarajat, so'm/oy</th><th>Holat</th><th></th></tr></thead><tbody>
-    ${state.projects.map((p) => `<tr data-id="${p.id}">
-      <td><input data-f="name" value="${esc(p.name)}" style="min-width:130px" aria-label="Nomi"></td>
-      <td>${colorHtml(p.color || '#2a78d6', 'data-f="color"')}</td>
-      <td>${kindSelect(p.kind, 'data-f="kind" aria-label="Turi"')}</td>
-      <td><input data-f="var_cost_pct" inputmode="decimal" value="${p.var_cost_pct ?? ''}" placeholder="0" style="width:80px" aria-label="Tannarx foizi"></td>
-      <td><input data-f="fixed_monthly" inputmode="decimal" value="${p.fixed_monthly ?? ''}" placeholder="0" style="width:140px" aria-label="Doimiy xarajat"></td>
-      <td>${p.active ? '<span class="pill good">Faol</span>' : '<span class="pill">Arxivda</span>'}</td>
-      <td class="row" style="flex-wrap:nowrap"><button class="btn small" data-a="save">Saqlash</button><button class="btn small ghost" data-a="toggle">${p.active ? 'Arxivlash' : 'Tiklash'}</button></td></tr>`).join('') || '<tr><td colspan="7" class="empty">Loyiha yo\'q</td></tr>'}
-    </tbody></table></div>
-    <p class="small muted" style="margin:10px 0 0">Arxivdagi loyiha kunlik hisobotda chiqmaydi, eski raqamlari saqlanadi.</p></div>
+  const CH = state.me.channels;
+  body.innerHTML = `<div class="card plan-intro">
+      <div class="card-head"><h2>Loyihalar</h2></div>
+      <p class="small" style="margin:0;color:var(--text-2);max-width:95ch"><b>Tannarx</b> — tushumdan foizda ketadigan xarajat (Stars/Premium xaridi, ROP bonusi, to'lov komissiyasi).
+        <b>Doimiy xarajat</b> — oyiga so'mda (ish haqi, ijara, mentorlar). Shu ikkisidan <b>sof foyda</b> hisoblanadi.
+        <b>Kanallar</b> — shu loyiha reklama qiladigan joylar; har kun ular bo'yicha raqam kiritiladi.
+        <b>Kechikish</b> — odam lid bo'lgandan keyin o'rtacha necha kunda sotib oladi; konversiya shunga qarab to'g'ri hisoblanadi.</p>
+    </div>
+    <div class="plan-cards">${state.projects.map((p) => `<section class="card proj-card" data-id="${p.id}">
+      <div class="card-head"><h3><span class="dot" style="--dc:${esc(p.color || 'var(--series-1)')}"></span>${esc(p.name)}</h3>${p.active ? '<span class="pill good">Faol</span>' : '<span class="pill">Arxivda</span>'}</div>
+      <div class="plan-inputs">
+        <label class="field">Nomi<input data-f="name" value="${esc(p.name)}"></label>
+        <div class="field">Turi${kindSelect(p.kind, 'data-f="kind"')}</div>
+        <div class="field">Rang${colorHtml(p.color || '#2a78d6', 'data-f="color"')}</div>
+      </div>
+      <div class="plan-inputs">
+        <label class="field">Tannarx, % tushumdan<input data-f="var_cost_pct" inputmode="decimal" value="${p.var_cost_pct ?? ''}" placeholder="0"></label>
+        <label class="field">Doimiy xarajat, so'm/oy<input data-f="fixed_monthly" inputmode="decimal" value="${p.fixed_monthly ?? ''}" placeholder="0"></label>
+        ${p.kind === 'auto' ? '' : `<label class="field">Lid → sotuv kechikishi, kun<input data-f="sale_lag" inputmode="numeric" value="${p.sale_lag ?? ''}" placeholder="0">
+          <span class="hint">${p.lag_hint != null ? `Ma'lumotga ko'ra: ~${p.lag_hint} kun ${Number(p.sale_lag) === p.lag_hint ? '✓' : `<button type="button" class="link-btn" data-lag="${p.lag_hint}">qo'yish</button>`}` : "Ma'lumot to'plangach taxmin chiqadi"}</span></label>`}
+      </div>
+      <div class="field">Reklama kanallari
+        <div class="chips" data-channels>${Object.entries(CH).map(([k, l]) => `<button type="button" class="chip ${p.channels.includes(k) ? 'on' : ''}" data-ch="${k}" aria-pressed="${p.channels.includes(k)}">${esc(l)}</button>`).join('')}</div></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn small ghost" data-a="toggle">${p.active ? 'Arxivlash' : 'Tiklash'}</button><button class="btn small primary" data-a="save">Saqlash</button></div>
+    </section>`).join('') || '<div class="card empty">Loyiha yo\'q</div>'}</div>
+    <p class="small muted" style="margin:10px 0 0">Arxivdagi loyiha kunlik hisobotda chiqmaydi, eski raqamlari saqlanadi.</p>
     <form class="card stack mt" id="newProject"><h2>Yangi loyiha</h2>
       <div class="fields">
         <label class="field">Nomi<input name="name" id="npName" required placeholder="Masalan: VIZART"></label>
@@ -59,14 +69,19 @@ async function tabProjects(body) {
     e.preventDefault();
     try { await api('/api/projects', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); toast("Loyiha qo'shildi"); renderSettings(); } catch (err) { toast(err.message, true); }
   };
-  body.querySelector('tbody').onclick = async (e) => {
+  body.querySelector('.plan-cards').addEventListener('click', async (e) => {
+    const chip = e.target.closest('[data-ch]');
+    if (chip) { chip.classList.toggle('on'); chip.setAttribute('aria-pressed', chip.classList.contains('on')); return; }
+    const lagBtn = e.target.closest('[data-lag]');
+    if (lagBtn) { lagBtn.closest('label').querySelector('input').value = lagBtn.dataset.lag; return; }
     const a = e.target.closest('[data-a]')?.dataset.a;
     if (!a) return;
-    const tr = e.target.closest('tr');
-    const p = state.projects.find((x) => String(x.id) === tr.dataset.id);
-    const b = a === 'toggle' ? { active: !p.active } : Object.fromEntries($$('[data-f]', tr).map((el) => [el.dataset.f, el.value]));
+    const card = e.target.closest('.proj-card');
+    const p = state.projects.find((x) => String(x.id) === card.dataset.id);
+    const b = a === 'toggle' ? { active: !p.active }
+      : { ...Object.fromEntries($$('[data-f]', card).map((el) => [el.dataset.f, el.value])), channels: $$('[data-ch].on', card).map((x) => x.dataset.ch) };
     try { await api(`/api/projects/${p.id}`, { method: 'PUT', body: b }); toast('Saqlandi'); renderSettings(); } catch (err) { toast(err.message, true); }
-  };
+  });
 }
 
 // ---------- Oylik reja ----------

@@ -4,6 +4,7 @@ import { renderToday, renderArchive } from './js/pm.js';
 import { renderBoard } from './js/board.js';
 import { renderProject } from './js/project.js';
 import { renderSettings } from './js/settings.js';
+import { renderDynamics } from './js/dynamics.js';
 
 async function router() {
   if (!state.me) return;
@@ -13,6 +14,7 @@ async function router() {
     if ((m = route.match(/^#\/loyiha\/(\d+)$/))) await renderProject(m[1]);
     else if (route === '#/kiritish') await renderToday();
     else if (route === '#/hisobotlar') await renderArchive();
+    else if (route === '#/dinamika') await renderDynamics();
     else if (route === '#/sozlamalar') await renderSettings();
     else await renderBoard();
   } catch (e) {

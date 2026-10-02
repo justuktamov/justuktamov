@@ -37,6 +37,14 @@ Oy davomida:
 
 Oyning birinchi 4 kunida xulosa chiqarilmaydi («Oy boshi») — bir-ikki kunlik raqam yetarli emas.
 
+### Kanallar, kechikish, LTV
+- **Reklama kanallari.** Sozlamalarda har loyihaga kanallar belgilanadi (Telegram Ads, Instagram / Facebook, kanal posti, bloger, YouTube, Google, organik…). PM 2-qadamda «Kanallar bo'yicha» bo'limiga har kanal raqamini yozadi (ixtiyoriy). Loyiha sahifasida jadval: xarajat ulushi, lid, 1 lid, sifatli %, sotuv, 1 mijoz narxi, tushum, ROAS — eng yaxshi kanal yashil, eng qimmati qizil. Xulosada: «Instagram lidlarining faqat 31% sifatli, Telegram Ads — 88%», «byudjetning bir qismini … ga o'tkazish», «Blogerga $X sarflandi, sotuv yo'q».
+- **Lid → sotuv kechikishi.** Kursni odam bugun lid bo'lib, 1–2 haftadan keyin sotib oladi. Loyihaga kechikish (kun) qo'yilsa, konversiya = davrdagi sotuvlar ÷ shuncha kun oldingi lidlar. Sozlamalarda tizim oxirgi 90 kun ma'lumotidan kechikishni o'zi taxmin qiladi («Ma'lumotga ko'ra: ~7 kun · qo'yish»).
+- **Qayta sotuv va LTV.** PM 2-qadamda qayta sotuvlar sonini va ulardan tushgan pulni yozadi (jami sotuv ichida). Loyiha sahifasida «Mijoz qiymati (LTV)», 90 kun: 1 yangi mijozdan jami pul, tannarxdan keyin, 1 mijozni olib kelish narxi va **LTV/CAC** (3 dan yuqori — yaxshi, 1.5 dan past — reklama zo'rg'a qoplanadi). O'rtacha chek faqat yangi mijozlardan hisoblanadi.
+
+### Dinamika
+Menyuda **Dinamika** — oxirgi 6 yoki 12 oy, hammasi yoki bitta loyiha: tushum va barcha xarajat grafigi, ko'rsatkichlar jadvali (tushum, reklama, sof foyda, marja, lid, sifatli ulush, 1 lid, sotuv, konversiya, 1 mijoz, o'rtacha chek, ROAS, qayta sotuv ulushi) va o'tgan oyga nisbatan ▲▼ o'zgarish. Turli uzunlikdagi oylar (va tugamagan joriy oy) kunlik sur'at bo'yicha solishtiriladi. «Hammasi» tanlanganda — har loyihaning sof foydasi oyma-oy.
+
 ### Pul qanday hisoblanadi
 - **Foyda** = tushum − reklama (dollar kursi Sozlamalarda).
 - **Sof foyda** = foyda − tannarx − doimiy xarajat. Har bir loyiha uchun Sozlamalarda kiritiladi:
@@ -109,8 +117,9 @@ Holat (7 kun va bugungi muammolardan eng jiddiysi):
 |---|---|
 | Loyihalar | doska: har loyiha — ustun; ustun bosilsa loyihaning to'liq sahifasi; CSV |
 | Bugungi hisobot | PM ning 4 qadami: target → sotuv va tushgan pul → tahlil → direktorga |
+| Dinamika | oyma-oy: tushum, xarajat, foyda, lid narxi, konversiya — ▲▼ o'zgarish |
 | Hisobotlar | oldingi kunlar; istalgan kunni ochib tuzatish mumkin |
-| Sozlamalar | loyihalar (turi, tannarx %, doimiy xarajat), oylik reja, Telegram, profil |
+| Sozlamalar | loyihalar (turi, tannarx %, doimiy xarajat, kanallar, lid → sotuv kechikishi), oylik reja, Telegram, profil |
 
 ## Ishga tushirish (lokal)
 
@@ -120,7 +129,7 @@ Node.js **22.5+** kerak. Maʼlumotlar bazasi Node ichidagi SQLite, alohida baza 
 cd analytika
 npm install
 cp .env.example .env      # TELEGRAM_BOT_TOKEN, ADMIN_PASSWORD
-npm run demo              # (ixtiyoriy) 45 kunlik namuna: 4 loyiha va oylik reja
+npm run demo              # (ixtiyoriy) 150 kunlik namuna: 4 loyiha, kanallar va oylik reja
 npm start                 # http://localhost:3000
 npm test                  # testlar
 ```

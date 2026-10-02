@@ -24,6 +24,28 @@ export const FIELDS = {
   unqualified: 'Sifatsiz lidlar',
   sales: 'Sotuvlar',
   revenue: "Tushum (so'm)",
+  repeat_sales: 'Qayta sotuvlar',
+  repeat_revenue: "Shundan qayta sotuvdan (so'm)",
+};
+
+// Reklama kanallari: har kanal bo'yicha xarajat, lid, sifat va sotuv alohida kiritiladi (ixtiyoriy)
+export const CHANNELS = {
+  telegram_ads: 'Telegram Ads',
+  instagram: 'Instagram / Facebook',
+  channel_post: 'Kanal posti',
+  blogger: 'Bloger',
+  youtube: 'YouTube',
+  google: 'Google',
+  organic: 'Organik',
+  other: 'Boshqa',
+};
+export const CHANNEL_FIELDS = {
+  spend: 'Xarajat ($)',
+  clicks: 'Klik',
+  leads: 'Lid',
+  qualified: 'Sifatli',
+  sales: 'Sotuv',
+  revenue: "Tushum (so'm)",
 };
 
 export const TEXT_FIELDS = {
@@ -98,6 +120,8 @@ function migrate(db) {
       kind TEXT NOT NULL DEFAULT 'leads',
       var_cost_pct REAL,
       fixed_monthly REAL,
+      channels TEXT,
+      sale_lag REAL,
       active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -108,6 +132,14 @@ function migrate(db) {
       ${textCols},
       updated_at TEXT,
       PRIMARY KEY (project_id, date)
+    );
+    -- Kanal bo'yicha kunlik raqamlar
+    CREATE TABLE IF NOT EXISTS channel_daily (
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      spend REAL, clicks REAL, leads REAL, qualified REAL, sales REAL, revenue REAL,
+      PRIMARY KEY (project_id, date, channel)
     );
     -- Sabablar soni: kind = bad (nega sifatsiz) | lost (nega sotib olmadi)
     CREATE TABLE IF NOT EXISTS reasons (
@@ -152,7 +184,7 @@ function migrate(db) {
   for (const f of Object.keys(FIELDS)) if (cols.length && !cols.includes(f)) db.exec(`ALTER TABLE daily ADD COLUMN ${f} REAL`);
   for (const f of Object.keys(TEXT_FIELDS)) if (cols.length && !cols.includes(f)) db.exec(`ALTER TABLE daily ADD COLUMN ${f} TEXT`);
   const pcols = db.prepare('PRAGMA table_info(projects)').all().map((c) => c.name);
-  for (const [c, t] of [['kind', "TEXT NOT NULL DEFAULT 'leads'"], ['var_cost_pct', 'REAL'], ['fixed_monthly', 'REAL']]) {
+  for (const [c, t] of [['kind', "TEXT NOT NULL DEFAULT 'leads'"], ['var_cost_pct', 'REAL'], ['fixed_monthly', 'REAL'], ['channels', 'TEXT'], ['sale_lag', 'REAL']]) {
     if (pcols.length && !pcols.includes(c)) db.exec(`ALTER TABLE projects ADD COLUMN ${c} ${t}`);
   }
 }

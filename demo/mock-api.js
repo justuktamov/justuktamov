@@ -2,13 +2,13 @@
 // Hisob-kitoblar serverdagi kod bilan bir xil (metrics.js, reports.js).
 // Kiritilgan ma'lumotlar shu brauzerning localStorage xotirasida saqlanadi.
 import { store } from './fake-sqlite.js';
-import { today, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS } from '../src/db.js';
+import { today, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from '../src/db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText } from '../src/reports.js';
-import { summary, loadRows, loadReasons, addDays, toCsv, monthBounds, sumRows } from '../src/metrics.js';
+import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, monthly, estimateLag } from '../src/metrics.js';
 import { generateDemo, DEMO_USER } from '../src/demo-data.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v10';
+const SAVE_KEY = 'analitika-demo-v11';
 let me = null;
 
 function seed() {
@@ -17,6 +17,7 @@ function seed() {
   store.daily = demo.daily;
   store.plans = demo.plans;
   store.reasons = demo.reasons;
+  store.channels = demo.channels;
   store.reports = demo.reports.map((r) => ({
     date: r.date, author_id: 1, status: r.status, summary: r.summary, tomorrow: r.tomorrow,
     project_notes: JSON.stringify(r.project_notes), submitted_at: `${r.date} 19:30:00`,
@@ -73,7 +74,20 @@ function projectMoney(b, p = {}) {
   const var_cost_pct = b.var_cost_pct === undefined ? p.var_cost_pct ?? null : num(b.var_cost_pct);
   if (var_cost_pct != null && var_cost_pct > 100) throw new HttpError(400, 'Tannarx 100% dan oshmaydi');
   const fixed_monthly = b.fixed_monthly === undefined ? p.fixed_monthly ?? null : num(b.fixed_monthly);
-  return { kind, var_cost_pct, fixed_monthly };
+  let channels = p.channels ?? null;
+  if (b.channels !== undefined) {
+    if (!Array.isArray(b.channels) || b.channels.some((c) => !CHANNELS[c])) throw new HttpError(400, "Kanal noto'g'ri");
+    channels = JSON.stringify([...new Set(b.channels)]);
+  }
+  const sale_lag = b.sale_lag === undefined ? p.sale_lag ?? null : num(b.sale_lag);
+  if (sale_lag != null && sale_lag > 60) throw new HttpError(400, 'Kechikish 60 kundan oshmaydi');
+  return { kind, var_cost_pct, fixed_monthly, channels, sale_lag };
+}
+// Serverdagi projectOut bilan bir xil: kanallar ro'yxat, lag_hint — ma'lumotdan taxmin
+function projectOut(p) {
+  let channels = [];
+  try { channels = JSON.parse(p.channels || '[]'); } catch { channels = []; }
+  return { ...p, channels, lag_hint: p.active && p.kind !== 'auto' ? estimateLag(p.id, TODAY) : null };
 }
 
 const routes = {
@@ -85,7 +99,7 @@ const routes = {
   },
   'POST /api/logout': () => { me = null; return { ok: true }; },
   'GET /api/me': () => ({
-    user: publicUser(needUser()), today: TODAY, planFields: PLAN_FIELDS, kinds: PROJECT_KINDS, reasons: REASONS, reasonKinds: REASON_KINDS,
+    user: publicUser(needUser()), today: TODAY, planFields: PLAN_FIELDS, kinds: PROJECT_KINDS, reasons: REASONS, reasonKinds: REASON_KINDS, channels: CHANNELS, channelFields: CHANNEL_FIELDS,
     reportStatus: store.reports.find((r) => r.date === TODAY)?.status || null,
     telegram: { enabled: true, bot: 'demo_bot', reportChat: Boolean(store.settings.report_chat_id) },
   }),
@@ -106,12 +120,12 @@ const routes = {
     u.password = b.new;
     return { ok: true };
   },
-  'GET /api/projects': () => { needUser(); return [...store.projects].sort((a, b) => b.active - a.active || a.id - b.id); },
+  'GET /api/projects': () => { needUser(); return [...store.projects].sort((a, b) => b.active - a.active || a.id - b.id).map(projectOut); },
   'POST /api/projects': (b) => {
     needUser();
     const p = { id: nextId(store.projects), name: checkName(b.name), color: b.color || null, ...projectMoney(b), active: 1 };
     store.projects.push(p);
-    return p;
+    return projectOut(p);
   },
   'PUT /api/projects/:id': (b, { id }) => {
     needUser();
@@ -121,7 +135,7 @@ const routes = {
     if (b.color) p.color = b.color;
     Object.assign(p, projectMoney(b, p));
     if (b.active !== undefined) p.active = b.active ? 1 : 0;
-    return p;
+    return projectOut(p);
   },
   'GET /api/daily': (_b, _p, q) => {
     needUser();
@@ -129,10 +143,13 @@ const routes = {
     const { projects, rows } = loadRows(date, date);
     const { rows: prevRows } = loadRows(addDays(date, -1), addDays(date, -1));
     const reasons = loadReasons(date, date);
+    const ch = loadChannels(date, date);
     return {
       date,
       projects: projects.map((p) => ({
         id: p.id, name: p.name, color: p.color, kind: p.kind || 'leads',
+        channels: projectOut(p).channels,
+        channelRows: Object.fromEntries(ch.filter((r) => r.project_id === p.id).map((r) => [r.channel, r])),
         row: rows.find((r) => r.project_id === p.id) || {},
         prev: prevRows.find((r) => r.project_id === p.id) || {},
         reasons: reasons[p.id] || { bad: {}, lost: {} },
@@ -160,15 +177,37 @@ const routes = {
         rs.push([kind, reason, num(raw)]);
       }
     }
+    const chans = [];
+    for (const [channel, map] of Object.entries(b.channels || {})) {
+      if (!CHANNELS[channel]) throw new HttpError(400, `Noma'lum kanal: ${channel}`);
+      const v = {};
+      for (const [f, raw] of Object.entries(map || {})) {
+        if (!CHANNEL_FIELDS[f]) throw new HttpError(400, `Noma'lum kanal maydoni: ${f}`);
+        v[f] = num(raw);
+      }
+      chans.push([channel, v]);
+    }
+    store.channels ||= [];
+    for (const [channel, v] of chans) {
+      const cur = store.channels.find((r) => r.project_id === project.id && r.date === b.date && r.channel === channel);
+      const next = Object.fromEntries(Object.keys(CHANNEL_FIELDS).map((f) => [f, f in v ? v[f] : cur?.[f] ?? null]));
+      store.channels = store.channels.filter((r) => r !== cur);
+      if (Object.values(next).some((x) => x != null)) store.channels.push({ project_id: project.id, date: b.date, channel, ...next });
+    }
     if (!row) { row = { project_id: project.id, date: b.date }; store.daily.push(row); }
     for (const [field, v] of changes) row[field] = v;
     for (const [kind, reason, c] of rs) {
       store.reasons = store.reasons.filter((r) => !(r.project_id === project.id && r.date === b.date && r.kind === kind && r.reason === reason));
       if (c) store.reasons.push({ project_id: project.id, date: b.date, kind, reason, count: Math.round(c) });
     }
-    return { ok: true, changed: changes.length };
+    return { ok: true, changed: changes.length + chans.length };
   },
   'GET /api/summary': (_b, _p, q) => { needUser(); return summary({ ...period(q), projectId: projectParam(q) }); },
+  'GET /api/monthly': (_b, _p, q) => {
+    needUser();
+    const months = Math.min(Math.max(Number(q.get('months')) || 6, 2), 24);
+    return monthly({ months, projectId: projectParam(q), asOf: TODAY });
+  },
   'GET /api/export.csv': (_b, _p, q) => {
     needUser();
     const { from, to } = period(q);

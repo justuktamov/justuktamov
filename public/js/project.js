@@ -3,7 +3,7 @@ import {
   $, esc, api, state, shell, filtersHtml, bindFilters, computePeriod, kpi, fmtUsd, fmtUzs, fmtP, spinnerBlock, isStale,
 } from './core.js';
 import {
-  moneyBlock, funnelBlock, qualityBlock, lostBlock, priceBlock, insightsBlock, dailyTable, drawFlow, planCard, signed, statusOf,
+  moneyBlock, funnelBlock, qualityBlock, lostBlock, priceBlock, insightsBlock, dailyTable, drawFlow, planCard, signed, statusOf, channelsBlock, ltvBlock,
 } from './blocks.js';
 
 const change = (cur, prev) => (cur == null || prev == null || prev === 0 ? null : (cur - prev) / Math.abs(prev));
@@ -34,10 +34,11 @@ export async function renderProject(id) {
   const lost = lostBlock(p);
   // 12 ustunli to'r: har qator to'la bo'lsin
   const blocks = auto
-    ? [[moneyBlock(p), 6], [chartBlock(), 6], [funnelBlock(p), 6], [priceBlock(p), 6], [insightsBlock(p, s.notes), 6], [planCard(s.plan, 'sub-card'), 6]]
+    ? [[moneyBlock(p), 6], [chartBlock(), 6], [funnelBlock(p), 6], [priceBlock(p), 6], [channelsBlock(p), 12],
+      [ltvBlock(p), 6], [insightsBlock(p, s.notes), 6], [planCard(s.plan, 'sub-card'), 12]]
     : [[moneyBlock(p), 6], [chartBlock(), 6],
       ...(lost ? [[funnelBlock(p), 4], [qualityBlock(p), 4], [lost, 4]] : [[funnelBlock(p), 6], [qualityBlock(p), 6]]),
-      [priceBlock(p), 6], [insightsBlock(p, s.notes), 6], [planCard(s.plan, 'sub-card'), 12]];
+      [channelsBlock(p), 12], [priceBlock(p), 6], [ltvBlock(p), 6], [insightsBlock(p, s.notes), 6], [planCard(s.plan, 'sub-card'), 6]];
   box.innerHTML = `
     <div class="kpis">
       ${kpi({ label: 'Reklamaga sarflandi', value: fmtUsd(p.spend, 0), sub: `${fmtUzs(p.spend_uzs)} so'm`, d: change(p.spend, p.prev.spend), invert: true })}

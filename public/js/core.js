@@ -80,6 +80,7 @@ export const ICONS = {
   sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
   edit: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/>'),
   home: svg('<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/>'),
+  trend: svg('<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'),
   chart: svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
   archive: svg('<rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v11h14V9M10 13h4"/>'),
   check: svg('<path d="m5 12 5 5 9-10"/>'),
@@ -322,6 +323,7 @@ function navItems() {
   const items = [
     ['#/', 'Loyihalar', ICONS.chart],
     ['#/kiritish', 'Bugungi hisobot', ICONS.edit, sent ? null : '!'],
+    ['#/dinamika', 'Dinamika', ICONS.trend],
     ['#/hisobotlar', 'Hisobotlar', ICONS.archive],
   ];
   return { items, bottom: [['#/sozlamalar', 'Sozlamalar', ICONS.set]] };
