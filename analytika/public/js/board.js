@@ -24,9 +24,9 @@ export async function renderBoard() {
   }
   const t = s.totals;
   $('#totals').innerHTML = `
-    <span><small>Reklama</small><b>${fmtUsd(t.spend, 0)}</b></span>
     <span><small>Tushum</small><b>${fmtSom(t.revenue)}</b></span>
     <span><small>Sof foyda</small><b class="${t.net_profit < 0 ? 'neg' : 'pos'}">${signed(t.net_profit)}</b></span>
+    <span><small>Reklama</small><b>${fmtUsd(t.spend, 0)}</b></span>
     <span><small>Marja</small><b>${fmtP(t.net_margin, 0)}</b></span>`;
   // Shu oy uchun rejasi yo'q loyihalar — eslatma
   const missing = s.byProject.filter((p) => !s.plan.items.some((i) => i.project_id === p.id));
@@ -65,23 +65,28 @@ function column(p, plan) {
   const [cls, label] = statusOf(p);
   const auto = p.kind === 'auto';
   const issue = p.insights.find((i) => i.level === 'critical') || p.insights.find((i) => i.level === 'warning');
-  const funnel = auto
-    ? [['Klik', p.clicks, ''], ...(p.reported.starts ? [['Bot start', p.starts, `1 start ${fmtUsd(p.cost_per_start)}`]] : []), ['Xarid', p.sales, fmtP(p.conv)]]
-    : [['Klik', p.clicks, ''], ['Lid', p.leads, `1 lid ${fmtUsd(p.cpl)}`], ['Sotuv', p.sales, fmtP(p.conv)]];
+  // Workflow: ko'rish → klik → lid (bot start) → sotuv (xarid); bosqichlar orasida o'tish foizi
+  const steps = [
+    p.reported.impressions ? ["Ko'rishlar", p.impressions, null] : null,
+    ['Klik', p.clicks, p.reported.impressions ? ['CTR', p.ctr] : null],
+    auto ? (p.reported.starts ? ['Bot start', p.starts, ['', p.click_to_start], `1 start ${fmtUsd(p.cost_per_start)}`] : null)
+      : ['Lid', p.leads, ['', p.click_to_lead], `1 lid ${fmtUsd(p.cpl)}`],
+    [auto ? 'Xarid' : 'Sotuv', p.sales, ['', p.conv], p.sales ? `1 mijoz ${fmtUsd(p.spend / p.sales, 2)}` : null],
+  ].filter(Boolean);
   const q = [['q-good', p.qualified], ['q-mid', p.potential], ['q-bad', p.unqualified]];
   const badTop = p.reasons.bad[0];
   return `<section class="col" style="--pc:${esc(p.color || '#4c86ff')}" data-open="${p.id}" tabindex="0" role="button" aria-label="${esc(p.name)} — batafsil">
     <header class="col-head"><span class="col-dot"></span><div><h2>${esc(p.name)}</h2><small>${auto ? 'avtovoronka' : "sotuv bo'limi"}</small></div><span class="pill ${cls}">${label}</span></header>
     <div class="tile money">
-      <small>Sof foyda</small>
-      <b class="big ${p.net_profit < 0 ? 'neg' : 'pos'}">${signed(p.net_profit)}</b>
-      <div class="kv"><span>Tushum</span><b>${fmtSom(p.revenue)}</b></div>
+      <div class="m-hero rev"><small>Tushum</small><b>${fmtSom(p.revenue)}</b></div>
+      <div class="m-hero ${p.net_profit < 0 ? 'loss' : 'profit'}"><small>${p.net_profit < 0 ? 'Zarar' : 'Sof foyda'}</small><b>${signed(p.net_profit)}</b></div>
       <div class="kv"><span>Reklama</span><b>${fmtUsd(p.spend, 0)}</b></div>
-      <div class="kv"><span>Marja</span><b>${fmtP(p.net_margin, 0)}</b></div>
+      <div class="kv"><span>Marja</span><b class="${p.net_margin < 0 ? 'neg' : ''}">${fmtP(p.net_margin, 0)}</b></div>
     </div>
     <div class="tile">
       <small>${auto ? 'Avtovoronka' : 'Voronka'}</small>
-      ${funnel.map(([l, v, extra]) => `<div class="kv"><span>${l}</span><b>${fmtN(v)}</b>${extra ? `<em>${extra}</em>` : '<em></em>'}</div>`).join('')}
+      <ol class="fv">${steps.map(([l, v, rate, note], i) => `${i && rate ? `<li class="fv-link"><span>${rate[0] ? `${rate[0]} ` : ''}${fmtP(rate[1])}</span></li>` : i ? '<li class="fv-link"></li>' : ''}
+        <li class="fv-node ${i === steps.length - 1 ? 'last' : ''}"><span class="fv-l">${l}</span><b>${fmtN(v)}</b>${note ? `<em>${note}</em>` : ''}</li>`).join('')}</ol>
     </div>
     ${auto ? '' : `<div class="tile">
       <small>Lid sifati</small>

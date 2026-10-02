@@ -8,7 +8,7 @@ import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBoun
 import { generateDemo, DEMO_USER } from '../src/demo-data.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v11';
+const SAVE_KEY = 'analitika-demo-v12';
 let me = null;
 
 function seed() {
