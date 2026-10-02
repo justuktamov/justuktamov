@@ -1,6 +1,6 @@
 // Proekt menejerning kunlik ishi — 4 qadam: target raqamlari → sotuv raqamlari → tekshirish → direktorga yuborish
 import {
-  $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtUzs, fmtP, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, shortDate, copyText,
+  $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtUzs, fmtP, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, shortDate, copyText, dateButton, openCalendar,
 } from './core.js';
 
 const STATUS_PILL = { unprofitable: 'crit', sales_issue: 'crit', creative: 'warn', needs_leads: 'info', scale: 'lime', good: 'good', nodata: '' };
@@ -34,10 +34,10 @@ export function dateNav(date, onChange) {
   setTimeout(() => {
     $('#dPrev').onclick = () => onChange(addDays(date, -1));
     $('#dNext').onclick = () => { if (!isToday) onChange(addDays(date, 1)); };
-    $('#dPick').onchange = (e) => { if (e.target.value && e.target.value <= state.me.today) onChange(e.target.value); };
+    $('#dPick').onclick = (e) => openCalendar(e.currentTarget, { value: date, max: state.me.today, onPick: onChange });
   });
   return `<div class="filters"><button class="btn small icon" id="dPrev" aria-label="Oldingi kun">←</button>
-    <input type="date" id="dPick" value="${date}" max="${state.me.today}" aria-label="Sana">
+    ${dateButton('dPick', date, 'Hisobot sanasi')}
     <button class="btn small icon" id="dNext" aria-label="Keyingi kun" ${isToday ? 'disabled' : ''}>→</button></div>`;
 }
 

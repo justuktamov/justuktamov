@@ -141,6 +141,63 @@ export function spinnerBlock(text = 'Yuklanmoqda…') {
   return `<div class="empty"><div class="row" style="justify-content:center"><div class="spinner"></div><span>${text}</span></div></div>`;
 }
 
+// ---------- Kalendar ----------
+// Brauzerning o'z oynasi o'rniga: o'zbekcha, yorug', dushanbadan boshlanadi
+const WEEK = ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'];
+export const prettyDate = (d) => `${Number(d.slice(8, 10))}-${MONTHS[Number(d.slice(5, 7)) - 1]}, ${d.slice(0, 4)}`;
+
+export function dateButton(id, value, label = 'Sana') {
+  return `<button type="button" class="date-btn" id="${id}" aria-label="${label}: ${prettyDate(value)}" aria-haspopup="dialog">${ICONS.cal}<span>${prettyDate(value)}</span></button>`;
+}
+
+let calClose = null;
+export function openCalendar(anchor, { value, min = null, max = null, onPick }) {
+  calClose?.();
+  let view = value.slice(0, 7);
+  const pop = document.createElement('div');
+  pop.className = 'cal';
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-label', 'Sana tanlash');
+  const ok = (d) => (!min || d >= min) && (!max || d <= max);
+  const today = state.me?.today;
+  const draw = () => {
+    const [y, m] = view.split('-').map(Number);
+    const first = `${view}-01`;
+    const shift = (new Date(`${first}T00:00:00Z`).getUTCDay() + 6) % 7; // dushanba = 0
+    const start = addDays(first, -shift);
+    const days = Array.from({ length: 42 }, (_, i) => addDays(start, i));
+    const lastRow = days.slice(35).every((d) => d.slice(0, 7) !== view) ? 35 : 42;
+    const prevM = addDays(first, -1).slice(0, 7);
+    const nextM = addDays(`${view}-28`, 7).slice(0, 7);
+    pop.innerHTML = `<div class="cal-head">
+        <button type="button" class="cal-nav" data-m="${prevM}" aria-label="Oldingi oy" ${min && `${prevM}-31` < min ? 'disabled' : ''}>‹</button>
+        <b>${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${y}</b>
+        <button type="button" class="cal-nav" data-m="${nextM}" aria-label="Keyingi oy" ${max && `${nextM}-01` > max ? 'disabled' : ''}>›</button></div>
+      <div class="cal-grid">${WEEK.map((w) => `<span class="cal-wd">${w}</span>`).join('')}
+        ${days.slice(0, lastRow).map((d) => `<button type="button" data-d="${d}" class="cal-day ${d.slice(0, 7) !== view ? 'out' : ''} ${d === value ? 'sel' : ''} ${d === today ? 'today' : ''}" ${ok(d) ? '' : 'disabled'}>${Number(d.slice(8))}</button>`).join('')}</div>
+      ${today ? `<div class="cal-foot"><button type="button" data-d="${addDays(today, -1)}" ${ok(addDays(today, -1)) ? '' : 'disabled'}>Kecha</button><button type="button" data-d="${today}" ${ok(today) ? '' : 'disabled'}>Bugun</button></div>` : ''}`;
+  };
+  draw();
+  document.body.append(pop);
+  const r = anchor.getBoundingClientRect();
+  const w = pop.offsetWidth;
+  pop.style.top = `${r.bottom + window.scrollY + 8}px`;
+  pop.style.left = `${Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - w - 8))}px`;
+  pop.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const nav = e.target.closest('[data-m]');
+    if (nav && !nav.disabled) { view = nav.dataset.m; draw(); return; }
+    const day = e.target.closest('[data-d]');
+    if (day && !day.disabled) { close(); onPick(day.dataset.d); }
+  });
+  const outside = (e) => { if (!pop.contains(e.target) && !anchor.contains(e.target)) close(); };
+  const esc = (e) => { if (e.key === 'Escape') { close(); anchor.focus(); } };
+  function close() { pop.remove(); document.removeEventListener('mousedown', outside); document.removeEventListener('keydown', esc); calClose = null; }
+  setTimeout(() => { document.addEventListener('mousedown', outside); document.addEventListener('keydown', esc); });
+  calClose = close;
+  (pop.querySelector('.cal-day.sel:not([disabled])') || pop.querySelector('.cal-day:not([disabled])'))?.focus();
+}
+
 // ---------- Davr filtri ----------
 export function computePeriod() {
   const t = state.me.today;
@@ -156,7 +213,7 @@ export function filtersHtml({ project = true } = {}) {
   const { from, to } = computePeriod();
   return `<div class="filters">
     <div class="seg" id="periodSeg" role="group" aria-label="Davr">${opts.map(([v, l]) => `<button data-v="${v}" class="${state.period === v ? 'on' : ''}">${l}</button>`).join('')}</div>
-    ${state.period === 'custom' ? `<input type="date" id="fFrom" value="${from}" aria-label="Boshlanish"><input type="date" id="fTo" value="${to}" aria-label="Tugash">` : ''}
+    ${state.period === 'custom' ? `<span class="range">${dateButton('fFrom', from, 'Boshlanish')}<span class="muted">—</span>${dateButton('fTo', to, 'Tugash')}</span>` : ''}
     ${project ? `<select id="fProject" aria-label="Loyiha"><option value="">Barcha loyihalar</option>${state.projects.filter((p) => p.active).map((p) => `<option value="${p.id}" ${String(state.project) === String(p.id) ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>` : ''}
   </div>`;
 }
@@ -171,7 +228,11 @@ export function bindFilters(rerenderPage) {
   const fp = $('#fProject');
   if (fp) fp.onchange = (e) => { state.project = e.target.value; rerenderPage(); };
   const f = $('#fFrom'), t = $('#fTo');
-  if (f) f.onchange = t.onchange = () => { if (f.value && t.value && f.value <= t.value) { state.from = f.value; state.to = t.value; rerenderPage(); } };
+  if (f) {
+    const { from, to } = computePeriod();
+    f.onclick = () => openCalendar(f, { value: from, max: to, onPick: (d) => { state.from = d; state.to = to; rerenderPage(); } });
+    t.onclick = () => openCalendar(t, { value: to, min: from, max: state.me.today, onPick: (d) => { state.from = from; state.to = d; rerenderPage(); } });
+  }
 }
 
 // ---------- Karkas ----------
@@ -202,6 +263,7 @@ export const isStale = (rid) => rid !== state.renderId;
 
 export function shell(content) {
   state.renderId = (state.renderId || 0) + 1;
+  calClose?.();
   destroyCharts();
   const route = location.hash.split('?')[0] || '#/';
   const { items, bottom } = navItems();
