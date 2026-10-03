@@ -1,18 +1,18 @@
 # CI/CD: every push and pull request runs the tests.
-# A push to main whose tests pass triggers a deployment in Coolify (deploy/COOLIFY.md).
+# A push to crm whose tests pass triggers a deployment in Coolify (deploy/COOLIFY.md).
 name: CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [crm]
   pull_request:
-    branches: [main]
+    branches: [crm]
   workflow_dispatch:
 
-# Deployments run one after another, never in parallel
+# A newer push cancels the older run still in progress: only the latest commit gets deployed
 concurrency:
   group: ci-cd-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -34,7 +34,7 @@ jobs:
 
   deploy:
     needs: test
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/crm'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: production

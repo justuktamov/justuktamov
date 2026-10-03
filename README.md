@@ -164,7 +164,7 @@ Haqiqiy ishga tushirishda `npm run demo` ni bajarmang. Birinchi ishga tushganda 
 ## Serverga joylash
 
 ### Coolify (production, CI/CD)
-Production: `buzzi-uz/CRM-Analitics` repozitoriysining `main` branchi Coolify orqali joylanadi. Har push da GitHub Actions testlarni ishlatadi; testlar o'tsa — Coolify yangi versiyani yig'ib ishga tushiradi. Sozlash bosqichma-bosqich: [deploy/COOLIFY.md](deploy/COOLIFY.md) (doimiy disk `/data`, `.env` qiymatlari, domen, health check `/api/health`, kunlik zaxira nusxa `npm run backup`).
+Production: `justuktamov/justuktamov` repozitoriysining `crm` branchi Coolify orqali joylanadi. Har push da GitHub Actions testlarni ishlatadi; testlar o'tsa — Coolify yangi versiyani yig'ib ishga tushiradi. Sozlash bosqichma-bosqich: [deploy/COOLIFY.md](deploy/COOLIFY.md) (doimiy disk `/data`, `.env` qiymatlari, domen, health check `/api/health`, kunlik zaxira nusxa `npm run backup`).
 
 ### Docker (eng oson)
 ```bash
