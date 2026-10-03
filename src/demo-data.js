@@ -48,8 +48,6 @@ const CH = [
 ];
 // Lichkadan kelgan lidlar ulushi: [Instagram direkt, Telegram admin lichkasi] (qolgani sayt/forma)
 const SRC_MIX = [null, [0.38, 0.1], [0.22, 0.14], [0.18, 0.37]];
-// Qayta sotuv ehtimoli (kunlik sotuvlar ichida) va qayta chek ulushi
-const REPEAT = [[0.35, 0.8], [0.04, 0.5], [0.03, 0.4], [0.18, 0.9]];
 
 // Butun sonni og'irliklar bo'yicha bo'lish; qoldiq kasr qismiga qarab tasodifiy taqsimlanadi
 function split(total, weights, rand) {
@@ -106,9 +104,6 @@ export function generateDemo(end, days = 150) {
       const noData = today0 && i === 3;
       const noSales = today0 && i % 2 === 1;
       const unqualified = leads - qualified - potential;
-      const [rp, rk] = REPEAT[i];
-      const repeatSales = Math.min(sales, Math.round(sales * jitter(rp, 0.5)));
-      const repeatRevenue = Math.round(repeatSales * check * rk * jitter(1, 0.1) / 1000) * 1000;
       // SELFENG: oxirgi haftada reklama kam bosilyapti (ko'rish ko'p, klik kam)
       daily.push({
         project_id: id, date,
@@ -117,7 +112,6 @@ export function generateDemo(end, days = 150) {
         starts: auto ? leads : null,
         leads: auto || noData ? null : leads, qualified: auto || noData ? null : qualified, potential: auto || noData ? null : potential, unqualified: auto || noData ? null : unqualified,
         sales: noSales ? null : sales, revenue: noSales ? null : revenue,
-        repeat_sales: noSales || k > 40 ? null : repeatSales, repeat_revenue: noSales || k > 40 ? null : Math.min(repeatRevenue, revenue),
         creative_best: k > 2 || noData ? null : CREATIVES[i][0], creative_worst: k > 2 || noData ? null : CREATIVES[i][1],
         note_target: today0 && i === 1 ? "Instagramda 1 ta reklama moderatsiyadan o'tmadi" : null,
         note_sales: k === 1 && i === 2 ? "Qo'ng'iroqlarga javob bermayapti, narxni eshitib o'ylab ko'raman deyishyapti" : null,

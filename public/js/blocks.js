@@ -136,7 +136,7 @@ export function ltvBlock(p) {
       <span><small>1 mijozdan jami pul</small><b>${fmtSom(l.ltv)}</b></span>
       <span><small>tannarxdan keyin</small><b>${fmtSom(l.ltv_profit)}</b></span>
       <span><small>1 mijozni olib kelish</small><b>${fmtSom(l.cac_uzs)}</b></span>
-      <span><small>Qayta sotuv ulushi</small><b>${fmtP(l.repeat_share, 0)}</b></span>
+      ${l.reported ? `<span><small>Qayta sotuv ulushi</small><b>${fmtP(l.repeat_share, 0)}</b></span>` : ''}
     </div>
     ${ratio != null ? `<p class="ltv-ratio"><span class="pill ${cls}">LTV/CAC ${fmtN(ratio, 1)} — ${word}</span> 1 mijozga sarflangan reklama puli ${fmtN(ratio, 1)} barobar qaytadi (3 dan yuqori — yaxshi).</p>` : ''}
     ${l.reported ? '' : '<p class="small muted" style="margin:6px 0 0">Qayta sotuvlar kiritilmagan — LTV faqat birinchi xariddan hisoblangan.</p>'}

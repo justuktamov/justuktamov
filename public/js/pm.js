@@ -121,7 +121,6 @@ export async function renderToday() {
           ${s.texts.map(([f, l, ph]) => `<td class="n" data-label="${l}"><input class="cell-in txt" name="${f}" maxlength="300" value="${esc(p.row[f] ?? '')}" placeholder="${esc(ph)}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>
       </details>` : ''}
       ${sales && leadsP.length ? reasonsBlock(leadsP) : ''}
-      ${sales ? repeatBlock(daily.projects) : ''}
       ${sales ? channelsEntry(daily.projects) : ''}
       <div class="step-foot"><span class="muted small">${sales ? "Jami lid bo'sh qolsa — uch turi qo'shiladi." : 'Kulrang raqam — kechagi qiymat. Enter — keyingi qator.'}</span><span class="spacer"></span>
         <button class="btn ghost" data-skip>O'tkazib yuborish</button><button class="btn primary" data-save>Saqlash va davom etish →</button></div>
@@ -156,16 +155,6 @@ export async function renderToday() {
       <div class="table-wrap"><table class="grid-entry grid-mini" style="--cols:2"><thead><tr><th>Loyiha</th>${SRC.map(([, l]) => `<th class="n">${l}</th>`).join('')}</tr></thead>
       <tbody>${projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
         ${SRC.map(([f, l]) => `<td class="n" data-label="${l}"><input class="cell-in" inputmode="numeric" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-  }
-
-  // Qayta sotuv — eski mijoz yana sotib oldi (LTV shundan hisoblanadi)
-  function repeatBlock(projects) {
-    const has = projects.some((p) => p.row.repeat_sales != null || p.row.repeat_revenue != null);
-    return `<details class="extra" ${has ? 'open' : ''}><summary>Qayta sotuvlar <span class="muted">(eski mijoz yana sotib oldi — jami sotuv ichida)</span></summary>
-      <div class="table-wrap"><table class="grid-entry grid-mini" style="--cols:2"><thead><tr><th>Loyiha</th><th class="n">Qayta sotuv</th><th class="n">Shundan qayta sotuvdan, so'm</th></tr></thead>
-      <tbody>${projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
-        ${[['repeat_sales', 'Qayta sotuv'], ['repeat_revenue', "Qayta sotuvdan, so'm"]].map(([f, l]) => `<td class="n" data-label="${l}"><input class="cell-in" inputmode="decimal" name="${f}" value="${p.row[f] ?? ''}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>
-    </details>`;
   }
 
   // Kanallar bo'yicha: Telegram Ads, Instagram, bloger… — qaysi kanal sifatli lid va arzon mijoz beradi
