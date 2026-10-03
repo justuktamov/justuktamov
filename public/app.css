@@ -848,3 +848,4 @@ input, select, textarea { color-scheme: light; }
 .sd-sum p { margin: 4px 0; font-size: 13.5px; line-height: 1.5; }
 @media (max-width: 860px) { .sd-grid { grid-template-columns: minmax(0, 1fr); } .sd-rank b { font-size: 17px; } }
 @media (max-width: 600px) { .sd-table .sd-rev { display: none; } }
+.m-hero.ad { --mh-c: #ea6a1f; --mh-ink: #a1440c; --mh-glow: rgba(234, 106, 31, .26); background: linear-gradient(135deg, #fff6ef 0%, #ffe9d9 100%); border-color: #fbd8bf; }

@@ -68,6 +68,7 @@ export async function renderBoard() {
 
 const ic = (d) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const M_IC = {
+  ad: ic('<path d="M3 10v4a1 1 0 0 0 1 1h3l6 4V5L7 9H4a1 1 0 0 0-1 1z"/><path d="M17 8.5a5 5 0 0 1 0 7M20 6a8.5 8.5 0 0 1 0 12"/>'),
   rev: ic('<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>'),
   up: ic('<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'),
   down: ic('<path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/>'),
@@ -114,9 +115,9 @@ function column(p, plan, collapsed = false) {
     <header class="col-head"><button type="button" class="col-toggle" data-collapse aria-expanded="${!collapsed}" title="${collapsed ? 'Ochish' : "Yig'ish"}" aria-label="${esc(p.name)} — yig'ish yoki ochish">${COLLAPSE_IC}</button>
       <span class="col-dot"></span><div class="col-name"><h2>${esc(p.name)}</h2><small>${auto ? 'avtovoronka' : "sotuv bo'limi"}</small></div><span class="pill ${cls}">${label}</span></header>
     <div class="tile money">
+      <div class="m-hero ad"><span class="m-ic">${M_IC.ad}</span><div><small>Reklama xarajati</small><b>${fmtUsd(p.spend, 0)}</b><span class="m-sub">${fmtUzs(p.spend_uzs)} so'm${p.cpl != null && !auto ? ` · 1 lid ${fmtUsd(p.cpl)}` : ''}</span></div></div>
       <div class="m-hero rev"><span class="m-ic">${M_IC.rev}</span><div><small>Tushum</small><b>${fmtUzs(p.revenue)}<i>so'm</i></b><span class="m-sub">${fmtN(p.sales)} ta ${auto ? 'xarid' : 'sotuv'}</span></div></div>
       <div class="m-hero ${p.net_profit < 0 ? 'loss' : 'profit'}"><span class="m-ic">${p.net_profit < 0 ? M_IC.down : M_IC.up}</span><div><small>${p.net_profit < 0 ? 'Zarar' : 'Sof foyda'}</small><b>${signed(p.net_profit, false)}<i>so'm</i></b><span class="m-sub">barcha xarajatdan keyin</span></div></div>
-      <div class="kv"><span>Reklama</span><b>${fmtUsd(p.spend, 0)}</b></div>
       <div class="kv"><span>Marja</span><b class="${p.net_margin < 0 ? 'neg' : ''}">${fmtP(p.net_margin, 0)}</b></div>
     </div>
     <div class="tile">
