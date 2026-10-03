@@ -871,3 +871,7 @@ input, select, textarea { color-scheme: light; }
 .dyn-table td.n .dd.pos { color: var(--good); } .dyn-table td.n .dd.neg { color: var(--crit); }
 .dyn-table tr.dyn-sec td { padding: 14px 8px 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--blue, #2f63f0); border-bottom: 1px solid var(--border); background: transparent; }
 .dyn-table tr:not(.dyn-sec) td:first-child { padding-left: 14px; }
+/* Dinamika: chapdan o'ngga bir tekis; bo'lim sarlavhalari kattaroq */
+.dyn-table th.n, .dyn-table td.n { text-align: left; }
+.dyn-table td.n .dd { min-width: 0; margin-left: 6px; text-align: left; }
+.dyn-table tr.dyn-sec td { font-size: 14px; letter-spacing: .05em; padding-top: 18px; }
