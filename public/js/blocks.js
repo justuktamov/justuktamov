@@ -16,6 +16,9 @@ export function statusOf(p) {
   return p.revenue || p.spend ? ['good', 'Yaxshi'] : ['', "Ma'lumot yo'q"];
 }
 
+// Reklama xarajati turlari: target, blogerlar, Telegram kanallar
+export const adParts = (p) => [['Target', p.target_spend], ['Blogerlar', p.spend_blogger], ['Telegram kanallar', p.spend_posts]].filter(([, v]) => v > 0);
+
 export function moneyBlock(p) {
   const base = Math.max(p.revenue, p.costs, 1);
   const row = (label, v, cls = '', bar = true) => `<div class="wf ${cls}"><span>${label}</span>
@@ -24,6 +27,7 @@ export function moneyBlock(p) {
   return `<div class="sub-card"><h3>Pul</h3>
     ${row('Tushum', p.revenue, 'in')}
     ${row('− Reklama', -p.spend_uzs)}
+    ${adParts(p).length > 1 ? `<div class="ad-split">${adParts(p).map(([l, v]) => `<span>${l} <b>${fmtUsd(v, 0)}</b></span>`).join('')}</div>` : ''}
     ${row('= Foyda', p.gross_profit, p.gross_profit < 0 ? 'neg' : 'pos', false)}
     ${row(`− Tannarx${p.var_cost_pct != null ? ` (${fmtN(p.var_cost_pct)}%)` : ''}`, -p.var_cost)}
     ${row('− Doimiy xarajat', -p.fixed_cost)}

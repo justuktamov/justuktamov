@@ -156,3 +156,16 @@ test('dinamika: kunlar va haftalar bo\'yicha', async () => {
   const w = monthly({ unit: 'week', months: 2, asOf });
   assert.deepEqual(w.map((x) => [x.from, x.to, x.partial]), [['2026-09-21', '2026-09-27', false], ['2026-09-28', '2026-10-01', true]]);
 });
+
+test('reklama xarajati: target + blogerlar + Telegram kanallar', async () => {
+  const { sumRows } = await import('../src/metrics.js');
+  const t = sumRows([{ date: '2026-09-01', spend: 100, spend_blogger: 50, spend_posts: 30, clicks: 400, leads: 60, sales: 6 }]);
+  assert.equal(t.target_spend, 100);
+  assert.equal(t.spend, 180, 'umumiy');
+  assert.equal(t.cpc, 0.25, '1 klik — faqat targetdan');
+  assert.equal(t.cpl, 3, '1 lid — umumiy xarajatdan');
+  assert.equal(t.reported.spend, 1);
+  const only = sumRows([{ date: '2026-09-02', spend_blogger: 40 }]);
+  assert.equal(only.spend, 40);
+  assert.equal(only.reported.spend, 1, 'faqat blogerga pul ketgan kun ham hisobga olinadi');
+});

@@ -72,6 +72,11 @@ export function sumRows(rows) {
     }
   }
   t.days = t.days.size;
+  // Reklama xarajati — umumiy: target + blogerlar + Telegram kanallar. Target alohida (voronka, CTR, 1 klik shundan)
+  t.target_spend = t.spend;
+  t.spend = t.spend + t.spend_blogger + t.spend_posts;
+  t.reported.target_spend = t.reported.spend;
+  t.reported.spend = Math.max(t.reported.spend, t.reported.spend_blogger, t.reported.spend_posts);
   return derive(t);
 }
 
@@ -81,7 +86,7 @@ export function derive(t, rate = usdRate()) {
     ...t,
     spend_uzs: spendUzs,
     ctr: div(t.clicks, t.impressions),
-    cpc: div(t.spend, t.clicks),
+    cpc: div(t.target_spend ?? t.spend, t.clicks),
     cpl: div(t.spend, t.leads),
     cost_per_start: div(t.spend, t.starts),
     cost_per_qualified: div(t.spend, t.qualified),
@@ -317,7 +322,7 @@ export function summary({ from, to, projectId = null }) {
     const out = { date: d, spend: 0, clicks: 0, starts: 0, leads: 0, qualified: 0, sales: 0 };
     for (const p of list) {
       const r = src.find((x) => x.project_id === p.id && x.date === d);
-      if (r && r.spend != null && r.revenue != null) has = true;
+      if (r && (r.spend != null || r.spend_blogger != null || r.spend_posts != null) && r.revenue != null) has = true;
       const s = projectStats(p, r ? [r] : [], 1);
       revenue += s.revenue; costs += s.costs;
       for (const k of ['spend', 'clicks', 'starts', 'leads', 'qualified', 'sales']) out[k] += s[k];

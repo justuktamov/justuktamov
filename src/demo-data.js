@@ -83,10 +83,17 @@ export function generateDemo(end, days = 150) {
       const growth = (1 + (44 - Math.min(k, 44)) * (i === 1 ? 0.012 : i === 3 ? -0.004 : 0.006)) * (k > 44 ? 0.9 + 0.12 * Math.sin(k / 23 + i) : 1);
       const weekend = [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay()) ? 0.8 : 1;
       const spend = Math.round(jitter(budget * growth * weekend) * 100) / 100;
-      const clicks = Math.round(spend / jitter(cpc, 0.15));
+      // Umumiy reklama: target + blogerlar + Telegram kanallar (ulushlar CH dagi kanallar bo'yicha)
+      const share = (c) => CH[i].filter((x) => x[0] === c).reduce((a, x) => a + x[1], 0);
+      const blogger = Math.round(spend * share('blogger') * 100) / 100;
+      const posts = Math.round(spend * share('channel_post') * 100) / 100;
+      const target = Math.round((spend - blogger - posts) * 100) / 100;
+      // reach — lidlarni hamma reklama olib keladi; clicks — faqat target kabinetdagi kliklar
+      const reach = Math.round(spend / jitter(cpc, 0.15));
+      const clicks = Math.round(reach * (target / spend));
       // Bugun VIZART da lid narxi keskin oshgan (kreativ charchagan) — PM tahlilida chiqadi
       // VIZART: oxirgi haftada sayt formasi buzilgan — klik bor, lid kam («klik ko'p, lid kam»)
-      const leads = Math.round(clicks * jitter(c2l, 0.2) * (today0 && i === 1 ? 0.5 : 1) * (i === 1 && k < 7 ? 0.55 : 1));
+      const leads = Math.round(reach * jitter(c2l, 0.2) * (today0 && i === 1 ? 0.5 : 1) * (i === 1 && k < 7 ? 0.55 : 1));
       const qualified = Math.round(leads * jitter(i === 2 ? 0.22 : 0.5, 0.15));
       const potential = Math.min(Math.round(leads * jitter(0.22, 0.2)), leads - qualified);
       // Sotuv — LAG kun oldingi lidlardan
@@ -103,7 +110,7 @@ export function generateDemo(end, days = 150) {
       // SELFENG: oxirgi haftada reklama kam bosilyapti (ko'rish ko'p, klik kam)
       daily.push({
         project_id: id, date,
-        spend: noData ? null : spend, impressions: noData ? null : Math.round(clicks * jitter(55) * (i === 3 && k < 7 ? 1.9 : 1)), clicks: noData ? null : clicks,
+        spend: noData ? null : target, spend_blogger: noData || !blogger ? null : blogger, spend_posts: noData || !posts ? null : posts, impressions: noData ? null : Math.round(clicks * jitter(55) * (i === 3 && k < 7 ? 1.9 : 1)), clicks: noData ? null : clicks,
         new_creatives: noData ? null : i === 1 && k < 9 ? 0 : (k + i) % 3 === 0 ? 1 : 0,
         starts: auto ? leads : null,
         leads: auto || noData ? null : leads, qualified: auto || noData ? null : qualified, potential: auto || noData ? null : potential, unqualified: auto || noData ? null : unqualified,

@@ -7,10 +7,10 @@ const STATUS_PILL = { unprofitable: 'crit', sales_issue: 'crit', creative: 'warn
 
 const STEPS = [
   { key: 'target', title: 'Target', head: "Targetologdan so'rang",
-    hint: "Har bir loyiha bo'yicha raqamlarni yozing. Lid narxini tizim o'zi hisoblaydi (xarajat ÷ lid).",
-    ask: ['Qaysi loyihaga qancha pul sarflandi ($)?', "Nechta ko'rish va nechta klik bo'ldi?", 'Kecha nechta yangi kreativ chiqdi?',
+    hint: "Har bir loyiha bo'yicha raqamlarni yozing. Ko'rish va klik — faqat target (reklama kabinet). Bloger va Telegram kanallarga to'lov bo'lmagan kun bo'sh qoldiriladi.",
+    ask: ['Qaysi loyihaga targetga qancha pul sarflandi ($)?', 'Blogerlarga va Telegram kanallarga reklama uchun qancha to\'landi ($)?', "Nechta ko'rish va nechta klik bo'ldi?", 'Kecha nechta yangi kreativ chiqdi?',
       'Qaysi kreativ yaxshi ishladi, qaysi biri ishlamadi?', "Reklamada muammo bo'ldimi (akkaunt, moderatsiya, to'lov)?"],
-    fields: [['spend', 'Xarajat, $'], ['impressions', "Ko'rish"], ['clicks', 'Klik'], ['new_creatives', 'Yangi kreativ']],
+    fields: [['spend', 'Target, $'], ['spend_blogger', 'Blogerga, $'], ['spend_posts', 'TG kanallarga, $'], ['impressions', "Ko'rish"], ['clicks', 'Klik'], ['new_creatives', 'Yangi kreativ']],
     required: ['spend', 'clicks'],
     texts: [['creative_best', 'Yaxshi ishlagan kreativ', 'nomi yoki havola'], ['creative_worst', 'Ishlamayotgan kreativ', 'nomi yoki havola'], ['note_target', 'Muammo', "akkaunt, moderatsiya, to'lov…"]] },
   { key: 'sales', title: 'Sotuv', head: "Sotuv va tushgan pul",

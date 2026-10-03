@@ -38,6 +38,9 @@ Oy davomida:
 
 Oyning birinchi 4 kunida xulosa chiqarilmaydi («Oy boshi») — bir-ikki kunlik raqam yetarli emas.
 
+### Reklama xarajati — umumiy
+PM 1-qadamda uch xil xarajatni yozadi: **target** (reklama kabinet), **blogerlarga** va **Telegram kanallarga** to'lov. Foyda, 1 lid va 1 mijoz narxi, ROAS — umumiy xarajatdan. Doskada «Reklama · umumiy» kartasi bosilsa: target, blogerlar, Telegram kanallar — summasi va ulushi. Voronka (ko'rish, klik, CTR, 1 klik narxi) — faqat target statistikasi.
+
 ### Voronka tashxisi — qayerda yo'qotyapmiz?
 Har o'tish loyihaning o'z me'yori (oldingi 4 hafta, konversiya uchun — reja) bilan solishtiriladi; 25% dan past bo'lsa — muammo:
 - **Ko'rish ko'p, klik kam** (CTR past) → reklama e'tiborni tortmayapti: CTA, sarlavha, rasm — targetolog;

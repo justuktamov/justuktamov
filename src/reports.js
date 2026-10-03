@@ -135,7 +135,7 @@ export function reportText(date) {
   const lines = [
     `<b>📋 ${REPORT_HEAD} ${date}</b>${r.author_name ? `\nTayyorladi: ${esc(r.author_name)}` : ''}`,
     '',
-    `💸 Reklama: <b>$${t.spend.toFixed(0)}</b> (${sum(t.spend_uzs)} so'm) · klik <b>${n(t.clicks)}</b> · lid <b>${n(t.leads)}</b>`,
+    `💸 Reklama: <b>$${t.spend.toFixed(0)}</b> (${sum(t.spend_uzs)} so'm)${t.spend_blogger || t.spend_posts ? ` — target $${t.target_spend.toFixed(0)}${t.spend_blogger ? `, bloger $${t.spend_blogger.toFixed(0)}` : ''}${t.spend_posts ? `, TG kanallar $${t.spend_posts.toFixed(0)}` : ''}` : ''} · klik <b>${n(t.clicks)}</b> · lid <b>${n(t.leads)}</b>`,
     `💰 Tushum: <b>${sum(t.revenue)} so'm</b> · sotuv <b>${n(t.sales)}</b>`,
     `${t.net_profit >= 0 ? '📈' : '📉'} Sof foyda: <b>${sum(t.net_profit)} so'm</b>${t.revenue ? ` (${p(t.net_margin)})` : ''} · reklamadan keyingi foyda ${sum(t.gross_profit)} so'm`,
   ];

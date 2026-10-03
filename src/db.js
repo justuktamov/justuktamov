@@ -13,7 +13,9 @@ export const PROJECT_KINDS = {
 
 // PM har kuni kiritadigan raqamlar: targetologdan, sotuv bo'limi rahbaridan (ROP) yoki botdan
 export const FIELDS = {
-  spend: 'Xarajat ($)',
+  spend: 'Target xarajati ($)',
+  spend_blogger: 'Blogerlarga ($)',
+  spend_posts: 'Telegram kanallarga ($)',
   impressions: "Ko'rishlar",
   clicks: 'Kliklar',
   new_creatives: 'Yangi kreativlar',

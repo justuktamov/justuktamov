@@ -52,6 +52,8 @@ export async function renderBoard() {
   };
   board.addEventListener('click', (e) => {
     if (e.target.closest('a')) return; // ichidagi havola (Reja kiritish) o'zi ishlasin
+    const exp = e.target.closest('[data-exp]');
+    if (exp) { exp.classList.toggle('open'); exp.setAttribute('aria-expanded', String(exp.classList.contains('open'))); return; }
     const btn = e.target.closest('[data-collapse]');
     const yig = e.target.closest('.col.collapsed');
     if (btn || yig) { toggle((btn || yig).closest('.col')); return; }
@@ -60,6 +62,8 @@ export async function renderBoard() {
   });
   board.addEventListener('keydown', (e) => {
     if (e.target.closest('[data-collapse]')) return;
+    const exp = e.target.closest('[data-exp]');
+    if (exp && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); exp.click(); return; }
     const col = e.target.closest('[data-open]');
     if (col?.classList.contains('collapsed') && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(col); return; }
     if (col && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); location.hash = `#/loyiha/${col.dataset.open}`; }
@@ -81,6 +85,14 @@ function setCollapsed(set) {
   try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...set])); } catch { /* xotira yo'q */ }
 }
 const COLLAPSE_IC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
+const CHEV = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+// Umumiy reklama xarajati ichida: target, blogerlar, Telegram kanallar — summasi va ulushi; 1 lid va 1 mijoz narxi umumiy xarajatdan
+function adRows(p) {
+  const parts = [['Target', p.target_spend], ['Blogerlar', p.spend_blogger], ['Telegram kanallar', p.spend_posts]];
+  const total = p.spend || 0;
+  return `${parts.map(([l, v]) => `<div class="ab-row ${v ? '' : 'zero'}"><span>${l}</span><i><i style="width:${total ? Math.round((v / total) * 100) : 0}%"></i></i><b>${fmtUsd(v, 0)}</b><em>${total ? fmtP(v / total, 0) : '—'}</em></div>`).join('')}
+    <div class="ab-unit">${p.kind === 'auto' ? `1 xarid ${fmtUsd(p.cac, 2)}` : `1 lid ${fmtUsd(p.cpl)} · 1 mijoz ${fmtUsd(p.cac, 0)}`} <span>umumiy xarajatdan</span></div>`;
+}
 const monthName = (m) => { const n = monthLabel(m).split(' ')[0]; return n[0].toUpperCase() + n.slice(1); };
 const PLAN_ROWS = [['revenue', 'Tushum'], ['sales', 'Sotuv'], ['leads', 'Lid']];
 
@@ -105,10 +117,10 @@ function column(p, plan, collapsed = false) {
   const fc = Object.fromEntries((p.funnel_check?.steps || []).map((x) => [x.key, x]));
   const steps = [
     p.reported.impressions ? ["Ko'rishlar", p.impressions, null] : null,
-    ['Klik', p.clicks, p.reported.impressions ? ['CTR', p.ctr, fc.ctr] : null],
-    auto ? (p.reported.starts ? ['Bot start', p.starts, ['', p.click_to_start, fc.click_to_start], `1 start ${fmtUsd(p.cost_per_start)}`] : null)
-      : ['Lid', p.leads, ['', p.click_to_lead, fc.click_to_lead], `1 lid ${fmtUsd(p.cpl)}`],
-    [auto ? 'Xarid' : 'Sotuv', p.sales, ['', p.conv, fc.conv], p.sales ? `1 mijoz ${fmtUsd(p.spend / p.sales, 2)}` : null],
+    ['Klik', p.clicks, p.reported.impressions ? ['CTR', p.ctr, fc.ctr] : null, p.cpc != null ? `1 klik ${fmtUsd(p.cpc)} · target ${fmtUsd(p.target_spend, 0)}` : null],
+    auto ? (p.reported.starts ? ['Bot start', p.starts, ['', p.click_to_start, fc.click_to_start]] : null)
+      : ['Lid', p.leads, ['', p.click_to_lead, fc.click_to_lead]],
+    [auto ? 'Xarid' : 'Sotuv', p.sales, ['', p.conv, fc.conv]],
   ].filter(Boolean);
   const worst = p.funnel_check?.worst;
   const q = [['q-good', p.qualified], ['q-mid', p.potential], ['q-bad', p.unqualified]];
@@ -117,13 +129,13 @@ function column(p, plan, collapsed = false) {
     <header class="col-head"><button type="button" class="col-toggle" data-collapse aria-expanded="${!collapsed}" title="${collapsed ? 'Ochish' : "Yig'ish"}" aria-label="${esc(p.name)} — yig'ish yoki ochish">${COLLAPSE_IC}</button>
       <span class="col-dot"></span><div class="col-name"><h2>${esc(p.name)}</h2><small>${auto ? 'avtovoronka' : "sotuv bo'limi"}</small></div><span class="pill ${cls}">${label}</span></header>
     <div class="tile money">
-      <div class="m-hero ad"><span class="m-ic">${M_IC.ad}</span><div><small>Reklama xarajati</small><b>${fmtUsd(p.spend, 0)}</b><span class="m-sub">${fmtUzs(p.spend_uzs)} so'm${p.cpl != null && !auto ? ` · 1 lid ${fmtUsd(p.cpl)}` : ''}</span></div></div>
+      <div class="m-hero ad" data-exp role="button" tabindex="0" aria-expanded="false" title="Bosing — qayerga qancha ketgani"><span class="m-ic">${M_IC.ad}</span><div><small>Reklama · umumiy</small><b>${fmtUsd(p.spend, 0)}</b><span class="m-sub">${fmtUzs(p.spend_uzs)} so'm</span></div><span class="m-chev">${CHEV}</span>
+        <div class="ad-break">${adRows(p)}</div></div>
       <div class="m-hero rev"><span class="m-ic">${M_IC.rev}</span><div><small>Tushum</small><b>${fmtUzs(p.revenue)}<i>so'm</i></b><span class="m-sub">${fmtN(p.sales)} ta ${auto ? 'xarid' : 'sotuv'}</span></div></div>
       <div class="m-hero ${p.net_profit < 0 ? 'loss' : 'profit'}"><span class="m-ic">${p.net_profit < 0 ? M_IC.down : M_IC.up}</span><div><small>${p.net_profit < 0 ? 'Zarar' : 'Sof foyda'}</small><b>${signed(p.net_profit, false)}<i>so'm</i></b><span class="m-sub">barcha xarajatdan keyin</span></div></div>
-      <div class="kv"><span>Marja</span><b class="${p.net_margin < 0 ? 'neg' : ''}">${fmtP(p.net_margin, 0)}</b></div>
     </div>
     <div class="tile">
-      <small>${auto ? 'Avtovoronka' : 'Voronka'}</small>
+      <small>${auto ? 'Avtovoronka' : 'Voronka'} · target</small>
       <ol class="fv">${steps.map(([l, v, rate, note], i) => `${i && rate ? `<li class="fv-link ${rate[2]?.status || ''}"><span title="${rate[2]?.norm ? `Odatda ${fmtP(rate[2].norm)}` : ''}">${rate[0] ? `${rate[0]} ` : ''}${fmtP(rate[1])}${rate[2]?.status === 'low' ? ' ↓' : rate[2]?.status === 'high' ? ' ↑' : ''}</span></li>` : i ? '<li class="fv-link"></li>' : ''}
         <li class="fv-node ${i === steps.length - 1 ? 'last' : ''}"><span class="fv-l">${l}</span><b>${fmtN(v)}</b>${note ? `<em>${note}</em>` : ''}</li>`).join('')}</ol>
       ${worst ? `<p class="fv-diag"><b>${esc(worst.from)} → ${esc(worst.to)}:</b> ${esc(worst.problem)}</p>` : ''}
