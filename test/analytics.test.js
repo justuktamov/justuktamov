@@ -185,3 +185,15 @@ test('bir nechta Telegram ID: tekshirish va saqlash', async () => {
   assert.equal(r.status, 200);
   assert.equal((await pm.json('/api/settings')).report_chat_id, '33333,-10044444');
 });
+
+test('lid manbalari: sayt, Instagram direkt, Telegram lichka kiritiladi va yig\'iladi', async () => {
+  const pm = await session();
+  const p = await pm.json('/api/projects', { method: 'POST', body: { name: 'MANBA' } });
+  const d = today();
+  await pm.json('/api/daily', { method: 'PUT', body: { project_id: p.id, date: d, values: { leads: 50, src_site: 30, src_ig: 12, src_tg: 8, sales: 2, revenue: 2000000 } } });
+  const s = await pm.json(`/api/summary?from=${d}&to=${d}&project=${p.id}`);
+  const x = s.byProject[0];
+  assert.deepEqual([x.src_site, x.src_ig, x.src_tg, x.src_other], [30, 12, 8, 0]);
+  assert.equal(s.totals.src_ig, 12);
+  await pm.json(`/api/projects/${p.id}`, { method: 'PUT', body: { active: false } });
+});

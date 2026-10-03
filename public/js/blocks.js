@@ -143,6 +143,22 @@ export function ltvBlock(p) {
   </div>`;
 }
 
+// Lid manbalari: sayt/forma, Instagram direkt, Telegram admin lichkasi, boshqa
+export const LEAD_SRC = [['src_site', 'Sayt / forma', '#2a6be0'], ['src_ig', 'Instagram direkt', '#d6336c'], ['src_tg', 'Telegram lichka', '#1c9bd6'], ['src_other', 'Boshqa', '#8a94a6']];
+export function sourcesBlock(p) {
+  if (p.kind === 'auto') return '';
+  const parts = LEAD_SRC.map(([k, l, c]) => [l, p[k] || 0, c]).filter((x) => x[1] > 0);
+  const known = parts.reduce((a, x) => a + x[1], 0);
+  const head = '<div class="card-head"><h3>Lid qayerdan keldi</h3><span class="muted small">kanallar bo\'yicha</span></div>';
+  if (!known) return `<div class="sub-card">${head}<p class="small muted">Manbalar kiritilmagan. «Kechagi hisobot» → 2-qadam → «Lid qayerdan keldi» jadvalida sayt, Instagram direkt va Telegram admin lichkasidan nechta lid kelganini yozing.</p></div>`;
+  const diff = p.leads ? p.leads - known : 0;
+  return `<div class="sub-card">${head}
+    <div class="qbar" role="img" aria-label="${parts.map(([l, v]) => `${l} ${v}`).join(', ')}">${parts.map(([l, v, c]) => `<i style="flex:${v};background:${c}" title="${l}: ${fmtN(v)}"></i>`).join('')}</div>
+    <div class="src-list">${parts.sort((a, b) => b[1] - a[1]).map(([l, v, c]) => `<div class="src-row"><span><i style="background:${c}"></i>${l}</span><b>${fmtN(v)}</b><em>${fmtP(v / known, 0)}</em></div>`).join('')}</div>
+    ${diff > 0 ? `<p class="small muted" style="margin:6px 0 0">${fmtN(diff)} ta lidning manbasi yozilmagan.</p>` : diff < 0 ? `<p class="small" style="margin:6px 0 0;color:var(--crit)">Manbalar yig'indisi (${fmtN(known)}) jami liddan (${fmtN(p.leads)}) ko'p — raqamlarni tekshiring.</p>` : ''}
+  </div>`;
+}
+
 export function qualityBlock(p) {
   if (!p.leads) return '';
   const parts = [['Sifatli', p.qualified, 'q-good'], ['Potensial', p.potential, 'q-mid'], ['Sifatsiz', p.unqualified, 'q-bad']];

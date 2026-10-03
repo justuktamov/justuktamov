@@ -46,6 +46,8 @@ const CH = [
   [['instagram', 0.5, 1, 0.9, 1.1], ['telegram_ads', 0.3, 0.9, 1.3, 1.3], ['blogger', 0.2, 0.7, 0.6, 0]],
   [['telegram_ads', 0.65, 1, 1.1, 1.1], ['youtube', 0.35, 0.8, 0.8, 0.8]],
 ];
+// Lid qayerdan keladi: [sayt/forma, Instagram direkt, Telegram admin lichkasi, boshqa]
+const SRC_MIX = [null, [0.5, 0.38, 0.1, 0.02], [0.62, 0.22, 0.14, 0.02], [0.4, 0.18, 0.37, 0.05]];
 // Qayta sotuv ehtimoli (kunlik sotuvlar ichida) va qayta chek ulushi
 const REPEAT = [[0.35, 0.8], [0.04, 0.5], [0.03, 0.4], [0.18, 0.9]];
 
@@ -120,6 +122,8 @@ export function generateDemo(end, days = 150) {
         note_target: today0 && i === 1 ? "Instagramda 1 ta reklama moderatsiyadan o'tmadi" : null,
         note_sales: k === 1 && i === 2 ? "Qo'ng'iroqlarga javob bermayapti, narxni eshitib o'ylab ko'raman deyishyapti" : null,
       });
+      const srcSplit = !auto && !noData && k < 30 ? split(leads, SRC_MIX[i], rand) : null;
+      if (srcSplit) Object.assign(daily.at(-1), { src_site: srcSplit[0], src_ig: srcSplit[1], src_tg: srcSplit[2], src_other: srcSplit[3] || null });
       // Kanallar bo'yicha bo'linish (oxirgi 30 kun — PM shundan beri kiritadi)
       if (!noData && k < 30) {
         const cfg = CH[i];

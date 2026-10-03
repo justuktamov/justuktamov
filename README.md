@@ -41,6 +41,9 @@ Oyning birinchi 4 kunida xulosa chiqarilmaydi («Oy boshi») — bir-ikki kunlik
 ### Reklama xarajati — umumiy
 PM 1-qadamda uch xil xarajatni yozadi: **target** (reklama kabinet), **blogerlarga** va **Telegram kanallarga** to'lov. Foyda, 1 lid va 1 mijoz narxi, ROAS — umumiy xarajatdan. Doskada «Reklama · umumiy» kartasi bosilsa: target, blogerlar, Telegram kanallar — summasi va ulushi. Voronka (ko'rish, klik, CTR, 1 klik narxi) — faqat target statistikasi.
 
+### Lid qayerdan keldi
+2-qadamda har loyiha uchun lid manbasi kiritiladi: **sayt / forma**, **Instagram direkt**, **Telegram admin lichkasi**, **boshqa**. Yig'indi jami lidga teng bo'lmasa — ogohlantirish (≠); jami lid bo'sh qolsa, manbalar yig'indisi yoziladi. Loyiha sahifasida «Lid qayerdan keldi» bloki (soni va ulushi), doskada «Manba: Sayt 60% · IG direkt 25% · TG lichka 15%», Telegram hisobotida 📥 qatori.
+
 ### Voronka tashxisi — qayerda yo'qotyapmiz?
 Har o'tish loyihaning o'z me'yori (oldingi 4 hafta, konversiya uchun — reja) bilan solishtiriladi; 25% dan past bo'lsa — muammo:
 - **Ko'rish ko'p, klik kam** (CTR past) → reklama e'tiborni tortmayapti: CTA, sarlavha, rasm — targetolog;

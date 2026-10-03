@@ -149,7 +149,11 @@ export function reportText(date) {
     lines.push('', `${ICON[status]} <b>${esc(pr.name)}</b> — ${esc(PROJECT_STATUS[status])}`);
     lines.push(`   $${pr.spend.toFixed(0)} · ${n(pr.clicks)} klik · ${pr.unit_label} ${usd(pr.unit_cost)}`);
     if (pr.kind === 'auto') lines.push(`   ${pr.reported.starts ? `${n(pr.starts)} bot start · ` : ''}${n(pr.sales)} xarid (${p(pr.conv)} ${pr.conv_label})`);
-    else lines.push(`   ${n(pr.leads)} lid${q.length ? ` (${q.join(' · ')})` : ''} · ${n(pr.sales)} sotuv`);
+    else {
+      lines.push(`   ${n(pr.leads)} lid${q.length ? ` (${q.join(' · ')})` : ''} · ${n(pr.sales)} sotuv`);
+      const src = [['sayt', pr.src_site], ['IG direkt', pr.src_ig], ['TG lichka', pr.src_tg], ['boshqa', pr.src_other]].filter(([, v]) => v > 0);
+      if (src.length) lines.push(`   📥 Lid manbasi: ${src.map(([l, v]) => `${l} ${n(v)}`).join(' · ')}`);
+    }
     lines.push(`   💰 ${sum(pr.revenue)} so'm · ${pr.net_profit >= 0 ? 'sof foyda' : 'zarar'} ${sum(Math.abs(pr.net_profit))} so'm${pr.revenue ? ` (${p(pr.net_margin)})` : ''}`);
     if (adv.best) lines.push(`   ⭐ Yaxshi kreativ: ${esc(adv.best)}`);
     if (adv.worst) lines.push(`   👎 Ishlamayotgan: ${esc(adv.worst)}`);

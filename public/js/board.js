@@ -93,6 +93,12 @@ function adRows(p) {
   return `${parts.map(([l, v]) => `<div class="ab-row ${v ? '' : 'zero'}"><span>${l}</span><i><i style="width:${total ? Math.round((v / total) * 100) : 0}%"></i></i><b>${fmtUsd(v, 0)}</b><em>${total ? fmtP(v / total, 0) : '—'}</em></div>`).join('')}
     <div class="ab-unit">${p.kind === 'auto' ? `1 xarid ${fmtUsd(p.cac, 2)}` : `1 lid ${fmtUsd(p.cpl)} · 1 mijoz ${fmtUsd(p.cac, 0)}`} <span>umumiy xarajatdan</span></div>`;
 }
+// Lid manbalari bir qatorda: «Sayt 60% · IG direkt 25% · TG lichka 15%»
+function srcLine(p) {
+  const parts = [['Sayt', p.src_site], ['IG direkt', p.src_ig], ['TG lichka', p.src_tg], ['Boshqa', p.src_other]].filter(([, v]) => v > 0);
+  const known = parts.reduce((a, [, v]) => a + v, 0);
+  return known ? `<p class="src-line">Manba: ${parts.sort((a, b) => b[1] - a[1]).map(([l, v]) => `${l} ${fmtP(v / known, 0)}`).join(' · ')}</p>` : '';
+}
 const monthName = (m) => { const n = monthLabel(m).split(' ')[0]; return n[0].toUpperCase() + n.slice(1); };
 const PLAN_ROWS = [['revenue', 'Tushum'], ['sales', 'Sotuv'], ['leads', 'Lid']];
 
@@ -145,7 +151,8 @@ function column(p, plan, collapsed = false) {
       ${p.leads && p.reported.qualified ? `<div class="qbar sm">${q.filter((x) => x[1]).map(([c, v]) => `<i class="${c}" style="flex:${v}"></i>`).join('')}</div>
         <div class="kv"><span>Sifatli</span><b>${fmtP(p.qualified_share, 0)}</b></div>
         <div class="kv"><span>Sifatsiz</span><b>${fmtP(p.unqualified_share, 0)}</b></div>
-        ${badTop ? `<p class="why">Nega: «${esc(badTop.label)}» — ${fmtP(badTop.share, 0)}</p>` : ''}` : '<p class="why">Kiritilmagan</p>'}
+        ${badTop ? `<p class="why">Nega: «${esc(badTop.label)}» — ${fmtP(badTop.share, 0)}</p>` : ''}
+        ${srcLine(p)}` : '<p class="why">Kiritilmagan</p>'}
     </div>`}
     ${planTile(p, plan)}
     ${issue ? `<div class="tile issue ${issue.level}"><small>${issue.level === 'critical' ? 'Muhim' : 'Diqqat'}</small><p>${esc(issue.text)}</p></div>` : ''}

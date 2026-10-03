@@ -21,6 +21,10 @@ export const FIELDS = {
   new_creatives: 'Yangi kreativlar',
   starts: 'Bot start',
   leads: 'Lidlar',
+  src_site: 'Lid: sayt / forma',
+  src_ig: 'Lid: Instagram direkt',
+  src_tg: 'Lid: Telegram admin lichkasi',
+  src_other: "Lid: boshqa (qo'ng'iroq, tanish…)",
   qualified: 'Sifatli lidlar',
   potential: 'Potensial lidlar',
   unqualified: 'Sifatsiz lidlar',
@@ -234,3 +238,6 @@ export function normalizeIds(v) {
   if (bad) { const e = new Error(`Telegram ID faqat raqam bo'ladi: ${bad}`); e.status = 400; throw e; }
   return ids.length ? ids.join(',') : null;
 }
+
+// Lid qayerdan keldi — PM kunlik kiritadi; jami lid shular yig'indisi bo'lishi kerak
+export const LEAD_SOURCES = { src_site: 'Sayt / forma', src_ig: 'Instagram direkt', src_tg: 'Telegram admin lichkasi', src_other: 'Boshqa' };
