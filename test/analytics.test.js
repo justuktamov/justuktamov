@@ -129,3 +129,20 @@ test("ko'p reklama = ko'p foydami: kunlar reytingi", async () => {
   assert.equal(s.compare.k, 3);
   assert.equal(s.compare.hi_net, (300000 + 900000 + 800000) / 3);
 });
+
+test("voronka tashxisi: qaysi bosqichda yo'qotyapmiz", async () => {
+  const { funnelCheck } = await import('../src/metrics.js');
+  const base = { kind: 'leads', impressions: 50000, clicks: 1000, leads: 40, sales: 4, reported: { leads: 1, starts: 0 }, starts: 0 };
+  // Klik → lid odatdagidan ancha past, qolganlari me'yorida
+  const p = { ...base, ctr: 0.02, click_to_lead: 0.04, conv: 0.1, bench: { ctr: 0.021, click_to_lead: 0.1, conv: 0.09 } };
+  const f = funnelCheck(p);
+  assert.deepEqual(f.steps.map((s) => s.status), ['ok', 'low', 'ok']);
+  assert.equal(f.worst.key, 'click_to_lead');
+  assert.match(f.worst.problem, /sayt\/forma/);
+  // Lid ko'p, sotuv kam — sotuv bo'limi
+  const g = funnelCheck({ ...p, click_to_lead: 0.1, conv: 0.03 });
+  assert.equal(g.worst.key, 'conv');
+  assert.equal(g.worst.who, 'sales');
+  // Me'yor yo'q — xulosa ham yo'q
+  assert.equal(funnelCheck({ ...p, bench: {} }).worst, null);
+});

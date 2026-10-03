@@ -46,7 +46,23 @@ export function funnelBlock(p) {
       <span><small>1 mijoz narxi</small><b>${fmtUsd(p.cac)}</b></span>
       <span><small>O'rtacha chek</small><b>${fmtSom(p.avg_check)}</b></span>
     </div>
+    ${funnelDiag(p)}
     ${p.kind !== 'auto' ? `<p class="small muted conv-note">Konversiya (${p.conv_label}): <b>${fmtP(p.conv)}</b>${p.conv_note ? ` — ${esc(p.conv_note)}` : ''}${p.sale_lag ? '' : '. <a href="#/sozlamalar?tab=projects">Kechikishni sozlash</a>'}</p>` : ''}
+  </div>`;
+}
+
+// Voronka tashxisi: har o'tish o'z me'yori bilan — qaysi bosqichda yo'qotyapmiz va kim tuzatadi
+const WHO_NAME = { target: 'Targetolog', sales: "Sotuv bo'limi" };
+function funnelDiag(p) {
+  const steps = (p.funnel_check?.steps || []).filter((s) => s.rate != null);
+  if (!steps.length) return '';
+  const st = { low: ['crit', 'Past'], ok: ['good', "Me'yorida"], high: ['good', 'Yaxshi'] };
+  const w = p.funnel_check.worst;
+  return `<div class="fdiag"><h4>Qayerda yo'qotyapmiz?</h4>
+    ${steps.map((s) => `<div class="fd-row ${s.status || ''}"><span>${esc(s.from)} → ${esc(s.to)}</span><b>${fmtP(s.rate)}</b>
+      <em>${s.norm ? `odatda ${fmtP(s.norm)}${s.norm_src === 'reja' ? ' (reja)' : ''}` : 'me\'yor hali yo\'q'}</em>${s.status ? `<span class="pill ${st[s.status][0]}">${st[s.status][1]}</span>` : '<span></span>'}</div>`).join('')}
+    ${w ? `<div class="fd-verdict"><b>${esc(w.problem)}</b><span>${WHO_NAME[w.who] || ''}: ${esc(w.fix)}</span></div>`
+      : steps.some((s) => s.status) ? '<p class="ok-line small">✓ Voronkaning hamma bosqichi me\'yorida</p>' : ''}
   </div>`;
 }
 

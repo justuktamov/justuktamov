@@ -102,13 +102,15 @@ function column(p, plan, collapsed = false) {
   const auto = p.kind === 'auto';
   const issue = p.insights.find((i) => i.level === 'critical') || p.insights.find((i) => i.level === 'warning');
   // Workflow: ko'rish → klik → lid (bot start) → sotuv (xarid); bosqichlar orasida o'tish foizi
+  const fc = Object.fromEntries((p.funnel_check?.steps || []).map((x) => [x.key, x]));
   const steps = [
     p.reported.impressions ? ["Ko'rishlar", p.impressions, null] : null,
-    ['Klik', p.clicks, p.reported.impressions ? ['CTR', p.ctr] : null],
-    auto ? (p.reported.starts ? ['Bot start', p.starts, ['', p.click_to_start], `1 start ${fmtUsd(p.cost_per_start)}`] : null)
-      : ['Lid', p.leads, ['', p.click_to_lead], `1 lid ${fmtUsd(p.cpl)}`],
-    [auto ? 'Xarid' : 'Sotuv', p.sales, ['', p.conv], p.sales ? `1 mijoz ${fmtUsd(p.spend / p.sales, 2)}` : null],
+    ['Klik', p.clicks, p.reported.impressions ? ['CTR', p.ctr, fc.ctr] : null],
+    auto ? (p.reported.starts ? ['Bot start', p.starts, ['', p.click_to_start, fc.click_to_start], `1 start ${fmtUsd(p.cost_per_start)}`] : null)
+      : ['Lid', p.leads, ['', p.click_to_lead, fc.click_to_lead], `1 lid ${fmtUsd(p.cpl)}`],
+    [auto ? 'Xarid' : 'Sotuv', p.sales, ['', p.conv, fc.conv], p.sales ? `1 mijoz ${fmtUsd(p.spend / p.sales, 2)}` : null],
   ].filter(Boolean);
+  const worst = p.funnel_check?.worst;
   const q = [['q-good', p.qualified], ['q-mid', p.potential], ['q-bad', p.unqualified]];
   const badTop = p.reasons.bad[0];
   return `<section class="col ${collapsed ? 'collapsed' : ''}" style="--pc:${esc(p.color || '#4c86ff')}" data-open="${p.id}" tabindex="0" role="button" aria-label="${esc(p.name)} — batafsil">
@@ -122,8 +124,9 @@ function column(p, plan, collapsed = false) {
     </div>
     <div class="tile">
       <small>${auto ? 'Avtovoronka' : 'Voronka'}</small>
-      <ol class="fv">${steps.map(([l, v, rate, note], i) => `${i && rate ? `<li class="fv-link"><span>${rate[0] ? `${rate[0]} ` : ''}${fmtP(rate[1])}</span></li>` : i ? '<li class="fv-link"></li>' : ''}
+      <ol class="fv">${steps.map(([l, v, rate, note], i) => `${i && rate ? `<li class="fv-link ${rate[2]?.status || ''}"><span title="${rate[2]?.norm ? `Odatda ${fmtP(rate[2].norm)}` : ''}">${rate[0] ? `${rate[0]} ` : ''}${fmtP(rate[1])}${rate[2]?.status === 'low' ? ' ↓' : rate[2]?.status === 'high' ? ' ↑' : ''}</span></li>` : i ? '<li class="fv-link"></li>' : ''}
         <li class="fv-node ${i === steps.length - 1 ? 'last' : ''}"><span class="fv-l">${l}</span><b>${fmtN(v)}</b>${note ? `<em>${note}</em>` : ''}</li>`).join('')}</ol>
+      ${worst ? `<p class="fv-diag"><b>${esc(worst.from)} → ${esc(worst.to)}:</b> ${esc(worst.problem)}</p>` : ''}
     </div>
     ${auto ? '' : `<div class="tile">
       <small>Lid sifati</small>

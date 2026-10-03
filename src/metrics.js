@@ -269,6 +269,9 @@ function benchmarks(from, projects, plan, projectId) {
       conv_src: planConv != null ? 'reja' : ownConv != null ? 'odatda' : null,
       unit_cost: (p.kind === 'auto' ? base >= 10 : b.leads >= 10) ? c.unit_cost : null,
       ctr: b.impressions >= 1000 ? b.ctr : null,
+      // Voronka bosqichlari uchun o'z me'yori (oldingi 4 hafta)
+      click_to_lead: p.kind !== 'auto' && b.clicks >= 200 && b.reported.leads ? b.click_to_lead : null,
+      click_to_start: p.kind === 'auto' && b.clicks >= 200 && b.reported.starts ? b.click_to_start : null,
     };
   }
   return out;
@@ -381,8 +384,39 @@ export function summary({ from, to, projectId = null }) {
     p.bench = bench[p.id];
     p.insights = [...projectInsights(p, len), ...channelMismatch(p), ...channelInsights(p.channels, p.kind), ...ltvInsights(p)];
     p.price = priceAdvice(p);
+    p.funnel_check = funnelCheck(p);
   }
   return { from, to, prevFrom, prevTo, days: len, totals, prev, delta, byProject, series, notes, plan };
+}
+
+// ---------- Voronka tashxisi: qaysi bosqichda yo'qotyapmiz ----------
+// Har o'tish o'z me'yori (oldingi 4 hafta yoki reja) bilan solishtiriladi: 25% dan past — muammo, 25% dan yuqori — yaxshi.
+// Ko'rish ko'p, klik kam → reklama/CTA; klik ko'p, lid kam → kreativ va'dasi yoki sayt/forma; lid ko'p, sotuv kam → sotuv bo'limi
+export function funnelCheck(p) {
+  const b = p.bench || {};
+  const auto = p.kind === 'auto';
+  const steps = [
+    { key: 'ctr', from: "Ko'rish", to: 'Klik', rate: p.impressions >= 1000 ? p.ctr : null, norm: b.ctr, who: 'target',
+      problem: "Ko'rish ko'p, klik kam — reklama e'tiborni tortmayapti (CTA, sarlavha, rasm).",
+      fix: "CTA va sarlavhani almashtirish, yangi rasm/video sinash, auditoriyani tekshirish." },
+    auto
+      ? { key: 'click_to_start', from: 'Klik', to: 'Bot start', rate: p.reported.starts && p.clicks >= 50 ? p.click_to_start : null, norm: b.click_to_start, who: 'target',
+        problem: "Klik ko'p, botga kirish kam — reklama va'dasi bot bilan mos emas yoki havola/bot sekin.",
+        fix: "Reklama matni va botning birinchi xabarini moslash, havola va bot tezligini tekshirish." }
+      : { key: 'click_to_lead', from: 'Klik', to: 'Lid', rate: p.reported.leads && p.clicks >= 50 ? p.click_to_lead : null, norm: b.click_to_lead, who: 'target',
+        problem: "Klik ko'p, lid kam — kreativ boshqa narsa va'da qilyapti yoki sayt/forma ishlamayapti.",
+        fix: "Kreativ va sayt/forma bir xil narsani aytsin; formani qisqartirish, sayt telefonda ochilishini tekshirish." },
+    { key: 'conv', from: auto ? (p.reported.starts ? 'Bot start' : 'Klik') : 'Lid', to: auto ? 'Xarid' : 'Sotuv',
+      rate: (auto ? (p.reported.starts ? p.starts : p.clicks) : p.leads) >= 20 ? p.conv : null, norm: b.conv, norm_src: b.conv_src, who: auto ? 'target' : 'sales',
+      problem: auto ? "Botga kirish ko'p, xarid kam — botdagi taklif, narx yoki to'lov bosqichida yo'qotyapmiz." : "Lid ko'p, sotuv kam — muammo sotuv bo'limida (qo'ng'iroq tezligi, skript, taklif).",
+      fix: auto ? "Botdagi taklif va to'lov qadamlarini soddalashtirish, narx/chegirmani sinash." : "ROP bilan: lidlarga necha daqiqada qo'ng'iroq qilinyapti, skript, «qimmat» deganlarga taklif." },
+  ];
+  for (const s of steps) {
+    s.ratio = s.rate != null && s.norm ? s.rate / s.norm : null;
+    s.status = s.ratio == null ? null : s.ratio < 0.75 ? 'low' : s.ratio > 1.25 ? 'high' : 'ok';
+  }
+  const low = steps.filter((s) => s.status === 'low').sort((a, b) => a.ratio - b.ratio);
+  return { steps, worst: low[0] || null };
 }
 
 // ---------- Majlis uchun: loyiha bo'yicha xulosalar («nega?» raqamlarda) ----------

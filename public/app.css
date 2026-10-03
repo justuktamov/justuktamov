@@ -849,3 +849,16 @@ input, select, textarea { color-scheme: light; }
 @media (max-width: 860px) { .sd-grid { grid-template-columns: minmax(0, 1fr); } .sd-rank b { font-size: 17px; } }
 @media (max-width: 600px) { .sd-table .sd-rev { display: none; } }
 .m-hero.ad { --mh-c: #ea6a1f; --mh-ink: #a1440c; --mh-glow: rgba(234, 106, 31, .26); background: linear-gradient(135deg, #fff6ef 0%, #ffe9d9 100%); border-color: #fbd8bf; }
+/* Voronka tashxisi */
+.fv-link.low span { background: #fdecec; border-color: #f4b9ba; color: #b42323; }
+.fv-link.high span { background: #e7f6ec; border-color: #bfe5cc; color: #17803a; }
+.fv-diag { margin: 8px 0 0 !important; padding: 8px 10px; border-radius: 10px; background: #fdecec; color: #8f1f1f !important; font-size: 12.5px !important; line-height: 1.4; -webkit-line-clamp: 4 !important; }
+.fv-diag b { color: #b42323; }
+.fdiag { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.fdiag h4 { margin: 0 0 6px; font-size: 13.5px; }
+.fd-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 82px; align-items: center; gap: 10px; padding: 5px 0; font-size: 13px; }
+.fd-row b { font-variant-numeric: tabular-nums; }
+.fd-row em { font-style: normal; color: var(--text-3); font-size: 12px; }
+.fd-row .pill { justify-self: end; }
+.fd-verdict { margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: #fdecec; display: grid; gap: 3px; font-size: 13px; }
+.fd-verdict b { color: #a8242a; } .fd-verdict span { color: var(--text-2); }

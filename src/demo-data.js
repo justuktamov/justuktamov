@@ -85,7 +85,8 @@ export function generateDemo(end, days = 150) {
       const spend = Math.round(jitter(budget * growth * weekend) * 100) / 100;
       const clicks = Math.round(spend / jitter(cpc, 0.15));
       // Bugun VIZART da lid narxi keskin oshgan (kreativ charchagan) — PM tahlilida chiqadi
-      const leads = Math.round(clicks * jitter(c2l, 0.2) * (today0 && i === 1 ? 0.5 : 1));
+      // VIZART: oxirgi haftada sayt formasi buzilgan — klik bor, lid kam («klik ko'p, lid kam»)
+      const leads = Math.round(clicks * jitter(c2l, 0.2) * (today0 && i === 1 ? 0.5 : 1) * (i === 1 && k < 7 ? 0.55 : 1));
       const qualified = Math.round(leads * jitter(i === 2 ? 0.22 : 0.5, 0.15));
       const potential = Math.min(Math.round(leads * jitter(0.22, 0.2)), leads - qualified);
       // Sotuv — LAG kun oldingi lidlardan
@@ -99,9 +100,10 @@ export function generateDemo(end, days = 150) {
       const [rp, rk] = REPEAT[i];
       const repeatSales = Math.min(sales, Math.round(sales * jitter(rp, 0.5)));
       const repeatRevenue = Math.round(repeatSales * check * rk * jitter(1, 0.1) / 1000) * 1000;
+      // SELFENG: oxirgi haftada reklama kam bosilyapti (ko'rish ko'p, klik kam)
       daily.push({
         project_id: id, date,
-        spend: noData ? null : spend, impressions: noData ? null : Math.round(clicks * jitter(55)), clicks: noData ? null : clicks,
+        spend: noData ? null : spend, impressions: noData ? null : Math.round(clicks * jitter(55) * (i === 3 && k < 7 ? 1.9 : 1)), clicks: noData ? null : clicks,
         new_creatives: noData ? null : i === 1 && k < 9 ? 0 : (k + i) % 3 === 0 ? 1 : 0,
         starts: auto ? leads : null,
         leads: auto || noData ? null : leads, qualified: auto || noData ? null : qualified, potential: auto || noData ? null : potential, unqualified: auto || noData ? null : unqualified,

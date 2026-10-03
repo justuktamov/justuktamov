@@ -38,6 +38,14 @@ Oy davomida:
 
 Oyning birinchi 4 kunida xulosa chiqarilmaydi («Oy boshi») — bir-ikki kunlik raqam yetarli emas.
 
+### Voronka tashxisi — qayerda yo'qotyapmiz?
+Har o'tish loyihaning o'z me'yori (oldingi 4 hafta, konversiya uchun — reja) bilan solishtiriladi; 25% dan past bo'lsa — muammo:
+- **Ko'rish ko'p, klik kam** (CTR past) → reklama e'tiborni tortmayapti: CTA, sarlavha, rasm — targetolog;
+- **Klik ko'p, lid kam** (klik → lid past) → kreativ boshqa narsa va'da qilyapti yoki sayt/forma ishlamayapti — targetolog;
+- **Lid ko'p, sotuv kam** (lid → sotuv past) → muammo sotuv bo'limida — ROP;
+- avtovoronkada: klik → bot start (reklama va bot mos emas), start → xarid (botdagi taklif, to'lov).
+Doskada past o'tish qizil (↓) bilan, voronka ostida asosiy muammo yoziladi; loyiha sahifasida «Qayerda yo'qotyapmiz?» jadvali va kim nima qilishi.
+
 ### Kanallar, kechikish, LTV
 - **Reklama kanallari.** Sozlamalarda har loyihaga kanallar belgilanadi (Telegram Ads, Instagram / Facebook, kanal posti, bloger, YouTube, Google, organik…). PM 2-qadamda «Kanallar bo'yicha» bo'limiga har kanal raqamini yozadi (ixtiyoriy). Loyiha sahifasida jadval: xarajat ulushi, lid, 1 lid, sifatli %, sotuv, 1 mijoz narxi, tushum, ROAS — eng yaxshi kanal yashil, eng qimmati qizil. Xulosada: «Instagram lidlarining faqat 31% sifatli, Telegram Ads — 88%», «byudjetning bir qismini … ga o'tkazish», «Blogerga $X sarflandi, sotuv yo'q».
 - **Lid → sotuv kechikishi.** Kursni odam bugun lid bo'lib, 1–2 haftadan keyin sotib oladi. Loyihaga kechikish (kun) qo'yilsa, konversiya = davrdagi sotuvlar ÷ shuncha kun oldingi lidlar. Sozlamalarda tizim oxirgi 90 kun ma'lumotidan kechikishni o'zi taxmin qiladi («Ma'lumotga ko'ra: ~7 kun · qo'yish»).
