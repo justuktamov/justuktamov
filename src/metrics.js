@@ -495,7 +495,7 @@ export function priceAdvice(p) {
 
 // ---------- Oylar bo'yicha dinamika ----------
 // asOf — oxirgi hisobot kuni (kecha): bugungi raqamlar hali kiritilmagan, joriy oyni kunlik sur'atda pasaytirmasin
-const MONTH_KEYS = ['spend', 'spend_uzs', 'revenue', 'gross_profit', 'net_profit', 'net_margin', 'leads', 'qualified_share', 'sales', 'conv', 'cpl', 'cac', 'avg_check', 'roas', 'repeat_share'];
+const MONTH_KEYS = ['impressions', 'clicks', 'ctr', 'starts', 'spend', 'spend_uzs', 'revenue', 'gross_profit', 'net_profit', 'net_margin', 'leads', 'qualified_share', 'sales', 'conv', 'cpl', 'cac', 'avg_check', 'roas', 'repeat_share'];
 export function monthly({ months = 6, projectId = null, asOf = addDays(today(), -1) } = {}) {
   const out = [];
   let m = asOf.slice(0, 7);
@@ -508,7 +508,9 @@ export function monthly({ months = 6, projectId = null, asOf = addDays(today(), 
     const t = totalsOf(list, rows);
     // Konversiya — faqat sotuv bo'limi orqali ishlaydigan loyihalardan (avtovoronka xaridlari lidsiz)
     const lp = list.filter((p) => p.kind !== 'auto');
-    t.conv = div(lp.reduce((a, p) => a + (p.sales || 0), 0), lp.reduce((a, p) => a + (p.leads || 0), 0));
+    t.conv = lp.length ? div(lp.reduce((a, p) => a + (p.sales || 0), 0), lp.reduce((a, p) => a + (p.leads || 0), 0))
+      : list.length === 1 ? list[0].conv : null; // faqat avtovoronka tanlansa — start → xarid
+    t.ctr = div(t.clicks, t.impressions);
     if (!t.repeat_revenue) t.repeat_share = null;
     for (const p of list) if (!p.repeat_revenue) p.repeat_share = null;
     const pickM = (x) => Object.fromEntries(MONTH_KEYS.map((k) => [k, x[k] ?? null]));

@@ -5,20 +5,29 @@ import {
 import { dot, signed } from './blocks.js';
 
 // [kalit, nom, format, yaxshi tomoni: 1 — o'sish yaxshi, -1 — kamayish yaxshi, 0 — neytral, kunlik sur'atda solishtiriladimi]
+// Tartib — voronka bo'yicha: reklama → lid → sotuv → pul → natija
 const ROWS = [
-  ['revenue', 'Tushum', (x) => `${fmtUzs(x)} so'm`, 1, true],
-  ['spend', 'Reklama', (x) => fmtUsd(x, 0), 0, true],
-  ['net_profit', 'Sof foyda', (x) => signed(x), 1, true],
-  ['net_margin', 'Marja', (x) => fmtP(x, 0), 1, false],
-  ['leads', 'Lidlar', fmtN, 1, true],
-  ['qualified_share', 'Sifatli lid ulushi', (x) => fmtP(x, 0), 1, false],
-  ['cpl', '1 lid narxi', (x) => fmtUsd(x), -1, false],
+  ['§', 'Reklama'],
+  ['spend', 'Reklama xarajati', (x) => fmtUsd(x, 0), 0, true],
+  ['impressions', "Ko'rishlar", fmtN, 1, true],
+  ['clicks', 'Klik', fmtN, 1, true],
+  ['ctr', 'CTR (ko\'rish → klik)', (x) => fmtP(x), 1, false],
+  ['§', 'Lidlar'],
+  ['leads', 'Lidlar', fmtN, 1, true, 'leads'],
+  ['starts', 'Bot start', fmtN, 1, true, 'auto'],
+  ['qualified_share', 'Sifatli lid ulushi', (x) => fmtP(x, 0), 1, false, 'leads'],
+  ['cpl', '1 lid narxi', (x) => fmtUsd(x), -1, false, 'leads'],
+  ['§', 'Sotuv'],
   ['sales', 'Sotuvlar', fmtN, 1, true],
   ['conv', 'Konversiya', (x) => fmtP(x), 1, false],
   ['cac', '1 mijoz narxi', (x) => fmtUsd(x, x < 10 ? 2 : 0), -1, false],
   ['avg_check', "O'rtacha chek", (x) => `${fmtUzs(x)} so'm`, 0, false],
-  ['roas', 'ROAS', (x) => (x == null ? '—' : `${fmtN(x, 1)}×`), 1, false],
   ['repeat_share', 'Qayta sotuv ulushi', (x) => fmtP(x, 0), 1, false],
+  ['§', 'Natija'],
+  ['revenue', 'Tushum', (x) => `${fmtUzs(x)} so'm`, 1, true],
+  ['roas', 'ROAS', (x) => (x == null ? '—' : `${fmtN(x, 1)}×`), 1, false],
+  ['net_profit', 'Sof foyda', (x) => signed(x), 1, true],
+  ['net_margin', 'Marja', (x) => fmtP(x, 0), 1, false],
 ];
 
 // Turli uzunlikdagi oylar (va tugamagan joriy oy) kunlik sur'at bo'yicha solishtiriladi
@@ -50,14 +59,22 @@ export async function renderDynamics() {
 
   const auto = f.project && projects.find((p) => String(p.id) === String(f.project))?.kind === 'auto';
   // «Hammasi»da mijoz narxi va o'rtacha chek arzon avtovoronka bilan aralashib ma'nosini yo'qotadi — faqat loyiha tanlanganda
-  const rows = ROWS.filter(([k]) => !(auto && ['leads', 'qualified_share', 'cpl'].includes(k)) && !(!f.project && ['cac', 'avg_check'].includes(k)))
-    .map((r) => (r[0] === 'conv' && !f.project ? [r[0], 'Konversiya (lid → sotuv)', ...r.slice(2)] : r));
-  const head = months.map((m) => `<th class="n">${esc(monthLabel(m.month))}${m.partial ? `<br><span class="muted small">${m.days} kun</span>` : ''}</th>`).join('');
+  const has = (k) => months.some((m) => m.has && m.totals[k] != null && m.totals[k] !== 0);
+  const rows = ROWS.filter((r) => {
+    if (r[0] === '§') return true;
+    if (r[5] === 'leads' && auto) return false;
+    if (r[5] === 'auto' && (!auto || !has('starts'))) return false;
+    if (!f.project && ['cac', 'avg_check'].includes(r[0])) return false;
+    return !['impressions', 'ctr', 'repeat_share'].includes(r[0]) || has(r[0]);
+  }).filter((r, i, list) => r[0] !== '§' || (list[i + 1] && list[i + 1][0] !== '§'))
+    .map((r) => (r[0] === 'conv' ? [r[0], !f.project ? 'Konversiya (lid → sotuv)' : auto ? 'Konversiya (start → xarid)' : 'Konversiya (lid → sotuv)', ...r.slice(2)] : r));
+  const head = months.map((m) => `<th class="n">${esc(monthLabel(m.month))}${m.partial ? ` <span class="muted small">· ${m.days} kun</span>` : ''}</th>`).join('');
   const cell = ([k, , fmt, good, perDay], m, i) => {
     const d = change(k, perDay, m, months[i - 1]);
     const cls = d == null || !good || Math.abs(d) < 0.03 ? '' : (d > 0) === (good > 0) ? 'pos' : 'neg';
     const v = m.totals[k];
-    return `<td class="n">${m.has && v != null ? fmt(v) : '—'}${d != null && Math.abs(d) >= 0.005 ? `<br><span class="small ${cls}">${d > 0 ? '▲' : '▼'} ${fmtN(Math.abs(d) * 100, 0)}%</span>` : ''}</td>`;
+    const dd = d != null && Math.abs(d) >= 0.005 ? `${d > 0 ? '▲' : '▼'} ${Math.abs(d) >= 10 ? '>999' : fmtN(Math.abs(d) * 100, 0)}%` : '';
+    return `<td class="n"><span class="dv">${m.has && v != null ? fmt(v) : '—'}</span><span class="dd ${cls}">${dd}</span></td>`;
   };
   // Hammasi: har loyihaning sof foydasi oyma-oy — qaysi biri tortyapti, qaysi biri yeyapti
   const byProject = !f.project ? `<div class="card mt"><div class="card-head"><h2>Loyihalar sof foydasi</h2><span class="muted small">oyma-oy</span></div>
@@ -71,7 +88,7 @@ export async function renderDynamics() {
       <div class="chart-box"><canvas aria-label="Oylar bo'yicha tushum va xarajat"></canvas></div></div>
     <div class="card mt"><div class="card-head"><h2>Ko'rsatkichlar</h2><span class="muted small">▲▼ — o'tgan oyga nisbatan; summalar kunlik sur'atda solishtiriladi</span></div>
       <div class="table-wrap"><table class="dyn-table"><thead><tr><th>Ko'rsatkich</th>${head}</tr></thead>
-      <tbody>${rows.map((r) => `<tr><td>${r[1]}</td>${months.map((m, i) => cell(r, m, i)).join('')}</tr>`).join('')}</tbody></table></div>
+      <tbody>${rows.map((r) => (r[0] === '§' ? `<tr class="dyn-sec"><td colspan="${months.length + 1}">${r[1]}</td></tr>` : `<tr><td>${r[1]}</td>${months.map((m, i) => cell(r, m, i)).join('')}</tr>`)).join('')}</tbody></table></div>
       ${months.at(-1).partial ? `<p class="muted small">${esc(monthLabel(months.at(-1).month))} hali tugamagan — ${months.at(-1).days} kunlik ma'lumot.</p>` : ''}</div>
     ${byProject}`;
 
