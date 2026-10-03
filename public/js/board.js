@@ -68,7 +68,7 @@ export async function renderBoard() {
 
 const ic = (d) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const M_IC = {
-  ad: ic('<path d="M3 10v4a1 1 0 0 0 1 1h3l6 4V5L7 9H4a1 1 0 0 0-1 1z"/><path d="M17 8.5a5 5 0 0 1 0 7M20 6a8.5 8.5 0 0 1 0 12"/>'),
+  ad: ic('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/><path d="M18.5 5.5 21 3M18.5 5.5V3M18.5 5.5H21"/>'),
   rev: ic('<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>'),
   up: ic('<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'),
   down: ic('<path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/>'),
