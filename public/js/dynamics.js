@@ -21,12 +21,12 @@ const ROWS = [
   ['sales', 'Sotuvlar', fmtN, 1, true],
   ['conv', 'Konversiya', (x) => fmtP(x), 1, false],
   ['cac', '1 mijoz narxi', (x) => fmtUsd(x, x < 10 ? 2 : 0), -1, false],
-  ['avg_check', "O'rtacha chek", (x) => `${fmtUzs(x)} so'm`, 0, false],
+  ['avg_check', "O'rtacha chek, so'm", fmtUzs, 0, false],
   ['repeat_share', 'Qayta sotuv ulushi', (x) => fmtP(x, 0), 1, false],
   ['§', 'Natija'],
-  ['revenue', 'Tushum', (x) => `${fmtUzs(x)} so'm`, 1, true],
+  ['revenue', "Tushum, so'm", fmtUzs, 1, true],
   ['roas', 'ROAS', (x) => (x == null ? '—' : `${fmtN(x, 1)}×`), 1, false],
-  ['net_profit', 'Sof foyda', (x) => signed(x), 1, true],
+  ['net_profit', "Sof foyda, so'm", (x) => signed(x, false), 1, true],
   ['net_margin', 'Marja', (x) => fmtP(x, 0), 1, false],
 ];
 
