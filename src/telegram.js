@@ -1,5 +1,5 @@
 // Telegram: hisobotni direktorga yuborish, PM ga eslatma va direktorning javobi (reply)
-import { getDb, getSetting } from './db.js';
+import { getDb, getSetting, splitIds } from './db.js';
 import { addDirectorReply, latestSentDate, REPORT_HEAD } from './reports.js';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -45,7 +45,7 @@ async function handleUpdate(u) {
 
 async function handleDirectorReply(m) {
   // Faqat hisobot boradigan chatdan (direktor yoki guruh) kelgan javob qabul qilinadi
-  if (String(m.chat.id) !== String(getSetting('report_chat_id') || '')) return;
+  if (!splitIds(getSetting('report_chat_id')).includes(String(m.chat.id))) return;
   // Sarlavhada sana bo'lsa — javob aynan hisobot xabariga (avtomatik hisobotga ham): PM yubormagan kun uchun ham saqlanadi
   const headDate = (m.reply_to_message.text || '').match(headRe)?.[1];
   const date = headDate || latestSentDate();
@@ -55,8 +55,8 @@ async function handleDirectorReply(m) {
   await call('sendMessage', { chat_id: m.chat.id, text: '✅ Saqlandi va PM ga yetkazildi', reply_to_message_id: m.message_id }).catch(() => {});
   // Hisobot muallifi bo'lmasa (avtomatik hisobot) — barcha faol PM larga
   const pms = r.author_id
-    ? [getDb().prepare('SELECT telegram_id FROM users WHERE id = ?').get(r.author_id)?.telegram_id]
-    : getDb().prepare('SELECT telegram_id FROM users WHERE active = 1 AND telegram_id IS NOT NULL').all().map((x) => x.telegram_id);
+    ? splitIds(getDb().prepare('SELECT telegram_id FROM users WHERE id = ?').get(r.author_id)?.telegram_id)
+    : getDb().prepare('SELECT telegram_id FROM users WHERE active = 1 AND telegram_id IS NOT NULL').all().flatMap((x) => splitIds(x.telegram_id));
   for (const pm of new Set(pms.filter(Boolean))) {
     if (String(pm) !== String(m.chat.id)) await sendMessage(pm, `💬 <b>Direktor javobi</b> (${date} hisobot):\n${escHtml(m.text)}`);
   }

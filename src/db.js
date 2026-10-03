@@ -222,3 +222,15 @@ export function nowLocal(tz = process.env.TZ_NAME || 'Asia/Tashkent') {
   }).formatToParts(new Date()).map((x) => [x.type, x.value]));
   return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`;
 }
+
+// Telegram ID lar ro'yxati: bitta maydonda vergul bilan saqlanadi («123, -100456»)
+export function splitIds(v) {
+  return [...new Set(String(v ?? '').split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean))];
+}
+// Kiritilgan ID lar (matn yoki ro'yxat) tekshiriladi va saqlash uchun bitta qatorga yig'iladi; bo'sh — null
+export function normalizeIds(v) {
+  const ids = splitIds(Array.isArray(v) ? v.join(',') : v);
+  const bad = ids.find((x) => !/^-?\d{4,20}$/.test(x));
+  if (bad) { const e = new Error(`Telegram ID faqat raqam bo'ladi: ${bad}`); e.status = 400; throw e; }
+  return ids.length ? ids.join(',') : null;
+}

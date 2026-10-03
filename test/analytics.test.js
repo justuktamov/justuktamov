@@ -169,3 +169,19 @@ test('reklama xarajati: target + blogerlar + Telegram kanallar', async () => {
   assert.equal(only.spend, 40);
   assert.equal(only.reported.spend, 1, 'faqat blogerga pul ketgan kun ham hisobga olinadi');
 });
+
+test('bir nechta Telegram ID: tekshirish va saqlash', async () => {
+  const { splitIds, normalizeIds } = await import('../src/db.js');
+  assert.deepEqual(splitIds('123456, -1009876543 ;123456'), ['123456', '-1009876543']);
+  assert.equal(normalizeIds(['123456', ' 7654321 ', '']), '123456,7654321');
+  assert.equal(normalizeIds(''), null);
+  assert.throws(() => normalizeIds('123456, abc'), /abc/);
+  const pm = await session();
+  let r = await pm('/api/me', { method: 'PUT', body: { telegram_id: '12345, x1' } });
+  assert.equal(r.status, 400);
+  const u = await pm.json('/api/me', { method: 'PUT', body: { telegram_id: '11111, 22222' } });
+  assert.equal(u.telegram_id, '11111,22222');
+  r = await pm('/api/settings', { method: 'PUT', body: { report_chat_id: '33333,-10044444' } });
+  assert.equal(r.status, 200);
+  assert.equal((await pm.json('/api/settings')).report_chat_id, '33333,-10044444');
+});

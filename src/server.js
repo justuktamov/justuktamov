@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getDb, getSetting, setSetting, today, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from './db.js';
+import { getDb, getSetting, setSetting, today, splitIds, normalizeIds, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from './db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText, getReport, saveAiAnalysis } from './reports.js';
 import { aiStatus, analyze, AiError } from './ai/index.js';
 import { buildAiInput, hashInput } from './ai/prompt.js';
@@ -122,8 +122,8 @@ route('PUT', '/api/me', async (req, res) => {
   const b = await readBody(req);
   const name = b.name === undefined ? user.name : String(b.name).trim().slice(0, 60);
   if (!name) throw new HttpError(400, 'Ismni kiriting');
-  const tgId = b.telegram_id === undefined ? user.telegram_id : (String(b.telegram_id).trim() || null);
-  if (tgId && !/^-?\d{4,20}$/.test(tgId)) throw new HttpError(400, "Telegram ID faqat raqam bo'ladi");
+  let tgId = user.telegram_id;
+  try { if (b.telegram_id !== undefined) tgId = normalizeIds(b.telegram_id); } catch (e) { throw new HttpError(400, e.message); }
   getDb().prepare('UPDATE users SET name = ?, telegram_id = ? WHERE id = ?').run(name, tgId, user.id);
   send(res, 200, publicUser(getDb().prepare('SELECT * FROM users WHERE id = ?').get(user.id)));
 });
@@ -368,9 +368,10 @@ route('POST', '/api/report/submit', async (req, res) => {
   if (!isDate(b.date) || b.date > today()) throw new HttpError(400, "Sana noto'g'ri");
   if (b.summary !== undefined || b.project_notes !== undefined) saveDraft(b.date, u.id, b);
   const r = submitReport(b.date, u.id);
-  const chat = getSetting('report_chat_id');
-  if (chat) sendMessage(chat, reportText(b.date)).catch((e) => console.error('Telegram:', e.message));
-  send(res, 200, { ...r, notified: Boolean(chat && telegramStatus().enabled) });
+  const chats = splitIds(getSetting('report_chat_id'));
+  const text = reportText(b.date);
+  for (const c of chats) sendMessage(c, text).catch((e) => console.error('Telegram:', e.message));
+  send(res, 200, { ...r, notified: Boolean(chats.length && telegramStatus().enabled) });
 });
 // Direktor Telegramda nimani ko'rishi — yuborishdan oldin
 route('GET', '/api/report/preview', async (req, res, _p, q) => {
@@ -396,6 +397,9 @@ route('PUT', '/api/settings', async (req, res) => {
     const rate = parseRate(b.usd_rate);
     if (rate == null) throw new HttpError(400, "Dollar kursi noto'g'ri (masalan: 12800)");
     b.usd_rate = String(rate);
+  }
+  if (b.report_chat_id !== undefined) {
+    try { b.report_chat_id = normalizeIds(b.report_chat_id) ?? ''; } catch (e) { throw new HttpError(400, e.message); }
   }
   for (const k of ['report_time', 'reminder_time']) if (b[k] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(b[k]))) throw new HttpError(400, "Vaqt noto'g'ri (SS:DD)");
   for (const k of SETTING_KEYS) if (k in b) setSetting(k, b[k] === '' || b[k] == null ? null : String(b[k]).trim());
@@ -462,7 +466,7 @@ export async function sendPlanAlerts(d = today()) {
   if (!fresh.length) return [];
   const esc = (x) => String(x).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
   const text = ['<b>📅 Oylik reja — ogohlantirish</b>', ...fresh.map(({ item, a }) => `\n<b>${esc(item.name)}</b>\n⚠️ ${esc(a.text)}\n💡 ${esc(a.fix)}`)].join('\n');
-  const chats = new Set([getSetting('report_chat_id'), ...getDb().prepare('SELECT telegram_id FROM users WHERE active = 1 AND telegram_id IS NOT NULL').all().map((x) => x.telegram_id)].filter(Boolean));
+  const chats = new Set([...splitIds(getSetting('report_chat_id')), ...getDb().prepare('SELECT telegram_id FROM users WHERE active = 1 AND telegram_id IS NOT NULL').all().flatMap((x) => splitIds(x.telegram_id))].filter(Boolean));
   // Avval yuboriladi, keyin «yuborildi» deb belgilanadi: hech kimga yetmasa — keyingi urinishda qayta yuboriladi
   let delivered = 0;
   let lastError = null;
@@ -508,13 +512,13 @@ function startScheduler() {
       ['last_reminder', getSetting('reminder_time', '11:00'), async () => {
         if (sent()) return;
         const pms = getDb().prepare('SELECT telegram_id FROM users WHERE active = 1 AND telegram_id IS NOT NULL').all();
-        for (const x of pms) await sendMessage(x.telegram_id, "⏰ Kechagi hisobot hali yuborilmagan. Ilovada «Kechagi hisobot» bo'limini oching — 4 qadam.");
+        for (const id of new Set(pms.flatMap((x) => splitIds(x.telegram_id)))) await sendMessage(id, "⏰ Kechagi hisobot hali yuborilmagan. Ilovada «Kechagi hisobot» bo'limini oching — 4 qadam.");
       }],
       // Oylik reja: loyiha rejadan jiddiy orqada qolsa — bir marta xabar (har ko'rsatkich uchun oyiga bir marta)
       ['last_plan_check', getSetting('reminder_time', '11:00'), () => sendPlanAlerts(d)],
       ['last_report', getSetting('report_time', '13:00'), async () => {
-        const chat = getSetting('report_chat_id');
-        if (chat && !sent()) await sendMessage(chat, `⚠️ <i>PM hisobotni yubormadi — avtomatik hisobot</i>\n\n${reportText(d)}`);
+        if (sent()) return;
+        for (const chat of splitIds(getSetting('report_chat_id'))) await sendMessage(chat, `⚠️ <i>PM hisobotni yubormadi — avtomatik hisobot</i>\n\n${reportText(d)}`);
       }],
     ];
     for (const [key, at, fn] of jobs) {

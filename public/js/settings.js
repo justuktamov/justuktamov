@@ -197,6 +197,15 @@ async function tabPlans(body) {
 }
 
 // ---------- Telegram ----------
+// Bir nechta Telegram ID: har biri alohida qatorda
+function idList(id, label, hint, value) {
+  const ids = String(value || '').split(/[\s,;]+/).filter(Boolean);
+  const row = (v) => `<div class="id-row"><input inputmode="numeric" value="${esc(v)}" placeholder="123456789" aria-label="${esc(label)}"><button type="button" class="btn small icon ghost" data-id-del aria-label="O'chirish" title="O'chirish">×</button></div>`;
+  return `<div class="field id-list" id="${id}"><span>${label}</span><span class="hint">${hint}</span>
+    <div class="id-rows">${(ids.length ? ids : ['']).map(row).join('')}</div>
+    <button type="button" class="link-btn id-add" data-id-add>+ ID qo'shish</button></div>`;
+}
+
 async function tabTelegram(body) {
   const settings = await api('/api/settings');
   const tg = settings.telegram;
@@ -205,8 +214,8 @@ async function tabTelegram(body) {
   body.innerHTML = `
     <div class="grid g2">
       <form class="card stack" id="setForm"><h2>Hisobot qayerga boradi</h2>
-        <label class="field">Direktorning Telegram ID si yoki guruh ID<span class="hint">direktor botga /id yozsa, raqam chiqadi</span><input name="report_chat_id" id="sChat" value="${esc(settings.report_chat_id ?? '')}" placeholder="123456789"></label>
-        <label class="field">Sizning Telegram ID ingiz<span class="hint">eslatma va direktor javobi sizga kelishi uchun</span><input id="sMyTg" value="${esc(me.telegram_id || '')}" placeholder="123456789"></label>
+        ${idList('sChat', 'Hisobot boradigan Telegram ID lar', "direktor, guruh yoki boshqa rahbarlar — har biri botga /id yozsa, raqam chiqadi", settings.report_chat_id)}
+        ${idList('sMyTg', 'Sizning Telegram ID laringiz', 'eslatma va direktor javobi keladigan ID lar (masalan, ish va shaxsiy akkaunt)', me.telegram_id)}
         <div class="fields">
           <label class="field">Eslatma<span class="hint">hisobot yuborilmagan bo'lsa</span>${selectHtml(timeOpts(settings.reminder_time ?? '11:00'), settings.reminder_time ?? '11:00', 'name="reminder_time" id="sRem"', 'Eslatma vaqti')}</label>
           <label class="field">Avto-hisobot<span class="hint">siz yubormasangiz</span>${selectHtml(timeOpts(settings.report_time ?? '13:00'), settings.report_time ?? '13:00', 'name="report_time" id="sTime"', 'Avto-hisobot vaqti')}</label>
@@ -218,8 +227,8 @@ async function tabTelegram(body) {
         ${tg.enabled ? `<div class="insight good"><span class="ic">Ulangan</span><span>${tg.bot ? `@${esc(tg.bot)}` : 'Bot'} ishlayapti</span></div>` : `<div class="insight warning"><span class="ic">O'chiq</span><span>${window.DEMO ? "Demoda bot yo'q — haqiqiy serverda ishlaydi" : 'Bot hali ulanmagan'}</span></div>`}
         <ol class="small" style="margin:0;padding-left:18px;color:var(--text-2);display:grid;gap:6px">
           <li>@BotFather da bot oching va tokenni serverni o'rnatgan odamga bering.</li>
-          <li>Direktor botga <span class="code">/id</span> yozadi — chiqqan raqamni birinchi maydonga yozing.</li>
-          <li>O'zingiz ham <span class="code">/id</span> yozing va ikkinchi maydonga kiriting.</li>
+          <li>Direktor (va hisobotni oladigan boshqa odamlar yoki guruh) botga <span class="code">/id</span> yozadi — chiqqan raqamlarni birinchi ro'yxatga qo'shing.</li>
+          <li>O'zingiz ham <span class="code">/id</span> yozing va ikkinchi ro'yxatga kiriting; bir nechta akkaunt bo'lsa — «+ ID qo'shish».</li>
           <li>Direktor hisobotga <b>javob (reply)</b> qilib yechim yozadi — javob sizga keladi.</li>
         </ol>
       </div>
@@ -230,11 +239,27 @@ async function tabTelegram(body) {
           Provayder serverdagi <span class="code">.env</span> faylida tanlanadi: <span class="code">AI_PROVIDER</span> (openrouter, deepseek, anthropic yoki openai), <span class="code">AI_API_KEY</span>, <span class="code">AI_MODEL</span> — o'zgartirgach serverni qayta ishga tushiring. Kalit ilovada ko'rsatilmaydi.</p>
       </div>
     </div>`;
+  // ID ro'yxati: «+ ID qo'shish» yangi qator qo'shadi, «×» o'chiradi (oxirgi qator tozalanadi)
+  body.querySelectorAll('.id-list').forEach((box) => box.addEventListener('click', (e) => {
+    if (e.target.closest('[data-id-add]')) {
+      const row = box.querySelector('.id-row').cloneNode(true);
+      const inp = row.querySelector('input');
+      inp.value = '';
+      box.querySelector('.id-rows').append(row);
+      inp.focus();
+    }
+    const del = e.target.closest('[data-id-del]');
+    if (del) {
+      const rows = box.querySelectorAll('.id-row');
+      if (rows.length > 1) del.closest('.id-row').remove(); else rows[0].querySelector('input').value = '';
+    }
+  }));
   $('#setForm').onsubmit = async (e) => {
     e.preventDefault();
     try {
-      await api('/api/settings', { method: 'PUT', body: Object.fromEntries(new FormData(e.target)) });
-      const myTg = $('#sMyTg').value.trim();
+      const ids = (id) => $$(`#${id} input`, body).map((i) => i.value.trim()).filter(Boolean).join(',');
+      await api('/api/settings', { method: 'PUT', body: { ...Object.fromEntries(new FormData(e.target)), report_chat_id: ids('sChat') } });
+      const myTg = ids('sMyTg');
       if (myTg !== (me.telegram_id || '')) await api('/api/me', { method: 'PUT', body: { telegram_id: myTg } });
       await refreshMe();
       toast('Saqlandi');

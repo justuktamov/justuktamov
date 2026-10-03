@@ -2,7 +2,7 @@
 // Hisob-kitoblar serverdagi kod bilan bir xil (metrics.js, reports.js).
 // Kiritilgan ma'lumotlar shu brauzerning localStorage xotirasida saqlanadi.
 import { store } from './fake-sqlite.js';
-import { today, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from '../src/db.js';
+import { today, normalizeIds, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from '../src/db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText } from '../src/reports.js';
 import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, monthly, estimateLag, parseRate } from '../src/metrics.js';
 import { generateDemo, DEMO_USER } from '../src/demo-data.js';
@@ -113,11 +113,7 @@ const routes = {
   'PUT /api/me': (b) => {
     const u = needUser();
     if (b.name !== undefined) { if (!String(b.name).trim()) throw new HttpError(400, 'Ismni kiriting'); u.name = String(b.name).trim().slice(0, 60); }
-    if (b.telegram_id !== undefined) {
-      const t = String(b.telegram_id).trim();
-      if (t && !/^-?\d{4,20}$/.test(t)) throw new HttpError(400, "Telegram ID faqat raqam bo'ladi");
-      u.telegram_id = t || null;
-    }
+    if (b.telegram_id !== undefined) u.telegram_id = wrap(() => normalizeIds(b.telegram_id));
     return publicUser(u);
   },
   'PUT /api/me/password': (b) => {
@@ -270,6 +266,7 @@ const routes = {
       b.usd_rate = String(rate);
     }
     for (const k of ['report_time', 'reminder_time']) if (b[k] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(b[k]))) throw new HttpError(400, "Vaqt noto'g'ri (SS:DD)");
+    if (b.report_chat_id !== undefined) b.report_chat_id = wrap(() => normalizeIds(b.report_chat_id)) ?? '';
     for (const k of ['usd_rate', 'report_chat_id', 'report_time', 'reminder_time']) if (k in b) store.settings[k] = b[k] === '' || b[k] == null ? null : String(b[k]).trim();
     return { ok: true };
   },
