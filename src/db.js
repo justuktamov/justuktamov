@@ -21,10 +21,8 @@ export const FIELDS = {
   new_creatives: 'Yangi kreativlar',
   starts: 'Bot start',
   leads: 'Lidlar',
-  src_site: 'Lid: sayt / forma',
-  src_ig: 'Lid: Instagram direkt',
-  src_tg: 'Lid: Telegram admin lichkasi',
-  src_other: "Lid: boshqa (qo'ng'iroq, tanish…)",
+  src_ig: 'Instagram direktdan lid',
+  src_tg: 'Telegram admin lichkasidan lid',
   qualified: 'Sifatli lidlar',
   potential: 'Potensial lidlar',
   unqualified: 'Sifatsiz lidlar',
@@ -239,5 +237,3 @@ export function normalizeIds(v) {
   return ids.length ? ids.join(',') : null;
 }
 
-// Lid qayerdan keldi — PM kunlik kiritadi; jami lid shular yig'indisi bo'lishi kerak
-export const LEAD_SOURCES = { src_site: 'Sayt / forma', src_ig: 'Instagram direkt', src_tg: 'Telegram admin lichkasi', src_other: 'Boshqa' };

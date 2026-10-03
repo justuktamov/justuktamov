@@ -15,7 +15,7 @@ const STEPS = [
     texts: [['creative_best', 'Yaxshi ishlagan kreativ', 'nomi yoki havola'], ['creative_worst', 'Ishlamayotgan kreativ', 'nomi yoki havola'], ['note_target', 'Muammo', "akkaunt, moderatsiya, to'lov…"]] },
   { key: 'sales', title: 'Sotuv', head: "Sotuv va tushgan pul",
     hint: "Sifatli — sotib olishga tayyor. Potensial — qiziqdi, keyinroq olishi mumkin. Sifatsiz — maqsadli emas yoki javob bermadi. Avtovoronka raqamlari botdan / to'lov tizimidan olinadi.",
-    ask: ['Har bir loyihaga nechta lid tushdi?', 'Nechtasi sifatli, nechtasi potensial, nechtasi sifatsiz?', 'Lidlar qayerdan keldi: saytdan, Instagram direktdan, Telegram admin lichkasidan (har biridan nechta)?', "Nechta sotuv bo'ldi va qancha pul tushdi?",
+    ask: ['Har bir loyihaga nechta lid tushdi?', 'Nechtasi sifatli, nechtasi potensial, nechtasi sifatsiz?', 'Instagram direktdan va Telegram admin lichkasidan nechta lid keldi?', "Nechta sotuv bo'ldi va qancha pul tushdi?",
       'Sifatsizlar nega sifatsiz, sotib olmaganlar nega olmadi (har sababdan nechta)?'],
     askAuto: ['Avtovoronka: botga nechta odam kirdi (start), nechtasi sotib oldi, qancha pul tushdi?'],
     fields: [['leads', 'Jami lid'], ['qualified', 'Sifatli'], ['potential', 'Potensial'], ['unqualified', 'Sifatsiz'], ['sales', 'Sotuv'], ['revenue', "Tushgan pul, so'm"]],
@@ -149,14 +149,13 @@ export async function renderToday() {
     </details>`;
   }
 
-  // Lid qayerdan keldi: sayt/forma, Instagram direkt, Telegram admin lichkasi, boshqa — yig'indisi jami lidga teng bo'lishi kerak
+  // Lichkadan kelgan lidlar: Instagram direkt va Telegram admin lichkasi — faqat soni (jami lid ichida)
   function sourcesBlock(projects) {
-    const SRC = [['src_site', 'Sayt / forma'], ['src_ig', 'Instagram direkt'], ['src_tg', 'Telegram lichka'], ['src_other', 'Boshqa']];
-    return `<h3 class="tbl-title">Lid qayerdan keldi <span class="muted small">— sayt, Instagram direkt, Telegram admin lichkasi</span></h3>
-      <div class="table-wrap"><table class="grid-entry" style="--cols:2" data-src><thead><tr><th>Loyiha</th>${SRC.map(([, l]) => `<th class="n">${l}</th>`).join('')}<th></th></tr></thead>
+    const SRC = [['src_ig', 'Instagram direktdan'], ['src_tg', 'Telegram lichkadan']];
+    return `<h3 class="tbl-title">Lichkadan kelgan lidlar <span class="muted small">— Instagram direkt va Telegram admin lichkasi, nechta (jami lid ichida)</span></h3>
+      <div class="table-wrap"><table class="grid-entry" style="--cols:2"><thead><tr><th>Loyiha</th>${SRC.map(([, l]) => `<th class="n">${l}</th>`).join('')}</tr></thead>
       <tbody>${projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
-        ${SRC.map(([f, l]) => `<td class="n" data-label="${l}"><input class="cell-in" inputmode="numeric" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}
-        <td data-src-state></td></tr>`).join('')}</tbody></table></div>`;
+        ${SRC.map(([f, l]) => `<td class="n" data-label="${l}"><input class="cell-in" inputmode="numeric" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
 
   // Qayta sotuv — eski mijoz yana sotib oldi (LTV shundan hisoblanadi)
@@ -324,17 +323,6 @@ export async function renderToday() {
           ? `<span class="pill warn" title="Sifatli + potensial + sifatsiz = ${sumParts}">≠ ${sumParts}</span>` : '';
       }
     }));
-    // Manbalar yig'indisi jami lid bilan solishtiriladi
-    box.querySelector('table[data-src]')?.addEventListener('input', (e) => {
-      const tr = e.target.closest('tr[data-id]');
-      if (!tr) return;
-      const num = (x) => (x === '' ? null : Number(String(x).replace(/\s/g, '').replace(',', '.')));
-      const vals = [...tr.querySelectorAll('input')].map((i) => num(i.value.trim()));
-      const sum = vals.reduce((a, x) => a + (x || 0), 0);
-      const leadsEl = box.querySelector(`table:not([data-src]) tr[data-id="${tr.dataset.id}"] input[name="leads"]`);
-      const leads = num(leadsEl?.value.trim() ?? '');
-      $('[data-src-state]', tr).innerHTML = leads != null && vals.some((x) => x != null) && sum !== leads ? `<span class="pill warn" title="Manbalar yig'indisi jami lidga teng emas">≠ ${sum}</span>` : '';
-    });
     box.querySelectorAll('[data-step-go]').forEach((b) => { b.onclick = () => toStep(b.dataset.stepGo); });
     // AI tahlil: natija maydonlarga qo'yiladi, PM o'qib, tuzatib, «Saqlash» bosadi
     const aiBtn = box.querySelector('[data-ai]');
@@ -386,10 +374,7 @@ export async function renderToday() {
               const tr = box.querySelector(`tr[data-id="${p.id}"]`);
               const val = (f) => $(`input[name="${f}"]`, tr).value.trim();
               const parts = ['qualified', 'potential', 'unqualified'].map(val).filter(Boolean);
-              const srcs = [...box.querySelectorAll(`table[data-src] tr[data-id="${p.id}"] input`)].map((x) => x.value.trim()).filter(Boolean);
-              const sumOf = (xs) => String(xs.reduce((a, x) => a + Number(x.replace(/\s/g, '').replace(',', '.')), 0));
-              if (!val('leads') && parts.length) (byProject[p.id] ||= {}).leads = sumOf(parts);
-              else if (!val('leads') && srcs.length) (byProject[p.id] ||= {}).leads = sumOf(srcs);
+              if (!val('leads') && parts.length) (byProject[p.id] ||= {}).leads = String(parts.reduce((a, x) => a + Number(x.replace(/\s/g, '').replace(',', '.')), 0));
             }
           }
           // Sabablar: o'zgargan qiymatlar
