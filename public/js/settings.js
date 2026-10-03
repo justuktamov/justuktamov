@@ -227,7 +227,7 @@ async function tabTelegram(body) {
         ${ai.enabled ? `<div class="insight good"><span class="ic">Ulangan</span><span>${esc(ai.label)} · ${esc(ai.model)}</span></div>`
           : `<div class="insight warning"><span class="ic">O'chiq</span><span>${esc(window.DEMO ? "Demoda AI yo'q — haqiqiy serverda ishlaydi" : ai.reason || 'AI ulanmagan')}</span></div>`}
         <p class="small" style="margin:0;color:var(--text-2)">«Kechagi hisobot» → 3-qadamda AI har loyiha bo'yicha tahlil va taklif yozadi; siz o'qib, tuzatib, saqlaysiz.
-          Provayder serverdagi <span class="code">.env</span> faylida tanlanadi: <span class="code">AI_PROVIDER</span> (deepseek, anthropic yoki openai), <span class="code">AI_API_KEY</span>, <span class="code">AI_MODEL</span> — o'zgartirgach serverni qayta ishga tushiring. Kalit ilovada ko'rsatilmaydi.</p>
+          Provayder serverdagi <span class="code">.env</span> faylida tanlanadi: <span class="code">AI_PROVIDER</span> (openrouter, deepseek, anthropic yoki openai), <span class="code">AI_API_KEY</span>, <span class="code">AI_MODEL</span> — o'zgartirgach serverni qayta ishga tushiring. Kalit ilovada ko'rsatilmaydi.</p>
       </div>
     </div>`;
   $('#setForm').onsubmit = async (e) => {

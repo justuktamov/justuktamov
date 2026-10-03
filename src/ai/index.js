@@ -1,27 +1,42 @@
 // AI tahlil: provayder tanlash (.env) va tahlilni bajarish.
-// Provayderni almashtirish uchun kod o'zgarmaydi — faqat .env: AI_PROVIDER, AI_API_KEY, AI_MODEL (va kerak bo'lsa AI_BASE_URL)
+// Provayderni almashtirish uchun kod o'zgarmaydi — faqat .env: AI_PROVIDER, AI_API_KEY, AI_MODEL (va kerak bo'lsa AI_BASE_URL).
+// Standart: OpenRouter orqali DeepSeek
 import { AiError } from './errors.js';
 import { SYSTEM_PROMPT, userPrompt, parseAiResult } from './prompt.js';
 
 export { AiError };
 
-// adapter: qaysi fayl so'rov yuboradi; model — standart model (AI_MODEL bilan almashtiriladi)
+// adapter: qaysi fayl so'rov yuboradi; model — standart model (AI_MODEL bilan almashtiriladi);
+// headers / body — shu provayderga xos qo'shimcha sarlavha va so'rov maydonlari (effort — AI_EFFORT)
+const effortField = (effort) => (effort ? { reasoning_effort: effort } : {});
 const PROVIDERS = {
-  deepseek: { label: 'DeepSeek', adapter: 'openai', baseUrl: 'https://api.deepseek.com', model: 'deepseek-v4-pro' },
+  // OpenRouter (standart): DeepSeek va boshqa modellar bitta kalit bilan; model nomi «ishlab chiqaruvchi/model»
+  openrouter: {
+    label: 'OpenRouter', adapter: 'openai', baseUrl: 'https://openrouter.ai/api/v1', model: 'deepseek/deepseek-v4-pro',
+    // Ilova nomi OpenRouter statistikasida ko'rinadi (HTTP-Referer — APP_URL berilsa)
+    headers: (env) => ({ 'X-OpenRouter-Title': 'Loyihalar analitikasi', ...(env.APP_URL ? { 'HTTP-Referer': env.APP_URL } : {}) }),
+    // Faqat JSON rejimini qo'llaydigan provayderga yo'naltiriladi; fikrlash matni javobga qo'shilmaydi (baribir ishlatilmaydi)
+    body: (effort) => ({ provider: { require_parameters: true }, reasoning: { exclude: true, ...(effort ? { effort } : {}) } }),
+  },
+  deepseek: { label: 'DeepSeek', adapter: 'openai', baseUrl: 'https://api.deepseek.com', model: 'deepseek-v4-pro', body: effortField },
   anthropic: { label: 'Claude (Anthropic)', adapter: 'anthropic', model: 'claude-opus-5-5' },
   // OpenAI yoki OpenAI formatidagi boshqa xizmat: AI_MODEL majburiy, boshqa xizmat uchun — AI_BASE_URL
-  openai: { label: 'OpenAI-mos API', adapter: 'openai', baseUrl: 'https://api.openai.com/v1', model: null },
+  openai: { label: 'OpenAI-mos API', adapter: 'openai', baseUrl: 'https://api.openai.com/v1', model: null, body: effortField },
 };
 const TIMEOUT_MS = 150_000; // nginx proxy_read_timeout — 180 s
 
 export function aiConfig(env = process.env) {
-  const provider = String(env.AI_PROVIDER || 'deepseek').trim().toLowerCase();
+  const provider = String(env.AI_PROVIDER || 'openrouter').trim().toLowerCase();
   const p = PROVIDERS[provider];
-  if (!p) return { enabled: false, provider, reason: `Noma'lum AI_PROVIDER: «${provider}» (deepseek, anthropic yoki openai)` };
+  if (!p) return { enabled: false, provider, reason: `Noma'lum AI_PROVIDER: «${provider}» (${Object.keys(PROVIDERS).join(', ')})` };
   const apiKey = String(env.AI_API_KEY || '').trim();
   const sdkKey = p.adapter === 'anthropic' && Boolean(env.ANTHROPIC_API_KEY || env.ANTHROPIC_AUTH_TOKEN);
   const model = String(env.AI_MODEL || '').trim() || p.model;
-  const cfg = { provider, label: p.label, adapter: p.adapter, model, baseUrl: String(env.AI_BASE_URL || '').trim() || p.baseUrl, apiKey, effort: String(env.AI_EFFORT || '').trim() || null };
+  const effort = String(env.AI_EFFORT || '').trim() || null;
+  const cfg = {
+    provider, label: p.label, adapter: p.adapter, model, baseUrl: String(env.AI_BASE_URL || '').trim() || p.baseUrl, apiKey, effort,
+    headers: p.headers?.(env) || {}, body: p.body?.(effort) || {},
+  };
   if (!apiKey && !sdkKey) return { ...cfg, enabled: false, reason: "Serverda AI_API_KEY o'rnatilmagan" };
   if (!model) return { ...cfg, enabled: false, reason: "AI_MODEL ko'rsatilmagan" };
   return { ...cfg, enabled: true };
@@ -42,7 +57,10 @@ export async function analyze(input, env = process.env) {
   const cfg = aiConfig(env);
   if (!cfg.enabled) throw new AiError(`AI ulanmagan: ${cfg.reason}`);
   const { complete } = await adapterFor(cfg.adapter);
-  const req = { baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model: cfg.model, effort: cfg.effort, system: SYSTEM_PROMPT, user: userPrompt(input), timeoutMs: TIMEOUT_MS };
+  const req = {
+    baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model: cfg.model, effort: cfg.effort, headers: cfg.headers, body: cfg.body,
+    system: SYSTEM_PROMPT, user: userPrompt(input), timeoutMs: TIMEOUT_MS,
+  };
   let lastError;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {

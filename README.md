@@ -97,9 +97,10 @@ Menyuda **Dinamika** — oxirgi 6 yoki 12 oy, hammasi yoki bitta loyiha: tushum 
 Serverda AI kaliti boʻlsa, 3-qadamda **«AI bilan tahlil qilish»** tugmasi chiqadi. AI kechagi raqamlarni, loyiha meʼyorini, sabablarni, kanallarni va yuqoridagi jadval boʻyicha tizim topgan muammolarni oʻqib, har loyiha boʻyicha qisqa tahlil (🔎) va takliflar (•) yozadi, 4-qadam uchun kun xulosasi va «ertaga» rejasini ham taklif qiladi.
 - AI matni «Direktorga taklif» maydonlariga qoʻyiladi (🤖 belgisi bilan). **PM oʻqiydi, xatosini tuzatadi va «Saqlash» bosadi** — direktorga faqat PM saqlagan matn boradi.
 - Raqamlar AI tahlildan keyin oʻzgarsa, «Raqamlar AI tahlildan keyin oʻzgardi — qayta tahlil qiling» ogohlantirishi chiqadi.
-- **Provayder** `.env` da tanlanadi, kod oʻzgarmaydi: `AI_PROVIDER` = `deepseek` (standart, model `deepseek-v4-pro`), `anthropic` (Claude, `claude-opus-5-5`) yoki `openai` (OpenAI yoki OpenAI formatidagi boshqa xizmat — `AI_MODEL`, kerak boʻlsa `AI_BASE_URL`). Kalit — `AI_API_KEY`. Oʻzgartirgach serverni qayta ishga tushiring. Holat: Sozlamalar → Telegram → «AI tahlil».
+- **Provayder** `.env` da tanlanadi, kod oʻzgarmaydi: `AI_PROVIDER` = `openrouter` (standart: DeepSeek modeli OpenRouter orqali, `deepseek/deepseek-v4-pro`; kalit — https://openrouter.ai/keys), `deepseek` (DeepSeek ning oʻz API si, `deepseek-v4-pro`), `anthropic` (Claude, `claude-opus-5-5`) yoki `openai` (OpenAI formatidagi boshqa xizmat — `AI_MODEL`, kerak boʻlsa `AI_BASE_URL`). Kalit — `AI_API_KEY`. OpenRouter da boshqa modelga oʻtish uchun faqat `AI_MODEL` oʻzgartiriladi (masalan `deepseek/deepseek-v4-flash`). Oʻzgartirgach serverni qayta ishga tushiring. Holat: Sozlamalar → Telegram → «AI tahlil».
+- OpenRouter so'rovni faqat JSON rejimini qo'llaydigan provayderga yuboradi (`require_parameters`). Maʼlumotlarimizda model oʻqitadigan provayderlarni taqiqlash — OpenRouter hisobidagi maxfiylik sozlamalarida (openrouter.ai/settings/privacy).
 - Kalit boʻlmasa AI tugmasi chiqmaydi, tahlil avvalgidek tizim qoidalari boʻyicha yoziladi.
-- AI ga kechagi biznes raqamlari, kreativ nomlari va targetolog/ROP izohlari yuboriladi (mijozlarning ism va telefonlari tizimda yoʻq, ular yuborilmaydi). Provayder maʼlumotni qayerda saqlashini uning shartlaridan tekshiring. Har bosish pullik: `deepseek-v4-pro` da bir tahlil taxminan 1–3 sent.
+- AI ga kechagi biznes raqamlari, kreativ nomlari va targetolog/ROP izohlari yuboriladi (mijozlarning ism va telefonlari tizimda yoʻq, ular yuborilmaydi). Provayder maʼlumotni qayerda saqlashini uning shartlaridan tekshiring. Har bosish pullik: OpenRouter orqali `deepseek/deepseek-v4-pro` da bir tahlil odatda 1 sentdan kam (narx OpenRouter dagi model sahifasida).
 
 4. **Yuborish.** Direktor Telegramda har bir loyiha boʻyicha raqamlar, muammolar (⚠️) va PM takliflarini (💡) oladi.
    - Direktor shu xabarga **javob (reply)** qilib yechim yozadi. Javob hisobotga saqlanadi va PM ga Telegramda boradi.
@@ -182,7 +183,7 @@ src/metrics.js     hisob-kitob: lid narxi, konversiya, ROAS, reja/prognoz, loyih
 src/reports.js     PM hisoboti: qoralama → yuborish → direktor javobi, Telegram matni
 src/auth.js        parol va sessiyalar
 src/telegram.js    bot: hisobot yuborish, /id, direktorning javobi (reply)
-src/ai/            AI tahlil: index (provayder tanlash), prompt (ma'lumot va ko'rsatma), openai-compatible (DeepSeek, OpenAI), anthropic (Claude)
+src/ai/            AI tahlil: index (provayder tanlash), prompt (ma'lumot va ko'rsatma), openai-compatible (OpenRouter, DeepSeek, OpenAI), anthropic (Claude)
 src/demo-data.js   namuna ma'lumotlar (server va brauzer demosi uchun)
 public/js/         interfeys: core, board (doska), project (loyiha sahifasi), blocks, pm (4 qadam va arxiv), settings
 demo/              brauzer demosini yig'ish

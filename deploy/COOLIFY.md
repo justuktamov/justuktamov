@@ -58,9 +58,10 @@ After a deploy the log line `Yangi ma'lumotlar bazasi yaratildi: /data/analytika
 | `ADMIN_LOGIN` | `pm` | PM login created on first start |
 | `ADMIN_PASSWORD` | a strong password | used only on the very first start; change it later in the app |
 | `TELEGRAM_BOT_TOKEN` | from @BotFather | use a bot that runs **only** here (two servers with one bot token conflict) |
-| `AI_PROVIDER` | `deepseek` | or `anthropic` / `openai` |
-| `AI_API_KEY` | DeepSeek API key | https://platform.deepseek.com/api_keys |
-| `AI_MODEL` | *(empty)* | default `deepseek-v4-pro`; `deepseek-flash` is faster/cheaper |
+| `AI_PROVIDER` | `openrouter` | default; or `deepseek` / `anthropic` / `openai` |
+| `AI_API_KEY` | OpenRouter API key | https://openrouter.ai/keys |
+| `AI_MODEL` | *(empty)* | default `deepseek/deepseek-v4-pro`; `deepseek/deepseek-v4-flash` is faster/cheaper |
+| `APP_URL` | the app's address, e.g. `https://crm.example.uz` | optional; shows the app by name in OpenRouter usage stats |
 | `USD_RATE` | `12800` | starting rate; later changed in Settings |
 | `COOKIE_SECURE` | `0` now, `1` once the site opens via **https://** | with `1` on plain http, login stops working |
 

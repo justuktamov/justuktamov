@@ -59,7 +59,7 @@ function checkColor(v) {
   if (typeof v !== 'string' || !/^#[0-9a-f]{6}$/i.test(v)) throw new HttpError(400, "Rang noto'g'ri (#rrggbb)");
   return v.toLowerCase();
 }
-const DEMO_AI = { enabled: false, provider: null, label: null, model: null, reason: "Demoda AI tahlil yo'q — haqiqiy serverda DeepSeek kaliti bilan ishlaydi" };
+const DEMO_AI = { enabled: false, provider: null, label: null, model: null, reason: "Demoda AI tahlil yo'q — haqiqiy serverda OpenRouter kaliti bilan ishlaydi" };
 const needUser = () => { if (!me) throw new HttpError(401, 'Tizimga kiring'); return me; };
 function period(q) {
   const to = isDate(q.get('to')) ? q.get('to') : TODAY;

@@ -2,7 +2,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 process.env.DB_PATH = ':memory:';
-for (const k of ['AI_PROVIDER', 'AI_API_KEY', 'AI_MODEL', 'AI_BASE_URL', 'AI_EFFORT', 'ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN']) delete process.env[k];
+for (const k of ['AI_PROVIDER', 'AI_API_KEY', 'AI_MODEL', 'AI_BASE_URL', 'AI_EFFORT', 'ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'APP_URL']) delete process.env[k];
 
 // AI provayderlari o'rniga: so'rovlar yoziladi, javob testdan beriladi
 const realFetch = globalThis.fetch;
@@ -10,7 +10,7 @@ const calls = [];
 let reply = null; // (call) => Response
 globalThis.fetch = async (url, init = {}) => {
   const u = typeof url === 'string' ? url : url.url;
-  if (u.startsWith('https://api.deepseek.com/') || u.startsWith('https://api.anthropic.com/') || u.startsWith('https://ai.example.com/')) {
+  if (u.startsWith('https://openrouter.ai/') || u.startsWith('https://api.deepseek.com/') || u.startsWith('https://api.anthropic.com/') || u.startsWith('https://ai.example.com/')) {
     const call = { url: u, headers: new Headers(init.headers), body: JSON.parse(init.body) };
     calls.push(call);
     return reply(call);
@@ -18,7 +18,7 @@ globalThis.fetch = async (url, init = {}) => {
   return realFetch(url, init);
 };
 const json = (status, data) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
-const deepseekOk = (content) => () => json(200, { id: 'x', object: 'chat.completion', choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content } }] });
+const chatOk = (content) => () => json(200, { id: 'x', object: 'chat.completion', choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content } }] });
 
 const { today } = await import('../src/db.js');
 const { createUser } = await import('../src/auth.js');
@@ -51,7 +51,7 @@ before(async () => {
 after(() => server.close());
 beforeEach(() => {
   calls.length = 0;
-  for (const k of ['AI_PROVIDER', 'AI_API_KEY', 'AI_MODEL', 'AI_BASE_URL', 'AI_EFFORT']) delete process.env[k];
+  for (const k of ['AI_PROVIDER', 'AI_API_KEY', 'AI_MODEL', 'AI_BASE_URL', 'AI_EFFORT', 'APP_URL']) delete process.env[k];
 });
 
 const vizResult = () => JSON.stringify({
@@ -72,12 +72,16 @@ test("AI ulanmagan: tugma o'chiq, so'rov 503", async () => {
   assert.equal(calls.length, 0);
 });
 
-test('provayder sozlamasi .env dan: standart DeepSeek, model va manzil almashtiriladi', () => {
+test('provayder sozlamasi .env dan: standart OpenRouter (DeepSeek), model va manzil almashtiriladi', () => {
   assert.deepEqual(
     (({ enabled, provider, model, baseUrl }) => ({ enabled, provider, model, baseUrl }))(aiConfig({ AI_API_KEY: 'k' })),
-    { enabled: true, provider: 'deepseek', model: 'deepseek-v4-pro', baseUrl: 'https://api.deepseek.com' },
+    { enabled: true, provider: 'openrouter', model: 'deepseek/deepseek-v4-pro', baseUrl: 'https://openrouter.ai/api/v1' },
   );
-  assert.equal(aiConfig({ AI_API_KEY: 'k', AI_MODEL: 'deepseek-flash' }).model, 'deepseek-flash');
+  assert.equal(aiConfig({ AI_API_KEY: 'k', AI_MODEL: 'deepseek/deepseek-v4-flash' }).model, 'deepseek/deepseek-v4-flash');
+  assert.deepEqual(
+    (({ provider, model, baseUrl }) => ({ provider, model, baseUrl }))(aiConfig({ AI_PROVIDER: 'deepseek', AI_API_KEY: 'k' })),
+    { provider: 'deepseek', model: 'deepseek-v4-pro', baseUrl: 'https://api.deepseek.com' },
+  );
   assert.equal(aiConfig({ AI_PROVIDER: 'Anthropic', AI_API_KEY: 'k' }).model, 'claude-opus-5-5');
   assert.equal(aiConfig({ AI_PROVIDER: 'anthropic', ANTHROPIC_API_KEY: 'k' }).enabled, true, 'SDK kaliti ham bo\'ladi');
   assert.equal(aiConfig({ AI_PROVIDER: 'openai', AI_API_KEY: 'k' }).enabled, false, 'openai — model majburiy');
@@ -85,18 +89,24 @@ test('provayder sozlamasi .env dan: standart DeepSeek, model va manzil almashtir
   assert.match(aiConfig({ AI_PROVIDER: 'gemini', AI_API_KEY: 'k' }).reason, /Noma'lum AI_PROVIDER/);
 });
 
-test("DeepSeek: tahlil saqlanadi, PM tuzatib saqlaydi, xabarda chiqadi; raqam o'zgarsa — eskirgan", async () => {
+test("OpenRouter (standart): tahlil saqlanadi, PM tuzatib saqlaydi, xabarda chiqadi; raqam o'zgarsa — eskirgan", async () => {
   process.env.AI_API_KEY = 'test-key';
-  reply = deepseekOk(vizResult());
+  process.env.APP_URL = 'https://crm.example.uz';
+  reply = chatOk(vizResult());
   const ai = await pm.json('/api/report/ai', { method: 'POST', body: { date: d } });
 
-  // So'rov: DeepSeek manzili, kalit, model, JSON rejimi; faqat raqami bor loyiha
+  // So'rov: OpenRouter manzili, kalit, DeepSeek modeli, JSON rejimi; faqat JSON ni qo'llaydigan provayder; faqat raqami bor loyiha
   assert.equal(calls.length, 1);
   const c = calls[0];
-  assert.equal(c.url, 'https://api.deepseek.com/chat/completions');
+  assert.equal(c.url, 'https://openrouter.ai/api/v1/chat/completions');
   assert.equal(c.headers.get('authorization'), 'Bearer test-key');
-  assert.equal(c.body.model, 'deepseek-v4-pro');
+  assert.equal(c.headers.get('x-openrouter-title'), 'Loyihalar analitikasi');
+  assert.equal(c.headers.get('http-referer'), 'https://crm.example.uz');
+  assert.equal(c.body.model, 'deepseek/deepseek-v4-pro');
   assert.deepEqual(c.body.response_format, { type: 'json_object' });
+  assert.deepEqual(c.body.provider, { require_parameters: true });
+  assert.deepEqual(c.body.reasoning, { exclude: true });
+  assert.equal(c.body.reasoning_effort, undefined);
   assert.match(c.body.messages[0].content, /JSON/);
   assert.match(c.body.messages[0].content, /o'zbek tilida/);
   const input = JSON.parse(c.body.messages[1].content.replace(/^[^\n]*\n/, ''));
@@ -106,14 +116,15 @@ test("DeepSeek: tahlil saqlanadi, PM tuzatib saqlaydi, xabarda chiqadi; raqam o'
   assert.ok(input.projects[0].tizim_topgan_muammolar.some((t) => /sifatsiz/.test(t)), 'tizim topgan muammolar beriladi');
 
   // Natija: faqat mavjud loyiha, matn tozalangan
-  assert.equal(ai.provider, 'deepseek');
+  assert.equal(ai.provider, 'openrouter');
+  assert.equal(ai.model, 'deepseek/deepseek-v4-pro');
   assert.equal(ai.stale, false);
   assert.deepEqual(Object.keys(ai.texts), [String(viz.id)]);
   assert.equal(ai.texts[viz.id], "🔎 Lid narxi odatdagidan qimmat, sifatsiz lid ko'p.\n• Targetolog: auditoriyani toraytirsin\n• Sotuv bo'limi: javob bermaganlarga qayta qo'ng'iroq");
   assert.equal(ai.xulosa, "Kun o'rtacha: VIZART da lid sifati past.");
 
   let b = await pm.json(`/api/report?date=${d}`);
-  assert.equal(b.aiStatus.label, 'DeepSeek');
+  assert.equal(b.aiStatus.label, 'OpenRouter');
   assert.equal(b.ai.texts[viz.id], ai.texts[viz.id]);
   assert.equal(b.report.author_id, null, "AI natijasi — PM saqlamaguncha qabul qilinmagan");
   // Saqlanmagan AI matni direktor xabarida yo'q
@@ -138,14 +149,14 @@ test("bo'sh yoki buzilgan javob — bir marta qayta so'raladi; kalit xato — qa
   const before = (await pm.json(`/api/report?date=${d}`)).ai;
   // 1) bo'sh javob → qayta → muvaffaqiyat
   let n = 0;
-  reply = () => (n++ === 0 ? deepseekOk('')() : deepseekOk(vizResult())());
+  reply = () => (n++ === 0 ? chatOk('')() : chatOk(vizResult())());
   let r = await pm('/api/report/ai', { method: 'POST', body: { date: d } });
   assert.equal(r.status, 200);
   assert.equal(calls.length, 2);
   // 2) ikki marta JSON emas → 502, saqlangan natija o'zgarmaydi
   calls.length = 0;
   const saved = (await pm.json(`/api/report?date=${d}`)).ai;
-  reply = deepseekOk('Kechirasiz, tahlil qila olmayman');
+  reply = chatOk('Kechirasiz, tahlil qila olmayman');
   r = await pm('/api/report/ai', { method: 'POST', body: { date: d } });
   assert.equal(r.status, 502);
   assert.match((await r.json()).error, /JSON emas/);
@@ -159,6 +170,43 @@ test("bo'sh yoki buzilgan javob — bir marta qayta so'raladi; kalit xato — qa
   assert.match((await r.json()).error, /kaliti noto'g'ri/);
   assert.equal(calls.length, 1);
   assert.ok(before === null || typeof before === 'object');
+});
+
+test("DeepSeek ning o'z API si va fikrlash darajasi: har provayderga o'z formatida", async () => {
+  process.env.AI_PROVIDER = 'deepseek';
+  process.env.AI_API_KEY = 'ds-key';
+  process.env.AI_EFFORT = 'high';
+  reply = chatOk(vizResult());
+  let r = await pm('/api/report/ai', { method: 'POST', body: { date: d } });
+  assert.equal(r.status, 200);
+  let c = calls.at(-1);
+  assert.equal(c.url, 'https://api.deepseek.com/chat/completions');
+  assert.equal(c.body.model, 'deepseek-v4-pro');
+  assert.equal(c.body.reasoning_effort, 'high');
+  assert.equal(c.body.provider, undefined, 'OpenRouter maydonlari DeepSeek ga yuborilmaydi');
+  assert.equal(c.headers.get('x-openrouter-title'), null);
+  // OpenRouter da xuddi shu daraja — reasoning.effort orqali
+  process.env.AI_PROVIDER = 'openrouter';
+  r = await pm('/api/report/ai', { method: 'POST', body: { date: d } });
+  assert.equal(r.status, 200);
+  c = calls.at(-1);
+  assert.deepEqual(c.body.reasoning, { exclude: true, effort: 'high' });
+  assert.equal(c.body.reasoning_effort, undefined);
+});
+
+test("OpenRouter xatolari: 200 ichidagi xato — qayta so'raladi; mablag' tugasa — aniq xabar", async () => {
+  process.env.AI_API_KEY = 'test-key';
+  reply = () => json(200, { id: 'x', error: { code: 502, message: 'Upstream provider error' }, choices: [] });
+  let r = await pm('/api/report/ai', { method: 'POST', body: { date: d } });
+  assert.equal(r.status, 502);
+  assert.match((await r.json()).error, /Upstream provider error/);
+  assert.equal(calls.length, 2, 'bir marta qayta urinildi');
+  calls.length = 0;
+  reply = () => json(402, { error: { code: 402, message: 'Insufficient credits' } });
+  r = await pm('/api/report/ai', { method: 'POST', body: { date: d } });
+  assert.equal(r.status, 502);
+  assert.match((await r.json()).error, /mablag' tugagan/);
+  assert.equal(calls.length, 1);
 });
 
 test('Claude (anthropic): rasmiy SDK so\'rovi — model, JSON sxema, zaxira model; rad etsa — xato', async () => {
@@ -191,7 +239,7 @@ test('Claude (anthropic): rasmiy SDK so\'rovi — model, JSON sxema, zaxira mode
 
 test("cheklovlar: kelajak sana, raqamsiz kun, ko'rib chiqilgan hisobot", async () => {
   process.env.AI_API_KEY = 'test-key';
-  reply = deepseekOk(vizResult());
+  reply = chatOk(vizResult());
   let r = await pm('/api/report/ai', { method: 'POST', body: { date: addDays(today(), 1) } });
   assert.equal(r.status, 400);
   r = await pm('/api/report/ai', { method: 'POST', body: { date: addDays(d, -30) } });
