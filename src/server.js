@@ -279,8 +279,9 @@ route('GET', '/api/summary', async (req, res, _p, q) => {
 // Oylar bo'yicha dinamika: oxirgi N oy (joriy oy — kechagacha, ya'ni oxirgi hisobot kunigacha)
 route('GET', '/api/monthly', async (req, res, _p, q) => {
   requireUser(req);
-  const months = Math.min(Math.max(Number(q.get('months')) || 6, 2), 24);
-  send(res, 200, monthly({ months, projectId: q.get('project') ? Number(q.get('project')) : null }));
+  const unit = ['day', 'week', 'month'].includes(q.get('unit')) ? q.get('unit') : 'month';
+  const months = Math.min(Math.max(Number(q.get('months')) || 6, 2), unit === 'day' ? 62 : 24);
+  send(res, 200, monthly({ months, projectId: q.get('project') ? Number(q.get('project')) : null, unit }));
 });
 route('GET', '/api/export.csv', async (req, res, _p, q) => {
   requireUser(req);

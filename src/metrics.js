@@ -496,11 +496,22 @@ export function priceAdvice(p) {
 // ---------- Oylar bo'yicha dinamika ----------
 // asOf — oxirgi hisobot kuni (kecha): bugungi raqamlar hali kiritilmagan, joriy oyni kunlik sur'atda pasaytirmasin
 const MONTH_KEYS = ['impressions', 'clicks', 'ctr', 'starts', 'spend', 'spend_uzs', 'revenue', 'gross_profit', 'net_profit', 'net_margin', 'leads', 'qualified_share', 'sales', 'conv', 'cpl', 'cac', 'avg_check', 'roas', 'repeat_share'];
-export function monthly({ months = 6, projectId = null, asOf = addDays(today(), -1) } = {}) {
+// unit: month — oylar, week — haftalar (dushanbadan), day — kunlar; months — nechta davr
+export function monthly({ months = 6, projectId = null, asOf = addDays(today(), -1), unit = 'month' } = {}) {
   const out = [];
-  let m = asOf.slice(0, 7);
+  const bucket = (i) => {
+    if (unit === 'day') { const d = addDays(asOf, -i); return { m: d, from: d, end: d }; }
+    if (unit === 'week') {
+      const monday = addDays(asOf, -((new Date(`${asOf}T00:00:00Z`).getUTCDay() + 6) % 7) - 7 * i);
+      return { m: monday, from: monday, end: addDays(monday, 6) };
+    }
+    let mm = asOf.slice(0, 7);
+    for (let k = 0; k < i; k++) mm = addDays(`${mm}-01`, -1).slice(0, 7);
+    const b = monthBounds(mm);
+    return { m: mm, from: b.from, end: b.to };
+  };
   for (let i = 0; i < months; i++) {
-    const { from, to: end } = monthBounds(m);
+    const { m, from, end } = bucket(i);
     const to = asOf < end ? asOf : end;
     const len = daysBetween(from, to);
     const { projects, rows } = loadRows(from, to, projectId);
@@ -514,8 +525,7 @@ export function monthly({ months = 6, projectId = null, asOf = addDays(today(), 
     if (!t.repeat_revenue) t.repeat_share = null;
     for (const p of list) if (!p.repeat_revenue) p.repeat_share = null;
     const pickM = (x) => Object.fromEntries(MONTH_KEYS.map((k) => [k, x[k] ?? null]));
-    out.push({ month: m, from, to, days: len, partial: to < end, has: rows.length > 0, totals: pickM(t), byProject: list.map((p) => ({ id: p.id, name: p.name, color: p.color, kind: p.kind, ...pickM(p) })) });
-    m = addDays(`${m}-01`, -1).slice(0, 7);
+    out.push({ month: m, unit, from, to, days: len, partial: to < end, has: rows.length > 0, totals: pickM(t), byProject: list.map((p) => ({ id: p.id, name: p.name, color: p.color, kind: p.kind, ...pickM(p) })) });
   }
   return out.reverse();
 }

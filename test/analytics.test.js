@@ -146,3 +146,13 @@ test("voronka tashxisi: qaysi bosqichda yo'qotyapmiz", async () => {
   // Me'yor yo'q — xulosa ham yo'q
   assert.equal(funnelCheck({ ...p, bench: {} }).worst, null);
 });
+
+test('dinamika: kunlar va haftalar bo\'yicha', async () => {
+  const { monthly } = await import('../src/metrics.js');
+  const asOf = '2026-10-01'; // payshanba
+  const d = monthly({ unit: 'day', months: 5, asOf });
+  assert.deepEqual(d.map((x) => x.from), ['2026-09-27', '2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01']);
+  assert.ok(d.every((x) => x.days === 1 && !x.partial));
+  const w = monthly({ unit: 'week', months: 2, asOf });
+  assert.deepEqual(w.map((x) => [x.from, x.to, x.partial]), [['2026-09-21', '2026-09-27', false], ['2026-09-28', '2026-10-01', true]]);
+});

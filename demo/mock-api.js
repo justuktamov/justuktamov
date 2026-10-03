@@ -212,8 +212,9 @@ const routes = {
   'GET /api/summary': (_b, _p, q) => { needUser(); return summary({ ...period(q), projectId: projectParam(q) }); },
   'GET /api/monthly': (_b, _p, q) => {
     needUser();
-    const months = Math.min(Math.max(Number(q.get('months')) || 6, 2), 24);
-    return monthly({ months, projectId: projectParam(q), asOf: addDays(TODAY, -1) });
+    const unit = ['day', 'week', 'month'].includes(q.get('unit')) ? q.get('unit') : 'month';
+    const months = Math.min(Math.max(Number(q.get('months')) || 6, 2), unit === 'day' ? 62 : 24);
+    return monthly({ months, projectId: projectParam(q), asOf: addDays(TODAY, -1), unit });
   },
   'GET /api/export.csv': (_b, _p, q) => {
     needUser();
