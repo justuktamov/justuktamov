@@ -197,3 +197,20 @@ test('lichkadan kelgan lidlar: Instagram direkt va Telegram lichka', async () =>
   assert.equal(s.totals.src_ig, 12);
   await pm.json(`/api/projects/${p.id}`, { method: 'PUT', body: { active: false } });
 });
+
+test('loyihalar tartibi: sudrab almashtirish saqlanadi', async () => {
+  const pm = await session();
+  const a = await pm.json('/api/projects', { method: 'POST', body: { name: 'TARTIB-A' } });
+  const b = await pm.json('/api/projects', { method: 'POST', body: { name: 'TARTIB-B' } });
+  const before = (await pm.json('/api/projects')).filter((p) => p.active).map((p) => p.id);
+  const ids = [b.id, ...before.filter((x) => x !== b.id)];
+  let r = await pm('/api/projects/order', { method: 'PUT', body: { ids: [b.id, b.id] } });
+  assert.equal(r.status, 400);
+  r = await pm('/api/projects/order', { method: 'PUT', body: { ids } });
+  assert.equal(r.status, 200);
+  const after = (await pm.json('/api/projects')).filter((p) => p.active).map((p) => p.id);
+  assert.deepEqual(after, ids);
+  const s = await pm.json(`/api/summary?from=${today()}&to=${today()}`);
+  assert.equal(s.byProject[0].id, b.id, 'doska ham shu tartibda');
+  for (const p of [a, b]) await pm.json(`/api/projects/${p.id}`, { method: 'PUT', body: { active: false } });
+});

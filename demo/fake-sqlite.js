@@ -6,7 +6,7 @@ const inRange = (d, from, to) => d >= from && d <= to;
 const byDateDesc = (a, b) => (a.date < b.date ? 1 : -1);
 
 const QUERIES = [
-  [/^SELECT \* FROM projects WHERE active = 1 ORDER BY id$/, { all: () => store.projects.filter((p) => p.active) }],
+  [/^SELECT \* FROM projects WHERE active = 1 ORDER BY COALESCE\(sort_order, id\), id$/, { all: () => store.projects.filter((p) => p.active).sort((a, b) => (a.sort_order ?? a.id) - (b.sort_order ?? b.id) || a.id - b.id) }],
   [/^SELECT \* FROM daily WHERE date BETWEEN \? AND \? AND project_id IN/, {
     all: (from, to, ...ids) => store.daily.filter((r) => inRange(r.date, from, to) && ids.includes(r.project_id)).map((r) => ({ ...r })),
   }],

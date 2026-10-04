@@ -34,7 +34,7 @@ export function usdRate() {
 
 export function loadRows(from, to, projectId = null) {
   const db = getDb();
-  const projects = db.prepare('SELECT * FROM projects WHERE active = 1 ORDER BY id').all()
+  const projects = db.prepare('SELECT * FROM projects WHERE active = 1 ORDER BY COALESCE(sort_order, id), id').all()
     .filter((p) => !projectId || p.id === Number(projectId));
   const ids = projects.map((p) => p.id);
   if (!ids.length) return { projects, rows: [] };
@@ -550,7 +550,7 @@ export function planProgress(month, projectId = null, asOf = today()) {
   const plans = getDb().prepare('SELECT * FROM plans WHERE month = ?').all(month)
     .filter((p) => !projectId || p.project_id === Number(projectId));
   const { rows } = elapsed ? loadRows(from, to, projectId) : { rows: [] };
-  const allProjects = getDb().prepare('SELECT * FROM projects WHERE active = 1 ORDER BY id').all();
+  const allProjects = getDb().prepare('SELECT * FROM projects WHERE active = 1 ORDER BY COALESCE(sort_order, id), id').all();
   const factKey = { budget: 'spend', leads: 'leads', sales: 'sales', revenue: 'revenue' };
 
   const metric = (fact, plan, key) => {

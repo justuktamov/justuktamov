@@ -137,6 +137,22 @@ route('PUT', '/api/me/password', async (req, res) => {
 });
 
 // ---- Loyihalar ----
+// Loyihalar tartibi (doskada sudrab almashtiriladi) — hamma ro'yxatlarda shu tartib
+route('PUT', '/api/projects/order', async (req, res) => {
+  requireUser(req);
+  const b = await readBody(req);
+  if (!Array.isArray(b.ids) || !b.ids.length) throw new HttpError(400, "Tartib noto'g'ri");
+  const db = getDb();
+  const ids = b.ids.map(Number);
+  const known = new Set(db.prepare('SELECT id FROM projects').all().map((x) => x.id));
+  if (ids.some((x) => !known.has(x)) || new Set(ids).size !== ids.length) throw new HttpError(400, "Tartib noto'g'ri");
+  db.exec('BEGIN');
+  try {
+    ids.forEach((id, i) => db.prepare('UPDATE projects SET sort_order = ? WHERE id = ?').run(i + 1, id));
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  send(res, 200, { ok: true });
+});
 const getProject = (id) => getDb().prepare('SELECT * FROM projects WHERE id = ?').get(id);
 function checkName(name, exceptId = null) {
   const n = String(name || '').trim().slice(0, 60);
@@ -148,7 +164,7 @@ function checkName(name, exceptId = null) {
 route('GET', '/api/projects', async (req, res) => {
   requireUser(req);
   // channels — JSON ro'yxat; lag_hint — ma'lumotdan taxmin qilingan lid → sotuv kechikishi (kun)
-  send(res, 200, getDb().prepare('SELECT * FROM projects ORDER BY active DESC, id').all().map(projectOut));
+  send(res, 200, getDb().prepare('SELECT * FROM projects ORDER BY active DESC, COALESCE(sort_order, id), id').all().map(projectOut));
 });
 const projectOut = (p) => {
   let channels = [];

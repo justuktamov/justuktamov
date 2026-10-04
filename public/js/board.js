@@ -50,7 +50,42 @@ export async function renderBoard() {
     col.querySelector('[data-collapse]').title = closed.has(id) ? 'Ochish' : "Yig'ish";
     board.setAttribute('style', layout());
   };
+  // Ustunlarni sudrab almashtirish (sichqoncha va barmoq); tartib serverda saqlanadi — hamma ro'yxatlarda shu tartib
+  const saveOrder = async () => {
+    const ids = [...board.children].map((c) => Number(c.dataset.open));
+    state.projects.sort((a, b) => (ids.indexOf(a.id) + 1 || 999) - (ids.indexOf(b.id) + 1 || 999));
+    try { await api('/api/projects/order', { method: 'PUT', body: { ids } }); toast('Tartib saqlandi'); } catch (err) { toast(err.message, true); }
+  };
+  let drag = null;
+  board.addEventListener('pointerdown', (e) => {
+    const g = e.target.closest('[data-grip]');
+    if (!g || e.button > 0) return;
+    e.preventDefault();
+    drag = { col: g.closest('.col'), moved: false };
+    drag.col.classList.add('dragging');
+    g.setPointerCapture(e.pointerId);
+  });
+  board.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const over = document.elementFromPoint(e.clientX, e.clientY)?.closest('.col');
+    if (!over || over === drag.col || over.parentElement !== board) return;
+    const r = over.getBoundingClientRect();
+    const after = e.clientX > r.left + r.width / 2;
+    if (after ? over.nextElementSibling !== drag.col : over.previousElementSibling !== drag.col) {
+      board.insertBefore(drag.col, after ? over.nextElementSibling : over);
+      drag.moved = true;
+    }
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    drag.col.classList.remove('dragging');
+    if (drag.moved) saveOrder();
+    drag = null;
+  };
+  board.addEventListener('pointerup', endDrag);
+  board.addEventListener('pointercancel', endDrag);
   board.addEventListener('click', (e) => {
+    if (e.target.closest('[data-grip]')) return;
     if (e.target.closest('a')) return; // ichidagi havola (Reja kiritish) o'zi ishlasin
     const exp = e.target.closest('[data-exp]');
     if (exp) { exp.classList.toggle('open'); exp.setAttribute('aria-expanded', String(exp.classList.contains('open'))); return; }
@@ -62,6 +97,18 @@ export async function renderBoard() {
   });
   board.addEventListener('keydown', (e) => {
     if (e.target.closest('[data-collapse]')) return;
+    const g = e.target.closest('[data-grip]');
+    if (g) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      const col = g.closest('.col');
+      const sib = e.key === 'ArrowLeft' ? col.previousElementSibling : col.nextElementSibling;
+      if (!sib) return;
+      board.insertBefore(col, e.key === 'ArrowLeft' ? sib : sib.nextElementSibling);
+      g.focus();
+      saveOrder();
+      return;
+    }
     const exp = e.target.closest('[data-exp]');
     if (exp && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); exp.click(); return; }
     const col = e.target.closest('[data-open]');
@@ -77,6 +124,7 @@ const M_IC = {
   up: ic('<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'),
   down: ic('<path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/>'),
 };
+const GRIP = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
 const COLLAPSE_KEY = 'board-collapsed';
 function getCollapsed() {
   try { return new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]').map(Number)); } catch { return new Set(); }
@@ -131,7 +179,7 @@ function column(p, plan, collapsed = false) {
   const q = [['q-good', p.qualified], ['q-mid', p.potential], ['q-bad', p.unqualified]];
   const badTop = p.reasons.bad[0];
   return `<section class="col ${collapsed ? 'collapsed' : ''}" style="--pc:${esc(p.color || '#4c86ff')}" data-open="${p.id}" tabindex="0" role="button" aria-label="${esc(p.name)} — batafsil">
-    <header class="col-head"><button type="button" class="col-toggle" data-collapse aria-expanded="${!collapsed}" title="${collapsed ? 'Ochish' : "Yig'ish"}" aria-label="${esc(p.name)} — yig'ish yoki ochish">${COLLAPSE_IC}</button>
+    <header class="col-head"><button type="button" class="col-grip" data-grip title="Sudrab joyini almashtiring (← → tugmalari ham ishlaydi)" aria-label="${esc(p.name)} — joyini almashtirish">${GRIP}</button><button type="button" class="col-toggle" data-collapse aria-expanded="${!collapsed}" title="${collapsed ? 'Ochish' : "Yig'ish"}" aria-label="${esc(p.name)} — yig'ish yoki ochish">${COLLAPSE_IC}</button>
       <span class="col-dot"></span><div class="col-name"><h2>${esc(p.name)}</h2><small>${auto ? 'avtovoronka' : "sotuv bo'limi"}</small></div><span class="pill ${cls}">${label}</span></header>
     <div class="tile money">
       <div class="m-hero ad" data-exp role="button" tabindex="0" aria-expanded="false" title="Bosing — qayerga qancha ketgani"><span class="m-ic">${M_IC.ad}</span><div><small>Reklama · umumiy</small><b>${fmtUsd(p.spend, 0)}</b><span class="m-sub">${fmtUzs(p.spend_uzs)} so'm</span></div><span class="m-chev">${CHEV}</span>

@@ -123,7 +123,14 @@ const routes = {
     u.password = b.new;
     return { ok: true };
   },
-  'GET /api/projects': () => { needUser(); return [...store.projects].sort((a, b) => b.active - a.active || a.id - b.id).map(projectOut); },
+  'GET /api/projects': () => { needUser(); return [...store.projects].sort((a, b) => b.active - a.active || (a.sort_order ?? a.id) - (b.sort_order ?? b.id) || a.id - b.id).map(projectOut); },
+  'PUT /api/projects/order': (b) => {
+    needUser();
+    const ids = (b.ids || []).map(Number);
+    if (!ids.length || ids.some((id) => !store.projects.some((p) => p.id === id))) throw new HttpError(400, "Tartib noto'g'ri");
+    ids.forEach((id, i) => { store.projects.find((p) => p.id === id).sort_order = i + 1; });
+    return { ok: true };
+  },
   'POST /api/projects': (b) => {
     needUser();
     const p = { id: nextId(store.projects), name: checkName(b.name), color: checkColor(b.color), ...projectMoney(b), active: 1 };

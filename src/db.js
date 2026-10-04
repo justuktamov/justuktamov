@@ -131,7 +131,8 @@ function migrate(db) {
       channels TEXT,
       sale_lag REAL,
       active INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      sort_order INTEGER
     );
     CREATE TABLE IF NOT EXISTS daily (
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -193,7 +194,7 @@ function migrate(db) {
   for (const f of Object.keys(FIELDS)) if (cols.length && !cols.includes(f)) db.exec(`ALTER TABLE daily ADD COLUMN ${f} REAL`);
   for (const f of Object.keys(TEXT_FIELDS)) if (cols.length && !cols.includes(f)) db.exec(`ALTER TABLE daily ADD COLUMN ${f} TEXT`);
   const pcols = db.prepare('PRAGMA table_info(projects)').all().map((c) => c.name);
-  for (const [c, t] of [['kind', "TEXT NOT NULL DEFAULT 'leads'"], ['var_cost_pct', 'REAL'], ['fixed_monthly', 'REAL'], ['channels', 'TEXT'], ['sale_lag', 'REAL']]) {
+  for (const [c, t] of [['kind', "TEXT NOT NULL DEFAULT 'leads'"], ['var_cost_pct', 'REAL'], ['fixed_monthly', 'REAL'], ['channels', 'TEXT'], ['sale_lag', 'REAL'], ['sort_order', 'INTEGER']]) {
     if (pcols.length && !pcols.includes(c)) db.exec(`ALTER TABLE projects ADD COLUMN ${c} ${t}`);
   }
   // AI tahlil natijasi (JSON): hisobot kuni bo'yicha

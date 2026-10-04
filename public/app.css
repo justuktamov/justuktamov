@@ -918,3 +918,18 @@ input, select, textarea { color-scheme: light; }
 .grid-mini td.n { text-align: left; padding: 6px 10px; }
 .grid-mini .cell-in { width: 170px; text-align: left; }
 @media (max-width: 860px) { .grid-mini .cell-in { width: 100%; } .grid-mini { width: 100%; } }
+/* Doska: ustunni sudrab almashtirish */
+.col-head { grid-template-columns: auto auto auto 1fr auto; }
+.col-grip { width: 22px; height: 28px; display: grid; place-items: center; border: 0; background: transparent; color: #8a93a3; cursor: grab; padding: 0; border-radius: 7px; touch-action: none; }
+.col-grip:hover, .col-grip:focus-visible { color: #10131a; background: rgba(255, 255, 255, .7); }
+.col.dragging { opacity: .85; box-shadow: 0 16px 36px rgba(16, 24, 40, .18); transform: scale(1.01); cursor: grabbing; z-index: 2; }
+.col.dragging .col-grip { cursor: grabbing; }
+.col.collapsed .col-head { grid-template-columns: auto auto auto 1fr auto; }
+.col-head { column-gap: 6px; }
+.col-head .col-name { min-width: 0; }
+.col-head .col-name h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.col-head .pill { white-space: nowrap; font-size: 11px; padding-inline: 8px; }
+.col-head { display: flex; flex-wrap: wrap; align-items: center; row-gap: 6px; }
+.col-head .col-name { flex: 1 1 110px; }
+.col-head .col-name small { white-space: nowrap; }
+.col-head .pill { margin-left: auto; }
