@@ -1,6 +1,6 @@
 // Oylar bo'yicha dinamika: tushum, xarajat, foyda, lid narxi, konversiya — oyma-oy qanday o'zgaryapti
 import {
-  $, esc, api, state, shell, fmtN, fmtUsd, fmtUzs, fmtP, spinnerBlock, isStale, monthLabel, shortDate, chartBase, cssVar,
+  $, esc, api, state, shell, fmtN, fmtUsd, fmtUzs, fmtP, spinnerBlock, isStale, monthLabel, shortDate, addDays, chartBase, cssVar,
 } from './core.js';
 import { dot, signed, M_IC } from './blocks.js';
 
@@ -31,7 +31,7 @@ const ROWS = [
 ];
 
 // [kalit, tugma, birlik, nechta, sarlavha]
-const VIEWS = [['d14', 'Kunlar', 'day', 14, 'Kunma-kun'], ['w8', 'Haftalar', 'week', 8, 'Haftama-hafta'], ['m6', '6 oy', 'month', 6, 'Oyma-oy'], ['m12', '12 oy', 'month', 12, 'Oyma-oy']];
+const VIEWS = [['wk', 'Hafta (7 kun)', 'day', 7, 'Bir hafta kunma-kun'], ['d14', 'Kunlar', 'day', 14, 'Kunma-kun'], ['w8', 'Haftalar', 'week', 8, 'Haftama-hafta'], ['m6', '6 oy', 'month', 6, 'Oyma-oy'], ['m12', '12 oy', 'month', 12, 'Oyma-oy']];
 const WD = ['yak', 'dush', 'sesh', 'chor', 'pay', 'jum', 'shan'];
 function periodLabel(m) {
   if (m.unit === 'day') return `${shortDate(m.from)}, ${WD[new Date(`${m.from}T00:00:00Z`).getUTCDay()]}`;
@@ -51,17 +51,25 @@ function change(key, perDay, cur, prev) {
 export async function renderDynamics() {
   state.dyn ||= { project: '', view: 'm6' };
   const f = state.dyn;
-  const V = VIEWS.find((v) => v[0] === f.view) || VIEWS[2];
+  const V = VIEWS.find((v) => v[0] === f.view) || VIEWS[3];
+  // «Hafta (7 kun)»: dushanbadan yakshanbagacha; ‹ › bilan oldingi haftalar
+  f.week ||= 0;
+  const yday = state.me.reportDay;
+  const monday = addDays(yday, -((new Date(`${yday}T00:00:00Z`).getUTCDay() + 6) % 7) - 7 * f.week);
+  const sunday = addDays(monday, 6);
+  const wkTo = sunday < yday ? sunday : yday;
+  const isWk = V[0] === 'wk';
   const projects = state.projects.filter((x) => x.active);
   shell(`<div class="page-head"><div><h1>Dinamika</h1><div class="sub">${V[4]}: o'syapmizmi yoki pasayyapmizmi</div></div>
-      <div class="filters"><div class="seg" id="dynMonths">${VIEWS.map((v) => `<button data-m="${v[0]}" class="${V[0] === v[0] ? 'on' : ''}">${v[1]}</button>`).join('')}</div></div></div>
+      <div class="filters">${isWk ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-wk="1" aria-label="Oldingi hafta">‹</button><b>${shortDate(monday)} – ${shortDate(sunday)}</b><button type="button" class="btn small icon" data-wk="-1" aria-label="Keyingi hafta" ${f.week ? '' : 'disabled'}>›</button></span>` : ''}<div class="seg" id="dynMonths">${VIEWS.map((v) => `<button data-m="${v[0]}" class="${V[0] === v[0] ? 'on' : ''}">${v[1]}</button>`).join('')}</div></div></div>
     <div class="chips" id="dynProj"><button class="chip ${!f.project ? 'on' : ''}" data-p="">Hammasi</button>${projects.map((p) => `<button class="chip ${String(f.project) === String(p.id) ? 'on' : ''}" data-p="${p.id}">${dot(p.color)}${esc(p.name)}</button>`).join('')}</div>
     <div id="dyn">${spinnerBlock()}</div>`);
   const rid = state.renderId;
   $('#dynMonths').onclick = (e) => { const b = e.target.closest('[data-m]'); if (b) { f.view = b.dataset.m; renderDynamics(); } };
+  document.querySelectorAll('[data-wk]').forEach((b) => { b.onclick = () => { f.week = Math.max(0, f.week + Number(b.dataset.wk)); renderDynamics(); }; });
   $('#dynProj').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { f.project = b.dataset.p; renderDynamics(); } };
   let data;
-  try { data = await api(`/api/monthly?${new URLSearchParams({ unit: V[2], months: V[3], ...(f.project ? { project: f.project } : {}) })}`); } catch (e) { const el = $('#dyn'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  try { data = await api(`/api/monthly?${new URLSearchParams({ unit: V[2], months: isWk ? Math.round((Date.parse(wkTo) - Date.parse(monday)) / 864e5) + 1 : V[3], ...(isWk ? { to: wkTo } : {}), ...(f.project ? { project: f.project } : {}) })}`); } catch (e) { const el = $('#dyn'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#dyn');
   if (!box || isStale(rid)) return;
   const months = data.filter((m, i) => m.has || data.slice(0, i).some((x) => x.has));
@@ -115,12 +123,31 @@ export async function renderDynamics() {
       };
       const loss = (L.net_profit || 0) < 0;
       return `<section class="card dp-card" style="--pc:${esc(p.color || '#4c86ff')}"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${esc(periodLabel(last))}</span></div>
+        ${isWk ? weekTable(row) : ''}
         ${hero('ad', M_IC.ad, 'Reklama', 'spend', (x) => fmtUsd(x, 0), 0, `${fmtUzs(L.spend_uzs)} so'm`)}
         ${hero('rev', M_IC.rev, 'Tushum', 'revenue', (x) => `${fmtUzs(x)}<i>so'm</i>`, 1, `${fmtN(L.sales)} ta sotuv`)}
         ${hero(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar' : 'Sof foyda', 'net_profit', (x) => `${signed(x, false)}<i>so'm</i>`, 1, 'barcha xarajatdan keyin')}
       </section>`;
     }).join('');
     return cards ? `<div class="dp-grid">${cards}</div>` : '';
+  }
+
+  // Hafta: dushanbadan yakshanbagacha 7 qator — reklama, tushum, sof foyda; pastda jami
+  function weekTable(row) {
+    const DAYS = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'];
+    const tot = { spend: 0, revenue: 0, net_profit: 0 };
+    const rows = DAYS.map((name, i) => {
+      const d = addDays(monday, i);
+      const m = months.find((x) => x.from === d);
+      const r = m?.has ? row(m) : null;
+      if (r) for (const k of Object.keys(tot)) tot[k] += r[k] || 0;
+      const future = d > yday;
+      return `<tr class="${future ? 'wk-future' : ''}"><td><b>${name}</b><small>${shortDate(d)}</small></td>
+        <td class="n">${r ? fmtUsd(r.spend, 0) : '—'}</td><td class="n">${r ? fmtUzs(r.revenue) : '—'}</td>
+        <td class="n ${r ? (r.net_profit < 0 ? 'neg' : 'pos') : ''}">${r ? signed(r.net_profit, false) : future ? 'hali' : '—'}</td></tr>`;
+    }).join('');
+    return `<div class="table-wrap"><table class="wk-table"><thead><tr><th>Kun</th><th class="n">Reklama</th><th class="n">Tushum, so'm</th><th class="n">Sof foyda, so'm</th></tr></thead>
+      <tbody>${rows}</tbody><tfoot><tr><td><b>Hafta jami</b></td><td class="n">${fmtUsd(tot.spend, 0)}</td><td class="n">${fmtUzs(tot.revenue)}</td><td class="n ${tot.net_profit < 0 ? 'neg' : 'pos'}">${signed(tot.net_profit, false)}</td></tr></tfoot></table></div>`;
   }
 
   // Hammasi: har loyihaning sof foydasi oyma-oy — qaysi biri tortyapti, qaysi biri yeyapti

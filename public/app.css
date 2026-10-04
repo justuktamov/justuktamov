@@ -967,3 +967,12 @@ input, select, textarea { color-scheme: light; }
 .dp-hero { grid-template-columns: auto 1fr; }
 .dp-hero .dp-spark { grid-column: 1 / -1; width: 100%; height: 26px; margin-top: 2px; }
 .dp-hero b { font-size: 21px; }
+/* Dinamika: bir hafta — 7 qator */
+.wk-nav { display: inline-flex; align-items: center; gap: 8px; margin-right: 8px; }
+.wk-table { width: 100%; font-size: 13px; }
+.wk-table th, .wk-table td { padding: 7px 8px; white-space: nowrap; }
+.wk-table td small { display: block; font-size: 11px; color: var(--text-3); font-weight: 500; }
+.wk-table td.n, .wk-table th.n { text-align: right; font-variant-numeric: tabular-nums; }
+.wk-table tr.wk-future td { color: var(--text-3); }
+.wk-table tfoot td { border-top: 2px solid var(--border-strong); font-weight: 800; }
+.dp-grid:has(.wk-table) { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
