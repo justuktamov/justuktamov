@@ -122,8 +122,9 @@ export async function renderDynamics() {
           ${spark(months.map((m) => row(m)?.[k] ?? 0), cls)}</div>`;
       };
       const loss = (L.net_profit || 0) < 0;
+      if (isWk) return weekDays(p, row);
       return `<section class="card dp-card" style="--pc:${esc(p.color || '#4c86ff')}"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${isWk ? `${shortDate(monday)} – ${shortDate(sunday)}` : esc(periodLabel(last))}</span></div>
-        ${isWk ? weekCard(row) : `
+        ${`
         ${hero('ad', M_IC.ad, 'Reklama', 'spend', (x) => fmtUsd(x, 0), 0, `${fmtUzs(L.spend_uzs)} so'm`)}
         ${hero('rev', M_IC.rev, 'Tushum', 'revenue', (x) => `${fmtUzs(x)}<i>so'm</i>`, 1, `${fmtN(L.sales)} ta sotuv`)}
         ${hero(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar' : 'Sof foyda', 'net_profit', (x) => `${signed(x, false)}<i>so'm</i>`, 1, 'barcha xarajatdan keyin')}`}
@@ -133,29 +134,34 @@ export async function renderDynamics() {
   }
 
   // Hafta: dushanbadan yakshanbagacha 7 qator — reklama, tushum, sof foyda; pastda jami
-  // Hafta: reklama, tushum, sof foyda — hafta jami va 7 ta ustun (Du … Ya), har ustun — bitta kun
-  function weekCard(row) {
-    const DAYS = [['Du', 'Dushanba'], ['Se', 'Seshanba'], ['Ch', 'Chorshanba'], ['Pa', 'Payshanba'], ['Ju', 'Juma'], ['Sh', 'Shanba'], ['Ya', 'Yakshanba']];
-    const days = DAYS.map(([short, name], i) => {
+  // Hafta: har loyiha uchun 7 ta kun kartasi (Dushanba … Yakshanba) + hafta jami; har kartada reklama, tushum, sof foyda
+  function weekDays(p, row) {
+    const DAYS = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'];
+    const days = DAYS.map((name, i) => {
       const d = addDays(monday, i);
       const m = months.find((x) => x.from === d);
-      return { short, name, d, r: m?.has ? row(m) : null, future: d > yday };
+      return { name, d, r: m?.has ? row(m) : null, future: d > yday };
     });
-    const sum = (k) => days.reduce((a, x) => a + (x.r?.[k] || 0), 0);
-    const lastIdx = days.map((x) => Boolean(x.r)).lastIndexOf(true);
-    const bars = (k, fmt) => {
-      const max = Math.max(...days.map((x) => Math.abs(x.r?.[k] || 0)), 1);
-      return `<div class="wk-bars">${days.map((x, i) => {
-        const v = x.r?.[k] || 0;
-        return `<div class="wk-bar ${x.future ? 'future' : ''}" title="${x.name} ${shortDate(x.d)}: ${x.r ? fmt(v) : x.future ? 'hali' : "kiritilmagan"}"><span><i class="${v < 0 ? 'neg' : ''} ${i === lastIdx ? 'last' : ''}" style="height:${x.r ? Math.max((Math.abs(v) / max) * 100, v ? 6 : 2) : 0}%"></i></span><em>${x.short}</em></div>`;
-      }).join('')}</div>`;
+    const tot = { spend: 0, spend_uzs: 0, revenue: 0, net_profit: 0, sales: 0 };
+    for (const x of days) if (x.r) for (const k of Object.keys(tot)) tot[k] += x.r[k] || 0;
+    const delta = (cur, prevR, k, good) => {
+      const a = cur?.[k], b0 = prevR?.[k];
+      if (a == null || b0 == null || b0 === 0) return '';
+      const d = (a - b0) / Math.abs(b0);
+      const cls = !good || Math.abs(d) < 0.03 ? '' : (d > 0) === (good > 0) ? 'up' : 'down';
+      return `<span class="wd-delta dp-d ${cls}">${d > 0 ? '▲' : '▼'} ${Math.abs(d) >= 10 ? '>999' : fmtN(Math.abs(d) * 100, 0)}%</span>`;
     };
-    const net = sum('net_profit'), loss = net < 0;
-    const filled = days.filter((x) => x.r).length;
-    const hero = (cls, icon, label, value, sub, k, fmt) => `<div class="m-hero ${cls} dp-hero"><span class="m-ic">${icon}</span><div><small>${label}</small><b>${value}</b><span class="m-sub">${sub}</span></div>${bars(k, fmt)}</div>`;
-    return hero('ad', M_IC.ad, 'Reklama · hafta', fmtUsd(sum('spend'), 0), `${fmtUzs(sum('spend_uzs'))} so'm · ${filled} kun`, 'spend', (v) => fmtUsd(v, 0))
-      + hero('rev', M_IC.rev, 'Tushum · hafta', `${fmtUzs(sum('revenue'))}<i>so'm</i>`, `${fmtN(sum('sales'))} ta sotuv`, 'revenue', (v) => `${fmtUzs(v)} so'm`)
-      + hero(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar · hafta' : 'Sof foyda · hafta', `${signed(net, false)}<i>so'm</i>`, 'barcha xarajatdan keyin', 'net_profit', (v) => `${signed(v, false)} so'm`);
+    const heroes = (r, prevR) => {
+      const loss = (r.net_profit || 0) < 0;
+      const h = (cls, icon, label, value, sub) => `<div class="m-hero ${cls} wd-hero"><span class="m-ic">${icon}</span><div><small>${label}</small><b>${value}</b><span class="m-sub">${sub}</span></div></div>`; // ▲▼ — o'ng yuqori burchakda
+      return h('ad', M_IC.ad, 'Reklama', fmtUsd(r.spend, 0), `${fmtUzs(r.spend_uzs)} so'm${delta(r, prevR, 'spend', 0)}`)
+        + h('rev', M_IC.rev, 'Tushum', `${fmtUzs(r.revenue)}<i>so'm</i>`, `${fmtN(r.sales)} ta sotuv${delta(r, prevR, 'revenue', 1)}`)
+        + h(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar' : 'Sof foyda', `${signed(r.net_profit, false)}<i>so'm</i>`, `xarajatdan keyin${delta(r, prevR, 'net_profit', 1)}`);
+    };
+    const cards = days.map((x, i) => `<div class="wd-card ${x.r ? '' : 'empty'}"><div class="wd-head"><b>${x.name}</b><span>${shortDate(x.d)}</span></div>
+      ${x.r ? heroes(x.r, days[i - 1]?.r) : `<div class="wd-none">${x.future ? 'hali kelmagan kun' : "ma'lumot kiritilmagan"}</div>`}</div>`).join('');
+    return `<section class="card wd-proj" style="--pc:${esc(p.color || '#4c86ff')}"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${shortDate(monday)} – ${shortDate(sunday)} · ▲▼ oldingi kunga</span></div>
+      <div class="wd-grid">${cards}<div class="wd-card total"><div class="wd-head"><b>Hafta jami</b><span>${days.filter((x) => x.r).length} kun</span></div>${heroes(tot)}</div></div></section>`;
   }
 
   // Hammasi: har loyihaning sof foydasi oyma-oy — qaysi biri tortyapti, qaysi biri yeyapti

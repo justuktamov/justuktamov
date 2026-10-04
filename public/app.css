@@ -1012,3 +1012,27 @@ input, select, textarea { color-scheme: light; }
 .wk-bar span i.neg { background: #e5484d; }
 .wk-bar em { font-style: normal; font-size: 10.5px; font-weight: 700; text-align: center; color: var(--text-3); }
 .wk-bar.future em { opacity: .45; }
+/* Hafta: har loyiha — 7 kun kartasi + hafta jami */
+.dp-grid:has(.wd-proj) { grid-template-columns: minmax(0, 1fr); }
+.wd-proj { border-top: 4px solid var(--pc); display: grid; gap: 10px; padding: 14px; }
+.wd-grid { display: grid; grid-template-columns: repeat(8, minmax(190px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
+.wd-card { display: grid; gap: 6px; align-content: start; padding: 10px; border-radius: 16px; border: 1px solid var(--border); background: #fff; scroll-snap-align: start; }
+.wd-card.total { border: 2px solid var(--pc); }
+.wd-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 0 2px; }
+.wd-head b { font-size: 14px; } .wd-head span { font-size: 12px; color: var(--text-3); }
+.wd-hero { padding: 8px 10px; gap: 8px; }
+.wd-hero .m-ic { width: 30px; height: 30px; border-radius: 9px; }
+.wd-hero .m-ic svg { width: 15px; height: 15px; }
+.wd-hero b { font-size: 17px; }
+.wd-hero b i { font-size: 11px; }
+.wd-hero small { font-size: 10px; }
+.wd-hero .m-sub { font-size: 11px; }
+.wd-none { display: grid; place-items: center; min-height: 230px; border: 1px dashed var(--border-strong); border-radius: 12px; color: var(--text-3); font-size: 13px; text-align: center; }
+.wd-card.empty .wd-head { opacity: .6; }
+.wd-grid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); overflow: visible; }
+.wd-hero { position: relative; }
+.wd-delta { position: absolute; top: 8px; right: 10px; z-index: 2; font-size: 11px; font-weight: 800; background: rgba(255, 255, 255, .85); padding: 1px 6px; border-radius: 999px; }
+.wd-delta:not(.up):not(.down) { color: var(--text-3); }
+.wd-none { min-height: 220px; }
+@media (max-width: 860px) { .wd-grid { grid-template-columns: minmax(0, 1fr); } .wd-none { min-height: 50px; } }
+@media (min-width: 1100px) { .wd-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
