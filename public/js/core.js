@@ -2,7 +2,7 @@
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 export const app = () => $('#app');
-export const state = { me: null, projects: [], period: '7', from: null, to: null, project: '', charts: [] };
+export const state = { me: null, projects: [], period: 'y', from: null, to: null, project: '', charts: [] };
 
 // ---------- Formatlash ----------
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -279,7 +279,7 @@ export const TIMES = Array.from({ length: 36 }, (_, i) => { const m = 6 * 60 + i
 const PERIODS = [['y', 'Kecha'], ['y2', 'Kechadan oldin'], ['y3', '3 kun oldin'], ['7', 'Hafta'], ['month', 'Oy'], ['custom', 'Oraliq']];
 export function computePeriod() {
   const t = state.me.reportDay;
-  if (!PERIODS.some(([v]) => v === state.period)) state.period = '7';
+  if (!PERIODS.some(([v]) => v === state.period)) state.period = 'y';
   if (state.period === 'custom' && state.from && state.to) return { from: state.from, to: state.to };
   if (state.period === 'month') return { from: `${t.slice(0, 8)}01`, to: t };
   if (state.period === 'y') return { from: t, to: t };
