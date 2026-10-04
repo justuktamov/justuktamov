@@ -48,10 +48,12 @@ function change(key, perDay, cur, prev) {
   return y === 0 ? null : (x - y) / y;
 }
 
-export async function renderDynamics() {
-  state.dyn ||= { project: '', view: 'm6' };
+// Sahifaga kirilganda doim «Hafta (7 kun)», joriy hafta; sahifa ichidagi almashtirishlar saqlanadi
+export async function renderDynamics(inside = false) {
+  state.dyn ||= { project: '', view: 'wk' };
+  if (!inside) Object.assign(state.dyn, { view: 'wk', week: 0 });
   const f = state.dyn;
-  const V = VIEWS.find((v) => v[0] === f.view) || VIEWS[3];
+  const V = VIEWS.find((v) => v[0] === f.view) || VIEWS[0];
   // «Hafta (7 kun)»: dushanbadan yakshanbagacha; ‹ › bilan oldingi haftalar
   f.week ||= 0;
   const yday = state.me.reportDay;
@@ -65,9 +67,9 @@ export async function renderDynamics() {
     <div class="chips" id="dynProj"><button class="chip ${!f.project ? 'on' : ''}" data-p="">Hammasi</button>${projects.map((p) => `<button class="chip ${String(f.project) === String(p.id) ? 'on' : ''}" data-p="${p.id}">${dot(p.color)}${esc(p.name)}</button>`).join('')}</div>
     <div id="dyn">${spinnerBlock()}</div>`);
   const rid = state.renderId;
-  $('#dynMonths').onclick = (e) => { const b = e.target.closest('[data-m]'); if (b) { f.view = b.dataset.m; renderDynamics(); } };
-  document.querySelectorAll('[data-wk]').forEach((b) => { b.onclick = () => { f.week = Math.max(0, f.week + Number(b.dataset.wk)); renderDynamics(); }; });
-  $('#dynProj').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { f.project = b.dataset.p; renderDynamics(); } };
+  $('#dynMonths').onclick = (e) => { const b = e.target.closest('[data-m]'); if (b) { f.view = b.dataset.m; renderDynamics(true); } };
+  document.querySelectorAll('[data-wk]').forEach((b) => { b.onclick = () => { f.week = Math.max(0, f.week + Number(b.dataset.wk)); renderDynamics(true); }; });
+  $('#dynProj').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { f.project = b.dataset.p; renderDynamics(true); } };
   let data;
   try { data = await api(`/api/monthly?${new URLSearchParams({ unit: V[2], months: isWk ? Math.round((Date.parse(wkTo) - Date.parse(monday)) / 864e5) + 1 : V[3], ...(isWk ? { to: wkTo } : {}), ...(f.project ? { project: f.project } : {}) })}`); } catch (e) { const el = $('#dyn'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#dyn');
