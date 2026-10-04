@@ -1039,3 +1039,4 @@ input, select, textarea { color-scheme: light; }
 .wd-head { justify-content: flex-start; gap: 8px; }
 .wd-head b { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .wd-head span { font-size: 12.5px; font-weight: 600; }
+.wd-head { justify-content: space-between; }
