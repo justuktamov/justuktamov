@@ -19,7 +19,17 @@ export async function renderBoard() {
   const box = $('#board');
   if (!box || isStale(rid)) return;
   if (!s.byProject.length) {
-    box.innerHTML = `<div class="card empty">Hali loyiha yo'q. <a href="#/kiritish">Kechagi hisobot</a> bo'limida loyihalarni qo'shing.</div>`;
+    const arch = state.projects.filter((p) => !p.active);
+    box.innerHTML = arch.length
+      ? `<div class="card empty">Hamma loyihalar arxivda. Qaytarish uchun quyidagini bosing.<div class="arch-bar" style="justify-content:center">${arch.map((p) => `<button type="button" class="arch-chip" data-show="${p.id}">${EYE}${esc(p.name)}</button>`).join('')}</div></div>`
+      : `<div class="card empty">Hali loyiha yo'q. <a href="#/kiritish">Kechagi hisobot</a> bo'limida loyihalarni qo'shing.</div>`;
+    box.querySelector('.arch-bar')?.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-show]');
+      if (!b) return;
+      await api(`/api/projects/${b.dataset.show}`, { method: 'PUT', body: { active: true } }).catch((err) => toast(err.message, true));
+      state.projects = await api('/api/projects');
+      renderBoard();
+    });
     return;
   }
   const t = s.totals;
@@ -38,7 +48,19 @@ export async function renderBoard() {
     const n = s.byProject.length;
     return `--cols:repeat(${n}, minmax(260px, 1fr));--cols-m:repeat(${n}, 84vw)`;
   };
-  box.innerHTML = `${banner}<div class="board" style="${layout()}">${s.byProject.map((p) => column(p, s.plan, closed.has(p.id))).join('')}</div>`;
+  // Arxivdagi loyihalar — doskada ko'rinmaydi; ko'z belgisi bilan qaytariladi
+  const archived = state.projects.filter((p) => !p.active);
+  const archBar = archived.length ? `<div class="arch-bar"><span>Arxivda:</span>${archived.map((p) => `<button type="button" class="arch-chip" data-show="${p.id}" title="Doskaga qaytarish">${EYE}<span class="col-dot" style="--pc:${esc(p.color || '#4c86ff')}"></span>${esc(p.name)}</button>`).join('')}</div>` : '';
+  box.innerHTML = `${banner}${archBar}<div class="board" style="${layout()}">${s.byProject.map((p) => column(p, s.plan, closed.has(p.id))).join('')}</div>`;
+  const setActive = async (id, active) => {
+    try {
+      await api(`/api/projects/${id}`, { method: 'PUT', body: { active } });
+      state.projects = await api('/api/projects');
+      toast(active ? 'Loyiha doskaga qaytarildi' : "Loyiha arxivlandi — tepadagi «Arxivda» dan qaytarasiz");
+      renderBoard();
+    } catch (err) { toast(err.message, true); }
+  };
+  box.querySelector('.arch-bar')?.addEventListener('click', (e) => { const b = e.target.closest('[data-show]'); if (b) setActive(b.dataset.show, true); });
   const board = box.querySelector('.board');
   // Yig'ish / ochish — faqat nomi qoladi; tanlov shu brauzerda eslab qolinadi
   const toggle = (col) => {
@@ -86,6 +108,13 @@ export async function renderBoard() {
   board.addEventListener('pointercancel', endDrag);
   board.addEventListener('click', (e) => {
     if (e.target.closest('[data-grip]')) return;
+    const hide = e.target.closest('[data-hide]');
+    if (hide) {
+      const col = hide.closest('.col');
+      const name = col.querySelector('h2').textContent;
+      if (confirm(`${name} arxivlansinmi?\n\nDoskada, kunlik hisobotda va Telegram hisobotida ko'rinmaydi. Raqamlari saqlanadi — istalgan payt qaytarasiz.`)) setActive(col.dataset.open, false);
+      return;
+    }
     if (e.target.closest('a')) return; // ichidagi havola (Reja kiritish) o'zi ishlasin
     const exp = e.target.closest('[data-exp]');
     if (exp) { exp.classList.toggle('open'); exp.setAttribute('aria-expanded', String(exp.classList.contains('open'))); return; }
@@ -125,6 +154,8 @@ const M_IC = {
   down: ic('<path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/>'),
 };
 const GRIP = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+const EYE = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
 const COLLAPSE_KEY = 'board-collapsed';
 function getCollapsed() {
   try { return new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]').map(Number)); } catch { return new Set(); }
@@ -180,7 +211,7 @@ function column(p, plan, collapsed = false) {
   const badTop = p.reasons.bad[0];
   return `<section class="col ${collapsed ? 'collapsed' : ''}" style="--pc:${esc(p.color || '#4c86ff')}" data-open="${p.id}" tabindex="0" role="button" aria-label="${esc(p.name)} — batafsil">
     <header class="col-head"><button type="button" class="col-grip" data-grip title="Sudrab joyini almashtiring (← → tugmalari ham ishlaydi)" aria-label="${esc(p.name)} — joyini almashtirish">${GRIP}</button><button type="button" class="col-toggle" data-collapse aria-expanded="${!collapsed}" title="${collapsed ? 'Ochish' : "Yig'ish"}" aria-label="${esc(p.name)} — yig'ish yoki ochish">${COLLAPSE_IC}</button>
-      <span class="col-dot"></span><div class="col-name"><h2>${esc(p.name)}</h2><small>${auto ? 'avtovoronka' : "sotuv bo'limi"}</small></div><span class="pill ${cls}">${label}</span></header>
+      <span class="col-dot"></span><div class="col-name"><h2>${esc(p.name)}</h2><small>${auto ? 'avtovoronka' : "sotuv bo'limi"}</small></div><span class="pill ${cls}">${label}</span><button type="button" class="col-hide" data-hide title="Arxivlash — doskadan yashirish" aria-label="${esc(p.name)} — arxivlash">${EYE_OFF}</button></header>
     <div class="tile money">
       <div class="m-hero ad" data-exp role="button" tabindex="0" aria-expanded="false" title="Bosing — qayerga qancha ketgani"><span class="m-ic">${M_IC.ad}</span><div><small>Reklama · umumiy</small><b>${fmtUsd(p.spend, 0)}</b><span class="m-sub">${fmtUzs(p.spend_uzs)} so'm</span></div><span class="m-chev">${CHEV}</span>
         <div class="ad-break">${adRows(p)}</div></div>
