@@ -7,6 +7,7 @@ import { signed, statusOf } from './blocks.js';
 
 export async function renderBoard() {
   shell(`<div class="toolbar">${filtersHtml({ project: false })}<div class="totals" id="totals"></div>
+      <div class="arch-wrap" id="archSlot"></div>
       <button class="btn small" id="csvBtn" title="Excel uchun">${ICONS.dl} CSV</button></div>
     <div id="board">${spinnerBlock()}</div>`);
   const rid = state.renderId;
@@ -18,18 +19,11 @@ export async function renderBoard() {
   try { s = await api(`/api/summary?${q}`); } catch (e) { const el = $('#board'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#board');
   if (!box || isStale(rid)) return;
+  archFolder();
   if (!s.byProject.length) {
-    const arch = state.projects.filter((p) => !p.active);
-    box.innerHTML = arch.length
-      ? `<div class="card empty">Hamma loyihalar arxivda. Qaytarish uchun quyidagini bosing.<div class="arch-bar" style="justify-content:center">${arch.map((p) => `<button type="button" class="arch-chip" data-show="${p.id}">${EYE}${esc(p.name)}</button>`).join('')}</div></div>`
+    box.innerHTML = state.projects.some((p) => !p.active)
+      ? `<div class="card empty">Hamma loyihalar arxivda — tepadagi «Arxiv» papkasidan qaytaring.</div>`
       : `<div class="card empty">Hali loyiha yo'q. <a href="#/kiritish">Kechagi hisobot</a> bo'limida loyihalarni qo'shing.</div>`;
-    box.querySelector('.arch-bar')?.addEventListener('click', async (e) => {
-      const b = e.target.closest('[data-show]');
-      if (!b) return;
-      await api(`/api/projects/${b.dataset.show}`, { method: 'PUT', body: { active: true } }).catch((err) => toast(err.message, true));
-      state.projects = await api('/api/projects');
-      renderBoard();
-    });
     return;
   }
   const t = s.totals;
@@ -48,19 +42,7 @@ export async function renderBoard() {
     const n = s.byProject.length;
     return `--cols:repeat(${n}, minmax(260px, 1fr));--cols-m:repeat(${n}, 84vw)`;
   };
-  // Arxivdagi loyihalar — doskada ko'rinmaydi; ko'z belgisi bilan qaytariladi
-  const archived = state.projects.filter((p) => !p.active);
-  const archBar = archived.length ? `<div class="arch-bar"><span>Arxivda:</span>${archived.map((p) => `<button type="button" class="arch-chip" data-show="${p.id}" title="Doskaga qaytarish">${EYE}<span class="col-dot" style="--pc:${esc(p.color || '#4c86ff')}"></span>${esc(p.name)}</button>`).join('')}</div>` : '';
-  box.innerHTML = `${banner}${archBar}<div class="board" style="${layout()}">${s.byProject.map((p) => column(p, s.plan, closed.has(p.id))).join('')}</div>`;
-  const setActive = async (id, active) => {
-    try {
-      await api(`/api/projects/${id}`, { method: 'PUT', body: { active } });
-      state.projects = await api('/api/projects');
-      toast(active ? 'Loyiha doskaga qaytarildi' : "Loyiha arxivlandi — tepadagi «Arxivda» dan qaytarasiz");
-      renderBoard();
-    } catch (err) { toast(err.message, true); }
-  };
-  box.querySelector('.arch-bar')?.addEventListener('click', (e) => { const b = e.target.closest('[data-show]'); if (b) setActive(b.dataset.show, true); });
+  box.innerHTML = `${banner}<div class="board" style="${layout()}">${s.byProject.map((p) => column(p, s.plan, closed.has(p.id))).join('')}</div>`;
   const board = box.querySelector('.board');
   // Yig'ish / ochish — faqat nomi qoladi; tanlov shu brauzerda eslab qolinadi
   const toggle = (col) => {
@@ -112,7 +94,7 @@ export async function renderBoard() {
     if (hide) {
       const col = hide.closest('.col');
       const name = col.querySelector('h2').textContent;
-      if (confirm(`${name} arxivlansinmi?\n\nDoskada, kunlik hisobotda va Telegram hisobotida ko'rinmaydi. Raqamlari saqlanadi — istalgan payt qaytarasiz.`)) setActive(col.dataset.open, false);
+      setActive(col.dataset.open, false, name);
       return;
     }
     if (e.target.closest('a')) return; // ichidagi havola (Reja kiritish) o'zi ishlasin
@@ -156,6 +138,34 @@ const M_IC = {
 const GRIP = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
 const EYE = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+const FOLDER = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg>';
+// Arxivlash / qaytarish: tasdiq oynasisiz (ba'zi brauzer ko'rinishlarida confirm ishlamaydi) — «Arxiv» papkasidan bir bosishda qaytariladi
+async function setActive(id, active, name = '') {
+  try {
+    await api(`/api/projects/${id}`, { method: 'PUT', body: { active } });
+    state.projects = await api('/api/projects');
+    toast(active ? `${name || 'Loyiha'} doskaga qaytdi` : `${name || 'Loyiha'} arxivga o'tdi — tepadagi «Arxiv» papkasida`);
+    renderBoard();
+  } catch (err) { toast(err.message, true); }
+}
+// Tepadagi «Arxiv» papkasi: arxivdagi loyihalar ro'yxati, har birini qaytarish
+function archFolder() {
+  const slot = $('#archSlot');
+  if (!slot) return;
+  const list = state.projects.filter((p) => !p.active);
+  slot.innerHTML = `<button type="button" class="btn small arch-btn ${list.length ? '' : 'empty'}" aria-expanded="false" title="${list.length ? 'Arxivdagi loyihalar' : "Arxiv bo'sh"}">${FOLDER} Arxiv${list.length ? ` <span class="arch-count">${list.length}</span>` : ''}</button>
+    <div class="arch-pop" hidden>${list.length ? list.map((p) => `<div class="arch-item"><span class="col-dot" style="--pc:${esc(p.color || '#4c86ff')}"></span><b>${esc(p.name)}</b>
+      <button type="button" class="btn small" data-show="${p.id}" data-name="${esc(p.name)}">${EYE} Qaytarish</button></div>`).join('')
+      : '<p class="muted small" style="margin:0">Arxiv bo\'sh. Loyiha sarlavhasidagi ko\'z belgisini bossangiz, shu yerga o\'tadi.</p>'}</div>`;
+  const btn = slot.querySelector('.arch-btn'), pop = slot.querySelector('.arch-pop');
+  const close = (e) => { if (!slot.contains(e.target)) { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('click', close); } };
+  btn.onclick = () => {
+    pop.hidden = !pop.hidden;
+    btn.setAttribute('aria-expanded', String(!pop.hidden));
+    if (!pop.hidden) setTimeout(() => document.addEventListener('click', close));
+  };
+  pop.onclick = (e) => { const b = e.target.closest('[data-show]'); if (b) setActive(b.dataset.show, true, b.dataset.name); };
+}
 const COLLAPSE_KEY = 'board-collapsed';
 function getCollapsed() {
   try { return new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]').map(Number)); } catch { return new Set(); }

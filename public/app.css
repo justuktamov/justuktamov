@@ -941,3 +941,15 @@ input, select, textarea { color-scheme: light; }
 .arch-chip:hover { border-style: solid; border-color: var(--blue); color: var(--text); }
 .arch-chip .col-dot { width: 9px; height: 9px; box-shadow: none; }
 .arch-bar { margin: 0 0 12px; }
+/* Doska: «Arxiv» papkasi */
+.arch-wrap { position: relative; }
+.arch-btn { display: inline-flex; align-items: center; gap: 6px; }
+.arch-btn.empty { opacity: .7; }
+.arch-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--blue, #2f63f0); color: #fff; font-size: 11px; font-weight: 800; display: inline-grid; place-items: center; }
+.arch-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 260px; padding: 10px; border-radius: 14px; background: var(--surface, #fff); border: 1px solid var(--border); box-shadow: 0 12px 32px rgba(16, 24, 40, .14); display: grid; gap: 6px; }
+.arch-pop[hidden] { display: none; }
+.arch-item { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 6px 4px; font-size: 13.5px; }
+.arch-item .col-dot { width: 10px; height: 10px; box-shadow: none; }
+.arch-item .btn { display: inline-flex; align-items: center; gap: 5px; }
+@media (max-width: 860px) { .arch-pop { right: auto; left: 0; min-width: min(300px, calc(100vw - 32px)); } }
+.arch-pop { background: #fff; }
