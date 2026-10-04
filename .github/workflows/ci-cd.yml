@@ -44,12 +44,27 @@ jobs:
           COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
-          if [ -z "$COOLIFY_WEBHOOK" ] || [ -z "$COOLIFY_TOKEN" ]; then
+          # Stray spaces/newlines from copy-paste are removed; a pasted "Bearer " prefix is tolerated
+          webhook="$(printf '%s' "$COOLIFY_WEBHOOK" | tr -d '[:space:]')"
+          token="$(printf '%s' "$COOLIFY_TOKEN" | tr -d '[:space:]')"
+          token="${token#Bearer}"
+          if [ -z "$webhook" ] || [ -z "$token" ]; then
             echo "::warning::COOLIFY_WEBHOOK / COOLIFY_TOKEN secrets are not set - deployment skipped (see deploy/COOLIFY.md)"
             exit 0
           fi
+          # Clear message instead of a curl error; secret values are never printed
+          case "$webhook" in
+            https://*/api/v1/deploy*) ;;
+            *)
+              case "$webhook" in
+                *'|'*) hint="it looks like an API token - are COOLIFY_WEBHOOK and COOLIFY_TOKEN swapped?" ;;
+                *) hint="it must be the full deploy URL: https://<coolify>/api/v1/deploy?uuid=<app-uuid>&force=false" ;;
+              esac
+              echo "::error::COOLIFY_WEBHOOK is not a Coolify deploy URL - $hint (see deploy/COOLIFY.md)"
+              exit 1 ;;
+          esac
           curl --fail-with-body --silent --show-error --max-time 60 \
-            --request POST "$COOLIFY_WEBHOOK" \
-            --header "Authorization: Bearer $COOLIFY_TOKEN"
+            --request POST "$webhook" \
+            --header "Authorization: Bearer $token"
           echo
           echo "Deployment queued in Coolify - follow it under the application's Deployments tab."
