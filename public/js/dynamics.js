@@ -31,7 +31,7 @@ const ROWS = [
 ];
 
 // [kalit, tugma, birlik, nechta, sarlavha]
-const VIEWS = [['wk', 'Hafta (7 kun)', 'day', 7, 'Bir hafta kunma-kun'], ['d14', 'Kunlar', 'day', 14, 'Kunma-kun'], ['w8', 'Haftalar', 'week', 8, 'Haftama-hafta'], ['m6', '6 oy', 'month', 6, 'Oyma-oy'], ['m12', '12 oy', 'month', 12, 'Oyma-oy']];
+const VIEWS = [['wk', 'Hafta (7 kun)', 'day', 7, 'Bir hafta kunma-kun'], ['mo', 'Oy (kunma-kun)', 'day', 31, 'Bir oy kunma-kun'], ['d14', 'Kunlar', 'day', 14, 'Kunma-kun'], ['w8', 'Haftalar', 'week', 8, 'Haftama-hafta'], ['m6', '6 oy', 'month', 6, 'Oyma-oy'], ['m12', '12 oy', 'month', 12, 'Oyma-oy']];
 const WD = ['yak', 'dush', 'sesh', 'chor', 'pay', 'jum', 'shan'];
 function periodLabel(m) {
   if (m.unit === 'day') return `${shortDate(m.from)}, ${WD[new Date(`${m.from}T00:00:00Z`).getUTCDay()]}`;
@@ -51,7 +51,7 @@ function change(key, perDay, cur, prev) {
 // Sahifaga kirilganda doim «Hafta (7 kun)», joriy hafta; sahifa ichidagi almashtirishlar saqlanadi
 export async function renderDynamics(inside = false) {
   state.dyn ||= { project: '', view: 'wk' };
-  if (!inside) Object.assign(state.dyn, { view: 'wk', week: 0 });
+  if (!inside) Object.assign(state.dyn, { view: 'wk', week: 0, month: 0 });
   const f = state.dyn;
   const V = VIEWS.find((v) => v[0] === f.view) || VIEWS[0];
   // «Hafta (7 kun)»: dushanbadan yakshanbagacha; ‹ › bilan oldingi haftalar
@@ -59,19 +59,25 @@ export async function renderDynamics(inside = false) {
   const yday = state.me.reportDay;
   const monday = addDays(yday, -((new Date(`${yday}T00:00:00Z`).getUTCDay() + 6) % 7) - 7 * f.week);
   const sunday = addDays(monday, 6);
-  const wkTo = sunday < yday ? sunday : yday;
-  const isWk = V[0] === 'wk';
+  // «Oy (kunma-kun)»: oyning 1-kunidan oxirigacha, kalendar ko'rinishida; ‹ › bilan oldingi oylar
+  f.month ||= 0;
+  const mFirst = (() => { const [y, m] = yday.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 - f.month, 1)); return d.toISOString().slice(0, 10); })();
+  const mLast = (() => { const d = new Date(`${mFirst}T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() + 1, 0); return d.toISOString().slice(0, 10); })();
+  const isMo = V[0] === 'mo';
+  const pStart = isMo ? mFirst : monday, pEnd = isMo ? mLast : sunday;
+  const wkTo = pEnd < yday ? pEnd : yday;
+  const isWk = V[0] === 'wk' || isMo;
   const projects = state.projects.filter((x) => x.active);
   shell(`<div class="page-head"><div><h1>Dinamika</h1><div class="sub">${V[4]}: o'syapmizmi yoki pasayyapmizmi</div></div>
-      <div class="filters">${isWk ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-wk="1" aria-label="Oldingi hafta">‹</button><b>${shortDate(monday)} – ${shortDate(sunday)}</b><button type="button" class="btn small icon" data-wk="-1" aria-label="Keyingi hafta" ${f.week ? '' : 'disabled'}>›</button></span>` : ''}<div class="seg" id="dynMonths">${VIEWS.map((v) => `<button data-m="${v[0]}" class="${V[0] === v[0] ? 'on' : ''}">${v[1]}</button>`).join('')}</div></div></div>
+      <div class="filters">${isWk ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-wk="1" aria-label="${isMo ? 'Oldingi oy' : 'Oldingi hafta'}">‹</button><b>${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`}</b><button type="button" class="btn small icon" data-wk="-1" aria-label="${isMo ? 'Keyingi oy' : 'Keyingi hafta'}" ${(isMo ? f.month : f.week) ? '' : 'disabled'}>›</button></span>` : ''}<div class="seg" id="dynMonths">${VIEWS.map((v) => `<button data-m="${v[0]}" class="${V[0] === v[0] ? 'on' : ''}">${v[1]}</button>`).join('')}</div></div></div>
     <div class="chips" id="dynProj"><button class="chip ${!f.project ? 'on' : ''}" data-p="">Hammasi</button>${projects.map((p) => `<button class="chip ${String(f.project) === String(p.id) ? 'on' : ''}" data-p="${p.id}">${dot(p.color)}${esc(p.name)}</button>`).join('')}</div>
     <div id="dyn">${spinnerBlock()}</div>`);
   const rid = state.renderId;
   $('#dynMonths').onclick = (e) => { const b = e.target.closest('[data-m]'); if (b) { f.view = b.dataset.m; renderDynamics(true); } };
-  document.querySelectorAll('[data-wk]').forEach((b) => { b.onclick = () => { f.week = Math.max(0, f.week + Number(b.dataset.wk)); renderDynamics(true); }; });
+  document.querySelectorAll('[data-wk]').forEach((b) => { b.onclick = () => { const k = isMo ? 'month' : 'week'; f[k] = Math.max(0, f[k] + Number(b.dataset.wk)); renderDynamics(true); }; });
   $('#dynProj').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { f.project = b.dataset.p; renderDynamics(true); } };
   let data;
-  try { data = await api(`/api/monthly?${new URLSearchParams({ unit: V[2], months: isWk ? Math.round((Date.parse(wkTo) - Date.parse(monday)) / 864e5) + 1 : V[3], ...(isWk ? { to: wkTo } : {}), ...(f.project ? { project: f.project } : {}) })}`); } catch (e) { const el = $('#dyn'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  try { data = await api(`/api/monthly?${new URLSearchParams({ unit: V[2], months: isWk ? Math.round((Date.parse(wkTo) - Date.parse(pStart)) / 864e5) + 1 : V[3], ...(isWk ? { to: wkTo } : {}), ...(f.project ? { project: f.project } : {}) })}`); } catch (e) { const el = $('#dyn'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#dyn');
   if (!box || isStale(rid)) return;
   const months = data.filter((m, i) => m.has || data.slice(0, i).some((x) => x.has));
@@ -139,13 +145,13 @@ export async function renderDynamics(inside = false) {
   // Hafta: har loyiha uchun 7 ta kun kartasi (Dushanba … Yakshanba) + hafta jami; har kartada reklama, tushum, sof foyda
   function weekDays(p, row) {
     const DAYS = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'];
-    const days = DAYS.map((name, i) => {
-      const d = addDays(monday, i);
+    const list = [];
+    for (let d = pStart; d <= pEnd; d = addDays(d, 1)) {
       const m = months.find((x) => x.from === d);
-      return { name, d, r: m?.has ? row(m) : null, future: d > yday };
-    });
+      list.push({ name: DAYS[(new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7], d, r: m?.has ? row(m) : null, future: d > yday });
+    }
     const tot = { spend: 0, spend_uzs: 0, revenue: 0, net_profit: 0, sales: 0 };
-    for (const x of days) if (x.r) for (const k of Object.keys(tot)) tot[k] += x.r[k] || 0;
+    for (const x of list) if (x.r) for (const k of Object.keys(tot)) tot[k] += x.r[k] || 0;
     const delta = (cur, prevR, k, good) => {
       const a = cur?.[k], b0 = prevR?.[k];
       if (a == null || b0 == null || b0 === 0) return '';
@@ -160,11 +166,16 @@ export async function renderDynamics(inside = false) {
         + h('rev', M_IC.rev, 'Tushum', `${fmtUzs(r.revenue)}<i>so'm</i>`, `${fmtN(r.sales)} ta sotuv${delta(r, prevR, 'revenue', 1)}`)
         + h(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar' : 'Sof foyda', `${signed(r.net_profit, false)}<i>so'm</i>`, `xarajatdan keyin${delta(r, prevR, 'net_profit', 1)}`);
     };
-    const cards = days.map((x, i) => `<div class="wd-card ${x.r ? '' : 'empty'}"><div class="wd-head"><b>${shortDate(x.d)}</b><span>${x.name}</span></div>
-      ${x.r ? heroes(x.r, days[i - 1]?.r) : `<div class="wd-none">${x.future ? 'hali kelmagan kun' : "ma'lumot kiritilmagan"}</div>`}</div>`).join('');
-    return `<section class="card wd-proj" style="--pc:${esc(p.color || '#4c86ff')}"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${shortDate(monday)} – ${shortDate(sunday)} · ▲▼ oldingi kunga</span></div>
-      <div class="wd-grid">${cards}<div class="wd-card total"><div class="wd-head"><b>Hafta jami</b><span>${days.filter((x) => x.r).length} kun</span></div>${heroes(tot)}</div></div></section>`;
+    // Kalendar: dushanbadan boshlanadi — oyning birinchi kunigacha bo'sh kataklar
+    const lead = (new Date(`${pStart}T00:00:00Z`).getUTCDay() + 6) % 7;
+    const cards = '<div class="wd-blank"></div>'.repeat(lead) + list.map((x, i) => `<div class="wd-card ${x.r ? '' : 'empty'}"><div class="wd-head"><b>${shortDate(x.d)}</b><span>${x.name}</span></div>
+      ${x.r ? heroes(x.r, list[i - 1]?.r) : `<div class="wd-none">${x.future ? 'hali kelmagan' : 'kiritilmagan'}</div>`}</div>`).join('');
+    const title = isMo ? 'Oy jami' : 'Hafta jami';
+    return `<section class="card wd-proj" style="--pc:${esc(p.color || '#4c86ff')}"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`} · ▲▼ oldingi kunga</span></div>
+      <div class="wd-grid">${cards}</div>
+      <div class="wd-card total wd-total"><div class="wd-head"><b>${title}</b><span>${list.filter((x) => x.r).length} kun</span></div><div class="wd-total-row">${heroes(tot)}</div></div></section>`;
   }
+
 
   // Hammasi: har loyihaning sof foydasi oyma-oy — qaysi biri tortyapti, qaysi biri yeyapti
   const byProject = !f.project ? `<div class="card mt"><div class="card-head"><h2>Loyihalar sof foydasi, so'm</h2><span class="muted small">${V[4].toLowerCase()}</span></div>

@@ -1040,3 +1040,28 @@ input, select, textarea { color-scheme: light; }
 .wd-head b { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .wd-head span { font-size: 12.5px; font-weight: 600; }
 .wd-head { justify-content: space-between; }
+/* Hafta / oy: bir qatorda 7 kun (dushanba–yakshanba), jami — pastda gorizontal */
+.wd-grid { grid-template-columns: repeat(7, minmax(0, 1fr)) !important; gap: 8px; overflow: visible; }
+.wd-blank { border-radius: 16px; background: transparent; }
+.wd-card { padding: 8px; gap: 5px; }
+.wd-head b { font-size: 14.5px; } .wd-head span { font-size: 11px; }
+.wd-grid .wd-hero { grid-template-columns: 1fr; padding: 7px 8px; gap: 2px; }
+.wd-grid .wd-hero .m-ic { display: none; }
+.wd-grid .wd-hero b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd-grid .wd-hero b i { font-size: 10px; margin-left: 2px; }
+.wd-grid .wd-hero small { font-size: 9.5px; letter-spacing: .04em; }
+.wd-grid .wd-hero .m-sub { font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd-grid .wd-delta { position: static; display: inline-block; margin-top: 2px; font-size: 10.5px; padding: 0 5px; }
+.wd-grid .wd-hero .m-sub .wd-delta { display: block; width: max-content; }
+.wd-grid .wd-none { min-height: 170px; font-size: 12px; }
+.wd-total-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.wd-total { margin-top: 2px; }
+@media (max-width: 1100px) {
+  .wd-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .wd-blank { display: none; }
+}
+@media (max-width: 600px) {
+  .wd-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .wd-grid .wd-none { min-height: 40px; }
+  .wd-total-row { grid-template-columns: minmax(0, 1fr); }
+}
