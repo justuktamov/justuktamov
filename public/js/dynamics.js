@@ -160,7 +160,7 @@ export async function renderDynamics(inside = false) {
         + h('rev', M_IC.rev, 'Tushum', `${fmtUzs(r.revenue)}<i>so'm</i>`, `${fmtN(r.sales)} ta sotuv${delta(r, prevR, 'revenue', 1)}`)
         + h(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar' : 'Sof foyda', `${signed(r.net_profit, false)}<i>so'm</i>`, `xarajatdan keyin${delta(r, prevR, 'net_profit', 1)}`);
     };
-    const cards = days.map((x, i) => `<div class="wd-card ${x.r ? '' : 'empty'}"><div class="wd-head"><b>${x.name}</b><span>${shortDate(x.d)}</span></div>
+    const cards = days.map((x, i) => `<div class="wd-card ${x.r ? '' : 'empty'}"><div class="wd-head"><b>${shortDate(x.d)}</b><span>${x.name}</span></div>
       ${x.r ? heroes(x.r, days[i - 1]?.r) : `<div class="wd-none">${x.future ? 'hali kelmagan kun' : "ma'lumot kiritilmagan"}</div>`}</div>`).join('');
     return `<section class="card wd-proj" style="--pc:${esc(p.color || '#4c86ff')}"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${shortDate(monday)} – ${shortDate(sunday)} · ▲▼ oldingi kunga</span></div>
       <div class="wd-grid">${cards}<div class="wd-card total"><div class="wd-head"><b>Hafta jami</b><span>${days.filter((x) => x.r).length} kun</span></div>${heroes(tot)}</div></div></section>`;
