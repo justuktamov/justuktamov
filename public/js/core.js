@@ -276,7 +276,7 @@ export const TIMES = Array.from({ length: 36 }, (_, i) => { const m = 6 * 60 + i
 
 // ---------- Davr filtri ----------
 // Raqamlar kechagi kun uchun kiritiladi — hamma davrlar kechadan orqaga hisoblanadi
-const PERIODS = [['y', 'Kecha'], ['y2', 'Kechadan oldin'], ['7', 'Hafta'], ['month', 'Oy'], ['custom', 'Oraliq']];
+const PERIODS = [['y', 'Kecha'], ['y2', 'Kechadan oldin'], ['y3', '3 kun oldin'], ['7', 'Hafta'], ['month', 'Oy'], ['custom', 'Oraliq']];
 export function computePeriod() {
   const t = state.me.reportDay;
   if (!PERIODS.some(([v]) => v === state.period)) state.period = '7';
@@ -284,6 +284,7 @@ export function computePeriod() {
   if (state.period === 'month') return { from: `${t.slice(0, 8)}01`, to: t };
   if (state.period === 'y') return { from: t, to: t };
   if (state.period === 'y2') { const d = addDays(t, -1); return { from: d, to: d }; }
+  if (state.period === 'y3') { const d = addDays(t, -2); return { from: d, to: d }; }
   return { from: addDays(t, -6), to: t };
 }
 export function filtersHtml() {
