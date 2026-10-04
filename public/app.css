@@ -1002,3 +1002,13 @@ input, select, textarea { color-scheme: light; }
   .wk-empty { grid-column: 1 / -1; min-height: 40px; }
 }
 @media (max-width: 860px) { .wk-hero b i { display: none; } .wk-hero b { font-size: 13.5px; overflow-wrap: anywhere; } .wk-hero small { font-size: 9.5px; } }
+/* Hafta kartasi: 7 ta ustun, ostida kun nomi */
+.dp-grid:has(.wk-bars) { grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
+.wk-bars { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 4px; position: relative; z-index: 1; }
+.wk-bar { display: grid; gap: 3px; justify-items: stretch; }
+.wk-bar span { height: 34px; display: flex; align-items: flex-end; }
+.wk-bar span i { width: 100%; border-radius: 3px 3px 0 0; background: var(--mh-c); opacity: .38; }
+.wk-bar span i.last { opacity: 1; }
+.wk-bar span i.neg { background: #e5484d; }
+.wk-bar em { font-style: normal; font-size: 10.5px; font-weight: 700; text-align: center; color: var(--text-3); }
+.wk-bar.future em { opacity: .45; }

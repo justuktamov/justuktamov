@@ -123,7 +123,7 @@ export async function renderDynamics() {
       };
       const loss = (L.net_profit || 0) < 0;
       return `<section class="card dp-card" style="--pc:${esc(p.color || '#4c86ff')}"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${isWk ? `${shortDate(monday)} – ${shortDate(sunday)}` : esc(periodLabel(last))}</span></div>
-        ${isWk ? weekTable(row) : `
+        ${isWk ? weekCard(row) : `
         ${hero('ad', M_IC.ad, 'Reklama', 'spend', (x) => fmtUsd(x, 0), 0, `${fmtUzs(L.spend_uzs)} so'm`)}
         ${hero('rev', M_IC.rev, 'Tushum', 'revenue', (x) => `${fmtUzs(x)}<i>so'm</i>`, 1, `${fmtN(L.sales)} ta sotuv`)}
         ${hero(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar' : 'Sof foyda', 'net_profit', (x) => `${signed(x, false)}<i>so'm</i>`, 1, 'barcha xarajatdan keyin')}`}
@@ -133,26 +133,29 @@ export async function renderDynamics() {
   }
 
   // Hafta: dushanbadan yakshanbagacha 7 qator — reklama, tushum, sof foyda; pastda jami
-  // Hafta: 7 qator (dushanba–yakshanba), har qatorda reklama, tushum, sof foyda kartalari yonma-yon; pastda hafta jami
-  function weekTable(row) {
-    const DAYS = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'];
-    const tot = { spend: 0, spend_uzs: 0, revenue: 0, net_profit: 0, sales: 0 };
-    const mini = (cls, icon, label, value, sub) => `<div class="m-hero ${cls} wk-hero"><span class="m-ic">${icon}</span><div><small>${label}</small><b>${value}</b>${sub ? `<span class="m-sub">${sub}</span>` : ''}</div></div>`;
-    const cells = (r, empty) => {
-      if (!r) return `<div class="wk-empty">${empty}</div>`;
-      const loss = (r.net_profit || 0) < 0;
-      return mini('ad', M_IC.ad, 'Reklama', fmtUsd(r.spend, 0), `${fmtUzs(r.spend_uzs)} so'm`)
-        + mini('rev', M_IC.rev, 'Tushum', `${fmtUzs(r.revenue)}<i>so'm</i>`, `${fmtN(r.sales)} ta sotuv`)
-        + mini(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar' : 'Sof foyda', `${signed(r.net_profit, false)}<i>so'm</i>`, '');
-    };
-    const rows = DAYS.map((name, i) => {
+  // Hafta: reklama, tushum, sof foyda — hafta jami va 7 ta ustun (Du … Ya), har ustun — bitta kun
+  function weekCard(row) {
+    const DAYS = [['Du', 'Dushanba'], ['Se', 'Seshanba'], ['Ch', 'Chorshanba'], ['Pa', 'Payshanba'], ['Ju', 'Juma'], ['Sh', 'Shanba'], ['Ya', 'Yakshanba']];
+    const days = DAYS.map(([short, name], i) => {
       const d = addDays(monday, i);
       const m = months.find((x) => x.from === d);
-      const r = m?.has ? row(m) : null;
-      if (r) for (const k of Object.keys(tot)) tot[k] += r[k] || 0;
-      return `<div class="wk-row ${d > yday ? 'future' : ''}"><div class="wk-day"><b>${name}</b><small>${shortDate(d)}</small></div>${cells(r, d > yday ? 'hali kelmagan kun' : "ma'lumot kiritilmagan")}</div>`;
-    }).join('');
-    return `<div class="wk-rows">${rows}<div class="wk-row total"><div class="wk-day"><b>Hafta jami</b><small>${shortDate(monday)}–${shortDate(sunday)}</small></div>${cells(tot)}</div></div>`;
+      return { short, name, d, r: m?.has ? row(m) : null, future: d > yday };
+    });
+    const sum = (k) => days.reduce((a, x) => a + (x.r?.[k] || 0), 0);
+    const lastIdx = days.map((x) => Boolean(x.r)).lastIndexOf(true);
+    const bars = (k, fmt) => {
+      const max = Math.max(...days.map((x) => Math.abs(x.r?.[k] || 0)), 1);
+      return `<div class="wk-bars">${days.map((x, i) => {
+        const v = x.r?.[k] || 0;
+        return `<div class="wk-bar ${x.future ? 'future' : ''}" title="${x.name} ${shortDate(x.d)}: ${x.r ? fmt(v) : x.future ? 'hali' : "kiritilmagan"}"><span><i class="${v < 0 ? 'neg' : ''} ${i === lastIdx ? 'last' : ''}" style="height:${x.r ? Math.max((Math.abs(v) / max) * 100, v ? 6 : 2) : 0}%"></i></span><em>${x.short}</em></div>`;
+      }).join('')}</div>`;
+    };
+    const net = sum('net_profit'), loss = net < 0;
+    const filled = days.filter((x) => x.r).length;
+    const hero = (cls, icon, label, value, sub, k, fmt) => `<div class="m-hero ${cls} dp-hero"><span class="m-ic">${icon}</span><div><small>${label}</small><b>${value}</b><span class="m-sub">${sub}</span></div>${bars(k, fmt)}</div>`;
+    return hero('ad', M_IC.ad, 'Reklama · hafta', fmtUsd(sum('spend'), 0), `${fmtUzs(sum('spend_uzs'))} so'm · ${filled} kun`, 'spend', (v) => fmtUsd(v, 0))
+      + hero('rev', M_IC.rev, 'Tushum · hafta', `${fmtUzs(sum('revenue'))}<i>so'm</i>`, `${fmtN(sum('sales'))} ta sotuv`, 'revenue', (v) => `${fmtUzs(v)} so'm`)
+      + hero(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar · hafta' : 'Sof foyda · hafta', `${signed(net, false)}<i>so'm</i>`, 'barcha xarajatdan keyin', 'net_profit', (v) => `${signed(v, false)} so'm`);
   }
 
   // Hammasi: har loyihaning sof foydasi oyma-oy — qaysi biri tortyapti, qaysi biri yeyapti
