@@ -2,7 +2,7 @@
 import {
   $, esc, api, state, shell, fmtN, fmtUsd, fmtUzs, fmtP, spinnerBlock, isStale, monthLabel, shortDate, chartBase, cssVar,
 } from './core.js';
-import { dot, signed } from './blocks.js';
+import { dot, signed, M_IC } from './blocks.js';
 
 // [kalit, nom, format, yaxshi tomoni: 1 — o'sish yaxshi, -1 — kamayish yaxshi, 0 — neytral, kunlik sur'atda solishtiriladimi]
 // Tartib — voronka bo'yicha: reklama → lid → sotuv → pul → natija
@@ -86,6 +86,43 @@ export async function renderDynamics() {
     const dd = d != null && Math.abs(d) >= 0.005 ? `${d > 0 ? '▲' : '▼'} ${Math.abs(d) >= 10 ? '>999' : fmtN(Math.abs(d) * 100, 0)}%` : '';
     return `<td class="n"><span class="dv">${m.has && v != null ? fmt(v) : '—'}</span><span class="dd ${cls}">${dd}</span></td>`;
   };
+  // Har loyiha: reklama, tushum, sof foyda — oxirgi kun/hafta/oy, oldingisiga nisbatan va kichik ustunli grafik
+  function projCards() {
+    const last = months.at(-1), prev = months.at(-2);
+    const unitWord = V[2] === 'day' ? 'oldingi kunga' : V[2] === 'week' ? 'oldingi haftaga' : "o'tgan oyga";
+    // Turli uzunlikdagi davrlar (tugamagan hafta/oy) kunlik sur'atda solishtiriladi
+    const rate = (period, x) => (x == null ? null : V[2] === 'day' ? x : x / period.days);
+    const chg = (m0, m1, k) => {
+      const a = rate(last, m1?.[k]), b0 = prev ? rate(prev, m0?.[k]) : null;
+      return a == null || b0 == null || b0 === 0 ? null : (a - b0) / Math.abs(b0);
+    };
+    const spark = (vals, cls) => {
+      const max = Math.max(...vals.map((v) => Math.abs(v || 0)), 1);
+      return `<span class="dp-spark ${cls}">${vals.map((v, i) => `<i class="${v < 0 ? 'neg' : ''} ${i === vals.length - 1 ? 'last' : ''}" style="height:${Math.max((Math.abs(v || 0) / max) * 100, v ? 6 : 2)}%" title="${esc(periodLabel(months[i]))}"></i>`).join('')}</span>`;
+    };
+    const ids = (f.project ? projects.filter((p) => String(p.id) === String(f.project)) : projects).map((p) => p.id);
+    const cards = ids.map((id) => {
+      const p = projects.find((x) => x.id === id);
+      const row = (m) => m?.byProject.find((x) => x.id === id) || null;
+      const L = row(last), P = row(prev);
+      if (!L) return '';
+      const hero = (cls, icon, label, k, fmt, good, sub) => {
+        const d = chg(P, L, k);
+        const dcls = d == null || !good || Math.abs(d) < 0.03 ? '' : (d > 0) === (good > 0) ? 'up' : 'down';
+        return `<div class="m-hero ${cls} dp-hero"><span class="m-ic">${icon}</span><div><small>${label}</small><b>${fmt(L[k])}</b>
+          <span class="m-sub">${d == null ? sub : `<span class="dp-d ${dcls}">${d > 0 ? '▲' : '▼'} ${Math.abs(d) >= 10 ? '>999' : fmtN(Math.abs(d) * 100, 0)}%</span> ${unitWord}`}</span></div>
+          ${spark(months.map((m) => row(m)?.[k] ?? 0), cls)}</div>`;
+      };
+      const loss = (L.net_profit || 0) < 0;
+      return `<section class="card dp-card" style="--pc:${esc(p.color || '#4c86ff')}"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${esc(periodLabel(last))}</span></div>
+        ${hero('ad', M_IC.ad, 'Reklama', 'spend', (x) => fmtUsd(x, 0), 0, `${fmtUzs(L.spend_uzs)} so'm`)}
+        ${hero('rev', M_IC.rev, 'Tushum', 'revenue', (x) => `${fmtUzs(x)}<i>so'm</i>`, 1, `${fmtN(L.sales)} ta sotuv`)}
+        ${hero(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar' : 'Sof foyda', 'net_profit', (x) => `${signed(x, false)}<i>so'm</i>`, 1, 'barcha xarajatdan keyin')}
+      </section>`;
+    }).join('');
+    return cards ? `<div class="dp-grid">${cards}</div>` : '';
+  }
+
   // Hammasi: har loyihaning sof foydasi oyma-oy — qaysi biri tortyapti, qaysi biri yeyapti
   const byProject = !f.project ? `<div class="card mt"><div class="card-head"><h2>Loyihalar sof foydasi, so'm</h2><span class="muted small">${V[4].toLowerCase()}</span></div>
     <div class="table-wrap"><table><thead><tr><th>Loyiha</th>${head}</tr></thead><tbody>
@@ -94,7 +131,7 @@ export async function renderDynamics() {
       return `<td class="n ${x?.net_profit < 0 ? 'neg' : 'pos'}">${x && (x.revenue || x.spend) ? signed(x.net_profit, false) : '—'}</td>`;
     }).join('')}</tr>`).join('')}</tbody></table></div></div>` : '';
 
-  box.innerHTML = `<div class="card"><div class="card-head"><h2>Tushum va barcha xarajat</h2><span class="muted small">reklama + tannarx + doimiy xarajat, so'm</span></div>
+  box.innerHTML = `${projCards()}<div class="card"><div class="card-head"><h2>Tushum va barcha xarajat</h2><span class="muted small">reklama + tannarx + doimiy xarajat, so'm</span></div>
       <div class="chart-box"><canvas aria-label="Oylar bo'yicha tushum va xarajat"></canvas></div></div>
     <div class="card mt"><div class="card-head"><h2>Ko'rsatkichlar</h2><span class="muted small">▲▼ — ${V[2] === 'day' ? 'oldingi kunga' : V[2] === 'week' ? 'oldingi haftaga' : 'o\'tgan oyga'} nisbatan${V[2] === 'day' ? '' : '; summalar kunlik sur\'atda solishtiriladi'}</span></div>
       <div class="table-wrap"><table class="dyn-table"><thead><tr><th>Ko'rsatkich</th>${head}</tr></thead>
