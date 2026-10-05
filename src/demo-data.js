@@ -19,13 +19,13 @@ const MONEY = [
 ];
 // «Nega?» — sabablar ulushi (ROP aytadi)
 const BAD_MIX = [null,
-  { not_target: 0.3, no_money: 0.3, no_answer: 0.2, curious: 0.2 },
-  { not_target: 0.45, curious: 0.3, age: 0.1, no_answer: 0.15 },
-  { no_answer: 0.35, not_target: 0.25, age: 0.2, curious: 0.2 }];
+  { info_only: 0.3, no_pickup: 0.25, unreachable: 0.2, no_request: 0.1, wrong_number: 0.1, duplicate: 0.05 },
+  { info_only: 0.4, no_request: 0.2, no_pickup: 0.15, wrong_number: 0.15, duplicate: 0.1 },
+  { no_pickup: 0.35, unreachable: 0.25, info_only: 0.2, wrong_number: 0.1, duplicate: 0.1 }];
 const LOST_MIX = [null,
-  { expensive: 0.45, thinking: 0.2, later: 0.15, competitor: 0.1, no_trust: 0.05, other: 0.05 },
-  { thinking: 0.3, expensive: 0.2, later: 0.25, no_trust: 0.15, other: 0.1 },
-  { thinking: 0.35, later: 0.3, competitor: 0.2, expensive: 0.15 }];
+  { expensive: 0.45, bad_time: 0.15, no_permission: 0.1, plans_changed: 0.1, wants_offline: 0.15, lesson_disliked: 0.05 },
+  { no_laptop: 0.25, expensive: 0.2, bad_time: 0.2, lesson_disliked: 0.15, plans_changed: 0.1, no_permission: 0.1 },
+  { bad_time: 0.3, expensive: 0.2, no_permission: 0.2, wants_offline: 0.15, plans_changed: 0.15 }];
 const COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100'];
 // Targetolog aytgan eng yaxshi / ishlamayotgan kreativ
 const CREATIVES = [

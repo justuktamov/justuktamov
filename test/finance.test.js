@@ -69,17 +69,17 @@ test("sabablar: nega sifatsiz, nega sotib olmadi; zararda bo'lsa narx tavsiyasi"
   assert.equal(r.status, 400);
   await pm.json('/api/daily', { method: 'PUT', body: { project_id: v.id, date: d,
     values: { spend: 400, clicks: 800, leads: 40, qualified: 10, potential: 6, unqualified: 24, sales: 4, revenue: 3000000 },
-    reasons: { bad: { not_target: 15, curious: 9 }, lost: { expensive: 20, thinking: 10 } } } });
+    reasons: { bad: { info_only: 15, no_pickup: 9 }, lost: { expensive: 20, bad_time: 10 } } } });
   const day = await pm.json(`/api/daily?date=${d}`);
-  assert.deepEqual(day.projects.find((x) => x.id === v.id).reasons.lost, { expensive: 20, thinking: 10 });
+  assert.deepEqual(day.projects.find((x) => x.id === v.id).reasons.lost, { expensive: 20, bad_time: 10 });
   // Sababni o'chirish
-  await pm.json('/api/daily', { method: 'PUT', body: { project_id: v.id, date: d, values: {}, reasons: { lost: { thinking: '' } } } });
+  await pm.json('/api/daily', { method: 'PUT', body: { project_id: v.id, date: d, values: {}, reasons: { lost: { bad_time: '' } } } });
   const s = await pm.json(`/api/summary?from=${d}&to=${d}&project=${v.id}`);
   const p = s.byProject[0];
-  assert.equal(p.reasons.bad[0].label, 'Maqsadli auditoriya emas');
+  assert.equal(p.reasons.bad[0].label, "Shunchaki ma'lumot oldi");
   assert.equal(p.reasons.lost.length, 1);
   const text = p.insights.map((i) => i.text).join(' | ');
-  assert.match(text, /Lidlarning 60% sifatsiz\. Asosiy sabab — «Maqsadli auditoriya emas» \(63%\)\. Sifatsiz lidlarga ketgan pul: \$240/);
+  assert.match(text, /Lidlarning 60% sifatsiz\. Asosiy sabab — «Shunchaki ma'lumot oldi» \(63%\)\. Sifatsiz lidlarga ketgan pul: \$240/);
   assert.match(text, /Zararda/);
   // 1 sotuvdan zarar, ko'pchilik «qimmat» → narxni ko'tarib bo'lmaydi, xarajatni kamaytirish kerak
   assert.equal(p.price.verdict, 'cost');

@@ -1,5 +1,5 @@
 // Hisob-kitoblar: reklama → klik → lid / bot start → sotuv → tushum → foyda va sof foyda
-import { getDb, getSetting, today, FIELDS, TEXT_FIELDS, REASONS, CHANNELS, CHANNEL_FIELDS } from './db.js';
+import { getDb, getSetting, today, FIELDS, TEXT_FIELDS, REASONS, CHANNELS, CHANNEL_FIELDS, OLD_REASON_LABELS } from './db.js';
 
 const SUM_FIELDS = Object.keys(FIELDS);
 const pct = (x) => `${(x * 100).toFixed(1)}%`;
@@ -56,7 +56,7 @@ export function loadReasons(from, to) {
 export function reasonList(kind, counts = {}) {
   const total = Object.values(counts).reduce((a, n) => a + n, 0);
   return Object.entries(counts).filter(([, n]) => n > 0)
-    .map(([reason, n]) => ({ reason, label: REASONS[kind][reason] || reason, count: n, share: n / total }))
+    .map(([reason, n]) => ({ reason, label: REASONS[kind][reason] || OLD_REASON_LABELS[reason] || reason, count: n, share: n / total }))
     .sort((a, b) => b.count - a.count);
 }
 

@@ -241,7 +241,7 @@ route('PUT', '/api/daily', async (req, res) => {
     const v = FIELDS[field] ? num(raw) : (String(raw ?? '').trim().slice(0, 500) || null);
     if ((old[field] ?? null) !== v) changes.push([field, v]);
   }
-  // Sabablar: { bad: {not_target: 5}, lost: {expensive: 3} } — bo'sh qiymat o'chiradi
+  // Sabablar: { bad: {no_pickup: 5}, lost: {expensive: 3} } — bo'sh qiymat o'chiradi
   const reasons = [];
   for (const [kind, map] of Object.entries(b.reasons || {})) {
     if (!REASONS[kind]) throw new HttpError(400, `Noma'lum sabab turi: ${kind}`);

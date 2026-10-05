@@ -66,22 +66,31 @@ export const TEXT_FIELDS = {
 
 // «Nega?» raqamlarda: ROP har kuni sanab beradi
 export const REASONS = {
+  // Nega sifatsiz — aloqa bo'lmadi yoki haqiqiy mijoz emas
   bad: {
-    not_target: 'Maqsadli auditoriya emas',
-    no_money: "Puli yo'q",
-    no_answer: 'Javob bermadi / raqam xato',
-    age: "Yoshi to'g'ri kelmaydi",
-    curious: 'Shunchaki qiziqdi',
-    spam: 'Spam / adashib yozgan',
+    info_only: "Shunchaki ma'lumot oldi",
+    unreachable: "Qaytib bog'lanib bo'lmadi",
+    no_pickup: "Umuman ko'tarmadi",
+    no_request: 'Zayafka qoldirmagan',
+    wrong_number: "Noto'g'ri nomer",
+    duplicate: 'Dublikat',
   },
+  // Nega sotib olmadi — gaplashildi, lekin olmadi
   lost: {
-    expensive: 'Qimmat',
-    thinking: "O'ylab ko'radi",
-    later: 'Keyinroq oladi',
-    competitor: 'Raqobatchini tanladi',
-    no_trust: "Ishonch yo'q",
-    other: 'Boshqa',
+    expensive: 'Qimmatlik qildi',
+    no_permission: "Eri / ota-onasi ruxsat bermadi",
+    no_laptop: "Laptop yo'q",
+    bad_time: "Vaqti to'g'ri kelmadi",
+    plans_changed: "Planlari o'zgardi",
+    lesson_disliked: "Dars ma'qul bo'lmadi",
+    wants_offline: 'Offline hohladi',
   },
+};
+// Eski sabablar — avval kiritilgan raqamlar tarixda shu nomlar bilan ko'rinadi (kiritishda yo'q)
+export const OLD_REASON_LABELS = {
+  not_target: 'Maqsadli auditoriya emas', no_money: "Puli yo'q", no_answer: 'Javob bermadi / raqam xato', age: "Yoshi to'g'ri kelmaydi",
+  curious: 'Shunchaki qiziqdi', spam: 'Spam / adashib yozgan', thinking: "O'ylab ko'radi", later: 'Keyinroq oladi',
+  competitor: 'Raqobatchini tanladi', no_trust: "Ishonch yo'q", other: 'Boshqa',
 };
 export const REASON_KINDS = { bad: 'Nega sifatsiz', lost: 'Nega sotib olmadi' };
 
