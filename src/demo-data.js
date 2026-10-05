@@ -1,5 +1,6 @@
 // Namuna ma'lumotlar generatori — `npm run demo` va brauzerdagi demo ikkalasi ishlatadi
 import { addDays } from './metrics.js';
+import { DIZIPRO_REASONS } from './db.js';
 
 export const DEMO_USER = { name: 'Dilshod', login: 'pm', password: 'demo1234' };
 
@@ -24,7 +25,7 @@ const BAD_MIX = [null,
   { no_pickup: 0.35, unreachable: 0.25, info_only: 0.2, wrong_number: 0.1, duplicate: 0.1 }];
 const LOST_MIX = [null,
   { expensive: 0.45, bad_time: 0.15, no_permission: 0.1, plans_changed: 0.1, wants_offline: 0.15, lesson_disliked: 0.05 },
-  { no_laptop: 0.25, expensive: 0.2, bad_time: 0.2, lesson_disliked: 0.15, plans_changed: 0.1, no_permission: 0.1 },
+  { expensive: 0.3, lesson_disliked: 0.2, no_laptop: 0.25, wants_offline: 0.1, plans_changed: 0.15 },
   { bad_time: 0.3, expensive: 0.2, no_permission: 0.2, wants_offline: 0.15, plans_changed: 0.15 }];
 const COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100'];
 // Targetolog aytgan eng yaxshi / ishlamayotgan kreativ
@@ -73,7 +74,7 @@ export function generateDemo(end, days = 150) {
 
   PROJECTS.forEach(([name, cpc, c2l, l2s, check, budget], i) => {
     const id = i + 1;
-    projects.push({ id, name, color: COLORS[i], ...MONEY[i], sale_lag: LAG[i] || null, channels: JSON.stringify(CH[i].map(([c]) => c)) });
+    projects.push({ id, name, color: COLORS[i], ...MONEY[i], sale_lag: LAG[i] || null, channels: JSON.stringify(CH[i].map(([c]) => c)), reason_keys: name === 'DIZIPRO' ? DIZIPRO_REASONS : null });
     const auto = MONEY[i].kind === 'auto';
     const leadHist = [];
     for (let k = days - 1; k >= 0; k--) {

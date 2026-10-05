@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getDb, getSetting, setSetting, today, splitIds, normalizeIds, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from './db.js';
+import { getDb, getSetting, setSetting, today, splitIds, normalizeIds, projectReasons, normalizeReasonKeys, DIZIPRO_REASONS, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from './db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText, getReport, saveAiAnalysis } from './reports.js';
 import { aiStatus, analyze, AiError } from './ai/index.js';
 import { buildAiInput, hashInput } from './ai/prompt.js';
@@ -169,7 +169,7 @@ route('GET', '/api/projects', async (req, res) => {
 const projectOut = (p) => {
   let channels = [];
   try { channels = JSON.parse(p.channels || '[]'); } catch { channels = []; }
-  return { ...p, channels, lag_hint: p.active && p.kind !== 'auto' ? estimateLag(p.id) : null };
+  return { ...p, channels, reasonKeys: projectReasons(p), lag_hint: p.active && p.kind !== 'auto' ? estimateLag(p.id) : null };
 };
 // Moliya sozlamalari: tannarx — tushumdan % (Stars xaridi, ROP bonusi, to'lov komissiyasi), doimiy — oyiga so'm (ish haqi, ijara)
 function projectMoney(b, p = {}) {
@@ -185,14 +185,21 @@ function projectMoney(b, p = {}) {
   }
   const lag = b.sale_lag === undefined ? p.sale_lag ?? null : num(b.sale_lag);
   if (lag != null && lag > 60) throw new HttpError(400, "Kechikish 60 kundan oshmaydi");
-  return { kind, varPct, fixed, channels, lag };
+  let reasonKeys = p.reason_keys ?? null;
+  if (b.reason_keys !== undefined) {
+    try { reasonKeys = normalizeReasonKeys(b.reason_keys); } catch (e) { throw new HttpError(400, e.message); }
+  }
+  return { kind, varPct, fixed, channels, lag, reasonKeys };
 }
 route('POST', '/api/projects', async (req, res) => {
   requireUser(req);
   const b = await readBody(req);
   const m = projectMoney(b);
-  const info = getDb().prepare('INSERT INTO projects (name, color, kind, var_cost_pct, fixed_monthly, channels, sale_lag) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .run(checkName(b.name), checkColor(b.color), m.kind, m.varPct, m.fixed, m.channels, m.lag);
+  const name = checkName(b.name);
+  // DIZIPRO (3D modeling) — ROP bergan sabablar ro'yxati bilan boshlanadi
+  const reasonKeys = m.reasonKeys ?? (name.toUpperCase() === 'DIZIPRO' ? DIZIPRO_REASONS : null);
+  const info = getDb().prepare('INSERT INTO projects (name, color, kind, var_cost_pct, fixed_monthly, channels, sale_lag, reason_keys) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(name, checkColor(b.color), m.kind, m.varPct, m.fixed, m.channels, m.lag, reasonKeys);
   send(res, 201, projectOut(getProject(info.lastInsertRowid)));
 });
 route('PUT', '/api/projects/:id', async (req, res, { id }) => {
@@ -201,8 +208,8 @@ route('PUT', '/api/projects/:id', async (req, res, { id }) => {
   const p = getProject(idOf(id));
   if (!p) throw new HttpError(404, 'Loyiha topilmadi');
   const m = projectMoney(b, p);
-  getDb().prepare('UPDATE projects SET name = ?, color = ?, kind = ?, var_cost_pct = ?, fixed_monthly = ?, channels = ?, sale_lag = ?, active = ? WHERE id = ?')
-    .run(b.name === undefined ? p.name : checkName(b.name, p.id), b.color == null ? p.color : checkColor(b.color), m.kind, m.varPct, m.fixed, m.channels, m.lag, b.active === undefined ? p.active : (b.active ? 1 : 0), p.id);
+  getDb().prepare('UPDATE projects SET name = ?, color = ?, kind = ?, var_cost_pct = ?, fixed_monthly = ?, channels = ?, sale_lag = ?, reason_keys = ?, active = ? WHERE id = ?')
+    .run(b.name === undefined ? p.name : checkName(b.name, p.id), b.color == null ? p.color : checkColor(b.color), m.kind, m.varPct, m.fixed, m.channels, m.lag, m.reasonKeys, b.active === undefined ? p.active : (b.active ? 1 : 0), p.id);
   send(res, 200, projectOut(getProject(p.id)));
 });
 
@@ -219,6 +226,7 @@ route('GET', '/api/daily', async (req, res, _p, q) => {
     projects: projects.map((p) => ({
       id: p.id, name: p.name, color: p.color, kind: p.kind || 'leads',
       channels: projectOut(p).channels,
+      reasonKeys: projectReasons(p),
       channelRows: Object.fromEntries(ch.filter((r) => r.project_id === p.id).map((r) => [r.channel, r])),
       row: rows.find((r) => r.project_id === p.id) || {},
       prev: prevRows.find((r) => r.project_id === p.id) || {},

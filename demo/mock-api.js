@@ -2,13 +2,13 @@
 // Hisob-kitoblar serverdagi kod bilan bir xil (metrics.js, reports.js).
 // Kiritilgan ma'lumotlar shu brauzerning localStorage xotirasida saqlanadi.
 import { store } from './fake-sqlite.js';
-import { today, normalizeIds, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from '../src/db.js';
+import { today, normalizeIds, projectReasons, normalizeReasonKeys, DIZIPRO_REASONS, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from '../src/db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText } from '../src/reports.js';
 import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, monthly, estimateLag, parseRate } from '../src/metrics.js';
 import { generateDemo, DEMO_USER } from '../src/demo-data.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v20';
+const SAVE_KEY = 'analitika-demo-v21';
 let me = null;
 
 function seed() {
@@ -88,13 +88,14 @@ function projectMoney(b, p = {}) {
   }
   const sale_lag = b.sale_lag === undefined ? p.sale_lag ?? null : num(b.sale_lag);
   if (sale_lag != null && sale_lag > 60) throw new HttpError(400, 'Kechikish 60 kundan oshmaydi');
-  return { kind, var_cost_pct, fixed_monthly, channels, sale_lag };
+  const reason_keys = b.reason_keys === undefined ? p.reason_keys ?? null : wrap(() => normalizeReasonKeys(b.reason_keys));
+  return { kind, var_cost_pct, fixed_monthly, channels, sale_lag, reason_keys };
 }
 // Serverdagi projectOut bilan bir xil: kanallar ro'yxat, lag_hint — ma'lumotdan taxmin
 function projectOut(p) {
   let channels = [];
   try { channels = JSON.parse(p.channels || '[]'); } catch { channels = []; }
-  return { ...p, channels, lag_hint: p.active && p.kind !== 'auto' ? estimateLag(p.id, TODAY) : null };
+  return { ...p, channels, reasonKeys: projectReasons(p), lag_hint: p.active && p.kind !== 'auto' ? estimateLag(p.id, TODAY) : null };
 }
 
 const routes = {
@@ -134,6 +135,7 @@ const routes = {
   'POST /api/projects': (b) => {
     needUser();
     const p = { id: nextId(store.projects), name: checkName(b.name), color: checkColor(b.color), ...projectMoney(b), active: 1 };
+    if (!p.reason_keys && p.name.toUpperCase() === 'DIZIPRO') p.reason_keys = DIZIPRO_REASONS;
     store.projects.push(p);
     return projectOut(p);
   },
@@ -159,6 +161,7 @@ const routes = {
       projects: projects.map((p) => ({
         id: p.id, name: p.name, color: p.color, kind: p.kind || 'leads',
         channels: projectOut(p).channels,
+        reasonKeys: projectReasons(p),
         channelRows: Object.fromEntries(ch.filter((r) => r.project_id === p.id).map((r) => [r.channel, r])),
         row: rows.find((r) => r.project_id === p.id) || {},
         prev: prevRows.find((r) => r.project_id === p.id) || {},

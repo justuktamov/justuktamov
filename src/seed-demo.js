@@ -18,8 +18,8 @@ const ids = new Map();
 
 db.exec('BEGIN');
 for (const p of projects) {
-  ids.set(p.id, Number(db.prepare('INSERT INTO projects (name, color, kind, var_cost_pct, fixed_monthly, channels, sale_lag) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .run(p.name, p.color, p.kind, p.var_cost_pct, p.fixed_monthly, p.channels, p.sale_lag).lastInsertRowid));
+  ids.set(p.id, Number(db.prepare('INSERT INTO projects (name, color, kind, var_cost_pct, fixed_monthly, channels, sale_lag, reason_keys) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(p.name, p.color, p.kind, p.var_cost_pct, p.fixed_monthly, p.channels, p.sale_lag, p.reason_keys).lastInsertRowid));
 }
 const insertReason = db.prepare('INSERT INTO reasons (project_id, date, kind, reason, count) VALUES (?, ?, ?, ?, ?)');
 for (const r of reasons) insertReason.run(ids.get(r.project_id), r.date, r.kind, r.reason, r.count);

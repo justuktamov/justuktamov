@@ -143,7 +143,7 @@ export async function renderToday() {
     return `<details class="extra" ${has ? 'open' : ''}><summary>Sabablar raqamda: nega sifatsiz, nega sotib olmadi <span class="muted">(ROP sanab beradi)</span></summary>
       <div class="reasons-in">${projects.map((p) => `<div class="rin" data-rid="${p.id}"><b>${dot(p.color)}${esc(p.name)}</b>
         ${Object.entries(reasonKinds).map(([kind, title]) => `<div class="rin-kind"><span class="muted small">${title}</span><div class="rin-grid">
-          ${Object.entries(reasons[kind]).map(([r, l]) => `<label><span>${esc(l)}</span><input class="cell-in" inputmode="numeric" data-kind="${kind}" data-reason="${r}" value="${p.reasons?.[kind]?.[r] ?? ''}" aria-label="${esc(p.name)} — ${esc(l)}"></label>`).join('')}
+          ${[...new Set([...(p.reasonKeys?.[kind] || Object.keys(reasons[kind])), ...Object.keys(p.reasons?.[kind] || {})])].filter((r) => reasons[kind][r]).map((r) => [r, reasons[kind][r]]).map(([r, l]) => `<label><span>${esc(l)}</span><input class="cell-in" inputmode="numeric" data-kind="${kind}" data-reason="${r}" value="${p.reasons?.[kind]?.[r] ?? ''}" aria-label="${esc(p.name)} — ${esc(l)}"></label>`).join('')}
         </div></div>`).join('')}</div>`).join('')}</div>
     </details>`;
   }

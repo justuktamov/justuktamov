@@ -1074,3 +1074,4 @@ input, select, textarea { color-scheme: light; }
 .rin-grid label span { white-space: normal; line-height: 1.25; }
 @media (max-width: 1100px) { .rin-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .rin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.reason-pick { display: grid; gap: 4px; margin-top: 6px; }

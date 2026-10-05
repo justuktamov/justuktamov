@@ -54,6 +54,8 @@ async function tabProjects(body) {
       </div>
       <div class="field">Reklama kanallari
         <div class="chips" data-channels>${Object.entries(CH).map(([k, l]) => `<button type="button" class="chip ${p.channels.includes(k) ? 'on' : ''}" data-ch="${k}" aria-pressed="${p.channels.includes(k)}">${esc(l)}</button>`).join('')}</div></div>
+      ${p.kind === 'auto' ? '' : `<div class="field">Sabablar <span class="hint">ROP sanaydigan sabablar — bosib yoqing/o'chiring; yoqilgan tartibda chiqadi</span>
+        ${Object.entries(state.me.reasonKinds).map(([kind, title]) => `<div class="reason-pick"><span class="muted small">${title}</span><div class="chips" data-rk="${kind}">${[...(p.reasonKeys?.[kind] || []), ...Object.keys(state.me.reasons[kind]).filter((k) => !(p.reasonKeys?.[kind] || []).includes(k))].map((k) => `<button type="button" class="chip ${(p.reasonKeys?.[kind] || []).includes(k) ? 'on' : ''}" data-reason-key="${k}" aria-pressed="${(p.reasonKeys?.[kind] || []).includes(k)}">${esc(state.me.reasons[kind][k])}</button>`).join('')}</div></div>`).join('')}</div>`}
       <div class="row" style="justify-content:flex-end"><button class="btn small ghost" data-a="toggle">${p.active ? 'Arxivlash' : 'Tiklash'}</button><button class="btn small primary" data-a="save">Saqlash</button></div>
     </section>`).join('') || '<div class="card empty">Loyiha yo\'q</div>'}</div>
     <p class="small muted" style="margin:10px 0 0">Arxivdagi loyiha kunlik hisobotda chiqmaydi, eski raqamlari saqlanadi.</p>
@@ -72,6 +74,17 @@ async function tabProjects(body) {
   body.querySelector('.plan-cards').addEventListener('click', async (e) => {
     const chip = e.target.closest('[data-ch]');
     if (chip) { chip.classList.toggle('on'); chip.setAttribute('aria-pressed', chip.classList.contains('on')); return; }
+    // Sabab: yoqilsa yoqilganlar oxiriga o'tadi (tartib), o'chirilsa o'chirilganlar boshiga
+    const rk = e.target.closest('[data-reason-key]');
+    if (rk) {
+      const box = rk.parentElement;
+      rk.classList.toggle('on');
+      rk.setAttribute('aria-pressed', rk.classList.contains('on'));
+      const on = $$('.chip.on', box).filter((x) => x !== rk);
+      if (rk.classList.contains('on')) (on.at(-1) ? on.at(-1).after(rk) : box.prepend(rk));
+      else { const firstOff = $$('.chip:not(.on)', box).find((x) => x !== rk); if (firstOff) firstOff.before(rk); else box.append(rk); }
+      return;
+    }
     const lagBtn = e.target.closest('[data-lag]');
     if (lagBtn) { lagBtn.closest('label').querySelector('input').value = lagBtn.dataset.lag; return; }
     const a = e.target.closest('[data-a]')?.dataset.a;
@@ -79,7 +92,8 @@ async function tabProjects(body) {
     const card = e.target.closest('.proj-card');
     const p = state.projects.find((x) => String(x.id) === card.dataset.id);
     const b = a === 'toggle' ? { active: !p.active }
-      : { ...Object.fromEntries($$('[data-f]', card).map((el) => [el.dataset.f, el.value])), channels: $$('[data-ch].on', card).map((x) => x.dataset.ch) };
+      : { ...Object.fromEntries($$('[data-f]', card).map((el) => [el.dataset.f, el.value])), channels: $$('[data-ch].on', card).map((x) => x.dataset.ch),
+        ...($('[data-rk]', card) ? { reason_keys: Object.fromEntries($$('[data-rk]', card).map((b) => [b.dataset.rk, $$('.chip.on', b).map((x) => x.dataset.reasonKey)])) } : {}) };
     try { await api(`/api/projects/${p.id}`, { method: 'PUT', body: b }); toast('Saqlandi'); renderSettings(); } catch (err) { toast(err.message, true); }
   });
 }

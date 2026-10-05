@@ -214,3 +214,19 @@ test('loyihalar tartibi: sudrab almashtirish saqlanadi', async () => {
   assert.equal(s.byProject[0].id, b.id, 'doska ham shu tartibda');
   for (const p of [a, b]) await pm.json(`/api/projects/${p.id}`, { method: 'PUT', body: { active: false } });
 });
+
+test("loyiha sabablari: har loyihaning o'z ro'yxati va tartibi; DIZIPRO — ROP ro'yxati", async () => {
+  const pm = await session();
+  const d = await pm.json('/api/projects', { method: 'POST', body: { name: 'DIZIPRO' } });
+  assert.deepEqual(d.reasonKeys.lost, ['expensive', 'lesson_disliked', 'no_laptop', 'wants_offline', 'plans_changed']);
+  assert.deepEqual(d.reasonKeys.bad, ['unreachable', 'no_pickup', 'wrong_number', 'info_only', 'no_request', 'duplicate']);
+  const x = await pm.json('/api/projects', { method: 'POST', body: { name: 'BOSHQA' } });
+  assert.ok(x.reasonKeys.lost.includes('bad_time'), 'boshqa loyihada hammasi');
+  let r = await pm(`/api/projects/${x.id}`, { method: 'PUT', body: { reason_keys: { bad: ['nope'], lost: [] } } });
+  assert.equal(r.status, 400);
+  const u = await pm.json(`/api/projects/${x.id}`, { method: 'PUT', body: { reason_keys: { bad: ['duplicate', 'info_only'], lost: ['no_laptop'] } } });
+  assert.deepEqual(u.reasonKeys, { bad: ['duplicate', 'info_only'], lost: ['no_laptop'] });
+  const day = await pm.json(`/api/daily?date=${today()}`);
+  assert.deepEqual(day.projects.find((p) => p.id === x.id).reasonKeys.lost, ['no_laptop']);
+  for (const p of [d, x]) await pm.json(`/api/projects/${p.id}`, { method: 'PUT', body: { active: false } });
+});

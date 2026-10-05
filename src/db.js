@@ -72,12 +72,12 @@ export const REASONS = {
     unreachable: "Qaytib bog'lanib bo'lmadi",
     no_pickup: "Umuman ko'tarmadi",
     no_request: 'Zayafka qoldirmagan',
-    wrong_number: "Noto'g'ri nomer",
+    wrong_number: "Noto'g'ri raqam",
     duplicate: 'Dublikat',
   },
   // Nega sotib olmadi — gaplashildi, lekin olmadi
   lost: {
-    expensive: 'Qimmatlik qildi',
+    expensive: 'Qimmatli qildi',
     no_permission: "Eri / ota-onasi ruxsat bermadi",
     no_laptop: "Laptop yo'q",
     bad_time: "Vaqti to'g'ri kelmadi",
@@ -92,6 +92,9 @@ export const OLD_REASON_LABELS = {
   curious: 'Shunchaki qiziqdi', spam: 'Spam / adashib yozgan', thinking: "O'ylab ko'radi", later: 'Keyinroq oladi',
   competitor: 'Raqobatchini tanladi', no_trust: "Ishonch yo'q", other: 'Boshqa',
 };
+// DIZIPRO: qimmatli qildi, qaytib bog'lanib bo'lmadi, umuman ko'tarmadi, noto'g'ri raqam, shunchaki ma'lumot oldi, zayafka qoldirmagan,
+// dars ma'qul bo'lmadi, laptop yo'q, offline hohladi, dublikat, planlari o'zgardi
+export const DIZIPRO_REASONS = JSON.stringify({ bad: ['unreachable', 'no_pickup', 'wrong_number', 'info_only', 'no_request', 'duplicate'], lost: ['expensive', 'lesson_disliked', 'no_laptop', 'wants_offline', 'plans_changed'] });
 export const REASON_KINDS = { bad: 'Nega sifatsiz', lost: 'Nega sotib olmadi' };
 
 export const PLAN_FIELDS = {
@@ -146,7 +149,8 @@ function migrate(db) {
       sale_lag REAL,
       active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      sort_order INTEGER
+      sort_order INTEGER,
+      reason_keys TEXT
     );
     CREATE TABLE IF NOT EXISTS daily (
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -208,10 +212,17 @@ function migrate(db) {
   for (const f of Object.keys(FIELDS)) if (cols.length && !cols.includes(f)) db.exec(`ALTER TABLE daily ADD COLUMN ${f} REAL`);
   for (const f of Object.keys(TEXT_FIELDS)) if (cols.length && !cols.includes(f)) db.exec(`ALTER TABLE daily ADD COLUMN ${f} TEXT`);
   const pcols = db.prepare('PRAGMA table_info(projects)').all().map((c) => c.name);
-  for (const [c, t] of [['kind', "TEXT NOT NULL DEFAULT 'leads'"], ['var_cost_pct', 'REAL'], ['fixed_monthly', 'REAL'], ['channels', 'TEXT'], ['sale_lag', 'REAL'], ['sort_order', 'INTEGER']]) {
+  for (const [c, t] of [['kind', "TEXT NOT NULL DEFAULT 'leads'"], ['var_cost_pct', 'REAL'], ['fixed_monthly', 'REAL'], ['channels', 'TEXT'], ['sale_lag', 'REAL'], ['sort_order', 'INTEGER'], ['reason_keys', 'TEXT']]) {
     if (pcols.length && !pcols.includes(c)) db.exec(`ALTER TABLE projects ADD COLUMN ${c} ${t}`);
   }
   // AI tahlil natijasi (JSON): hisobot kuni bo'yicha
+  // DIZIPRO (3D modeling) — ROP bergan sabablar ro'yxati, bir marta (keyin Sozlamalarda o'zgartiriladi)
+  try {
+    if (!db.prepare("SELECT value FROM settings WHERE key = 'reasons_dizipro_v1'").get()) {
+      const hit = db.prepare("UPDATE projects SET reason_keys = ? WHERE upper(name) = 'DIZIPRO' AND reason_keys IS NULL").run(DIZIPRO_REASONS);
+      if (hit.changes) db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('reasons_dizipro_v1', '1')").run();
+    }
+  } catch { /* jadval hali yo'q */ }
   const rcols = db.prepare('PRAGMA table_info(daily_reports)').all().map((c) => c.name);
   if (rcols.length && !rcols.includes('ai_analysis')) db.exec('ALTER TABLE daily_reports ADD COLUMN ai_analysis TEXT');
 }
@@ -252,3 +263,26 @@ export function normalizeIds(v) {
   return ids.length ? ids.join(',') : null;
 }
 
+
+// Loyihaning sabablar ro'yxati (tartibi bilan): { bad: [...], lost: [...] }; bo'sh — hammasi umumiy tartibda
+export function projectReasons(p) {
+  let r = null;
+  try { r = p?.reason_keys ? JSON.parse(p.reason_keys) : null; } catch { r = null; }
+  const out = {};
+  for (const kind of Object.keys(REASONS)) {
+    const keys = Array.isArray(r?.[kind]) ? r[kind].filter((k) => REASONS[kind][k]) : null;
+    out[kind] = keys && (keys.length || r) ? keys : Object.keys(REASONS[kind]);
+  }
+  return out;
+}
+export function normalizeReasonKeys(v) {
+  if (v == null || v === '') return null;
+  const out = {};
+  for (const kind of Object.keys(REASONS)) {
+    const list = Array.isArray(v[kind]) ? v[kind] : [];
+    const bad = list.find((k) => !REASONS[kind][k]);
+    if (bad) { const e = new Error(`Noma'lum sabab: ${bad}`); e.status = 400; throw e; }
+    out[kind] = [...new Set(list)];
+  }
+  return JSON.stringify(out);
+}
