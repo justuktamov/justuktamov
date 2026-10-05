@@ -202,6 +202,78 @@ export function openCalendar(anchor, { value, min = null, max = null, onPick }) 
   (pop.querySelector('.cal-day.sel:not([disabled])') || pop.querySelector('.cal-day:not([disabled])'))?.focus();
 }
 
+// Oraliq: bitta kalendarda 1-bosish — boshlanish, 2-bosish — tugash; orasidagi kunlar belgilanadi
+export function openRangeCalendar(anchor, { from, to, max = null, onPick }) {
+  calClose?.();
+  menuClose?.();
+  let view = (to || from).slice(0, 7);
+  let a = from, b = to, hover = null; // b === null — tugash kutilmoqda
+  const pop = document.createElement('div');
+  pop.className = 'cal cal-range';
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-label', 'Oraliq tanlash');
+  const ok = (d) => !max || d <= max;
+  const draw = () => {
+    const [y, m] = view.split('-').map(Number);
+    const first = `${view}-01`;
+    const shift = (new Date(`${first}T00:00:00Z`).getUTCDay() + 6) % 7;
+    const start = addDays(first, -shift);
+    const days = Array.from({ length: 42 }, (_, i) => addDays(start, i));
+    const lastRow = days.slice(35).every((d) => d.slice(0, 7) !== view) ? 35 : 42;
+    const prevM = addDays(first, -1).slice(0, 7);
+    const nextM = addDays(`${view}-28`, 7).slice(0, 7);
+    const end = b ?? hover;
+    const lo = end && end < a ? end : a, hi = end && end < a ? a : end;
+    const cls = (d) => {
+      if (!lo) return '';
+      if (d === lo && d === hi) return 'r-one';
+      if (d === lo) return 'r-start';
+      if (hi && d === hi) return 'r-end';
+      return hi && d > lo && d < hi ? 'r-in' : '';
+    };
+    const days2 = (n) => Math.round((Date.parse(hi) - Date.parse(lo)) / 864e5) + 1;
+    pop.innerHTML = `<div class="cal-head">
+        <button type="button" class="cal-nav" data-m="${prevM}" aria-label="Oldingi oy">‹</button>
+        <b>${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${y}</b>
+        <button type="button" class="cal-nav" data-m="${nextM}" aria-label="Keyingi oy" ${max && `${nextM}-01` > max ? 'disabled' : ''}>›</button></div>
+      <p class="cal-hint">${b == null ? '<b>Tugash</b> kunini bosing' : `<b>${shortDate(lo)} – ${shortDate(hi)}</b> · ${days2()} kun · yangi oraliq uchun boshlanish kunini bosing`}</p>
+      <div class="cal-grid">${WEEK.map((w) => `<span class="cal-wd">${w}</span>`).join('')}
+        ${days.slice(0, lastRow).map((d) => `<button type="button" data-d="${d}" class="cal-day ${d.slice(0, 7) !== view ? 'out' : ''} ${cls(d)}" ${ok(d) ? '' : 'disabled'}>${Number(d.slice(8))}</button>`).join('')}</div>
+      ${max ? `<div class="cal-foot"><button type="button" data-preset="7">7 kun</button><button type="button" data-preset="30">30 kun</button><button type="button" data-preset="month">Shu oy</button></div>` : ''}`;
+  };
+  draw();
+  document.body.append(pop);
+  const r = anchor.getBoundingClientRect();
+  const w = pop.offsetWidth;
+  pop.style.top = `${r.bottom + window.scrollY + 8}px`;
+  pop.style.left = `${Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - w - 8))}px`;
+  const done = (x, y) => { close(); onPick(x <= y ? x : y, x <= y ? y : x); };
+  pop.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const nav = e.target.closest('[data-m]');
+    if (nav && !nav.disabled) { view = nav.dataset.m; draw(); return; }
+    const pr = e.target.closest('[data-preset]');
+    if (pr) {
+      if (pr.dataset.preset === 'month') done(`${max.slice(0, 8)}01`, max);
+      else done(addDays(max, -(Number(pr.dataset.preset) - 1)), max);
+      return;
+    }
+    const day = e.target.closest('[data-d]');
+    if (!day || day.disabled) return;
+    if (b == null) done(a, day.dataset.d);
+    else { a = day.dataset.d; b = null; hover = null; draw(); pop.querySelector(`[data-d="${a}"]`)?.focus(); }
+  });
+  pop.addEventListener('mouseover', (e) => {
+    const day = e.target.closest('[data-d]');
+    if (b == null && day && !day.disabled && day.dataset.d !== hover) { hover = day.dataset.d; draw(); }
+  });
+  const outside = (e) => { if (!pop.contains(e.target) && !anchor.contains(e.target)) close(); };
+  const esc = (e) => { if (e.key === 'Escape') { close(); anchor.focus(); } };
+  function close() { pop.remove(); document.removeEventListener('mousedown', outside); document.removeEventListener('keydown', esc); calClose = null; }
+  setTimeout(() => { document.addEventListener('mousedown', outside); document.addEventListener('keydown', esc); });
+  calClose = close;
+}
+
 // ---------- Tanlash ro'yxati va rang ----------
 // Brauzerning o'z <select> va rang oynasi o'rniga: yashirin input (forma uchun) + tugma + ochiladigan oyna
 let menuClose = null;
@@ -292,22 +364,24 @@ export function filtersHtml() {
   const { from, to } = computePeriod();
   return `<div class="filters">
     <div class="seg" id="periodSeg" role="group" aria-label="Davr">${opts.map(([v, l]) => `<button data-v="${v}" class="${state.period === v ? 'on' : ''}">${l}</button>`).join('')}</div>
-    ${state.period === 'custom' ? `<span class="range">${dateButton('fFrom', from, 'Boshlanish')}<span class="muted">—</span>${dateButton('fTo', to, 'Tugash')}</span>` : ''}
+    ${state.period === 'custom' ? `<button type="button" class="date-btn range-btn" id="fRange" aria-haspopup="dialog" aria-label="Oraliq: ${prettyDate(from)} — ${prettyDate(to)}">${ICONS.cal}<span>${shortDate(from)} — ${shortDate(to)}</span></button>` : ''}
   </div>`;
 }
 export function bindFilters(rerenderPage) {
   $('#periodSeg').onclick = (e) => {
     const v = e.target.dataset.v;
     if (!v) return;
+    const first = v === 'custom' && state.period !== 'custom';
     if (v === 'custom' && !state.from) Object.assign(state, computePeriod());
     state.period = v;
     rerenderPage();
+    // «Oraliq» bosilganda kalendar darhol ochiladi
+    if (first) setTimeout(() => $('#fRange')?.click(), 60);
   };
-  const f = $('#fFrom'), t = $('#fTo');
-  if (f) {
+  const rb = $('#fRange');
+  if (rb) {
     const { from, to } = computePeriod();
-    f.onclick = () => openCalendar(f, { value: from, max: to, onPick: (d) => { state.from = d; state.to = to; rerenderPage(); } });
-    t.onclick = () => openCalendar(t, { value: to, min: from, max: state.me.reportDay, onPick: (d) => { state.from = from; state.to = d; rerenderPage(); } });
+    rb.onclick = () => openRangeCalendar(rb, { from, to, max: state.me.reportDay, onPick: (a, b) => { state.from = a; state.to = b; rerenderPage(); } });
   }
 }
 

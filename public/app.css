@@ -1075,3 +1075,15 @@ input, select, textarea { color-scheme: light; }
 @media (max-width: 1100px) { .rin-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .rin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .reason-pick { display: grid; gap: 4px; margin-top: 6px; }
+/* Oraliq kalendari: boshlanish va tugash — to'q ko'k, orasi — och ko'k chiziq */
+.cal-hint { margin: 0; font-size: 12px; color: var(--text-3); text-align: center; }
+.cal-hint b { color: var(--text); }
+.cal-range .cal-grid { gap: 2px 0; }
+.cal-range .cal-day { border-radius: 0; }
+.cal-range .cal-day.r-in { background: #cfe0ff; color: #13306e; }
+.cal-range .cal-day.r-start, .cal-range .cal-day.r-end, .cal-range .cal-day.r-one { background: var(--blue); color: #fff; font-weight: 800; }
+.cal-range .cal-day.r-start { border-radius: 10px 0 0 10px; }
+.cal-range .cal-day.r-end { border-radius: 0 10px 10px 0; }
+.cal-range .cal-day.r-one { border-radius: 10px; }
+.cal-range .cal-day:not(.r-in):not(.r-start):not(.r-end):not(.r-one) { border-radius: 10px; }
+.range-btn span { font-variant-numeric: tabular-nums; font-weight: 700; }
