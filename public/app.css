@@ -1065,3 +1065,8 @@ input, select, textarea { color-scheme: light; }
   .wd-grid .wd-none { min-height: 40px; }
   .wd-total-row { grid-template-columns: minmax(0, 1fr); }
 }
+/* 2-qadam: 10 ustunli lid jadvali — ixcham */
+.grid-entry.xwide .cell-in { width: 84px; padding: 9px 8px; font-size: 15px; }
+.grid-entry.xwide th.n { font-size: 11px; line-height: 1.25; white-space: normal; min-width: 70px; }
+.grid-entry.xwide .cell-in[name="revenue"] { width: 120px; }
+.lead-st { margin-top: 12px; display: grid; gap: 5px; } .lead-st h4 { margin: 0 0 2px; font-size: 13px; }

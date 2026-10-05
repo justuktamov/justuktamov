@@ -233,7 +233,8 @@ function column(p, plan, collapsed = false) {
         <div class="kv"><span>Sifatli</span><b>${fmtP(p.qualified_share, 0)}</b></div>
         <div class="kv"><span>Sifatsiz</span><b>${fmtP(p.unqualified_share, 0)}</b></div>
         ${badTop ? `<p class="why">Nega: «${esc(badTop.label)}» — ${fmtP(badTop.share, 0)}</p>` : ''}
-        ${srcLine(p)}` : '<p class="why">Kiritilmagan</p>'}
+        ${srcLine(p)}
+        ${[['Qayta aloqa', 'st_callback'], ["O'ylab ko'radi", 'st_thinking'], ['Video', 'st_video'], ['Bekor', 'st_cancelled']].some(([, k]) => p[k] > 0) ? `<p class="src-line">${[['Qayta aloqa', 'st_callback'], ["O'ylab ko'radi", 'st_thinking'], ['Video', 'st_video'], ['Bekor', 'st_cancelled']].filter(([, k]) => p[k] > 0).map(([l, k]) => `${l} <b>${fmtN(p[k])}</b>`).join(' · ')}</p>` : ''}` : '<p class="why">Kiritilmagan</p>'}
     </div>`}
     ${planTile(p, plan)}
     ${issue ? `<div class="tile issue ${issue.level}"><small>${issue.level === 'critical' ? 'Muhim' : 'Diqqat'}</small><p>${esc(issue.text)}</p></div>` : ''}

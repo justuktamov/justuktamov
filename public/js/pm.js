@@ -15,10 +15,10 @@ const STEPS = [
     texts: [['creative_best', 'Yaxshi ishlagan kreativ', 'nomi yoki havola'], ['creative_worst', 'Ishlamayotgan kreativ', 'nomi yoki havola'], ['note_target', 'Muammo', "akkaunt, moderatsiya, to'lov…"]] },
   { key: 'sales', title: 'Sotuv', head: "Sotuv va tushgan pul",
     hint: "Sifatli — sotib olishga tayyor. Potensial — qiziqdi, keyinroq olishi mumkin. Sifatsiz — maqsadli emas yoki javob bermadi. Avtovoronka raqamlari botdan / to'lov tizimidan olinadi.",
-    ask: ['Har bir loyihaga nechta lid tushdi?', 'Nechtasi sifatli, nechtasi potensial, nechtasi sifatsiz?', 'Instagram direktdan va Telegram admin lichkasidan nechta lid keldi?', "Nechta sotuv bo'ldi va qancha pul tushdi?",
+    ask: ['Har bir loyihaga nechta lid tushdi?', 'Nechtasi sifatli, nechtasi sifatsiz, nechtasi potensial?', "Nechtasi bilan qayta aloqa, nechtasi o'ylab ko'radi, nechtasi video ko'rishi kerak, nechtasi bekor qildi?", 'Instagram direktdan va Telegram admin lichkasidan nechta lid keldi?', "Nechta sotuv bo'ldi va qancha pul tushdi?",
       'Sifatsizlar nega sifatsiz, sotib olmaganlar nega olmadi (har sababdan nechta)?'],
     askAuto: ['Avtovoronka: botga nechta odam kirdi (start), nechtasi sotib oldi, qancha pul tushdi?'],
-    fields: [['leads', 'Jami lid'], ['qualified', 'Sifatli'], ['potential', 'Potensial'], ['unqualified', 'Sifatsiz'], ['sales', 'Sotuv'], ['revenue', "Tushgan pul, so'm"]],
+    fields: [['leads', 'Umumiy lid'], ['qualified', 'Sifatli'], ['unqualified', 'Sifatsiz'], ['potential', 'Potensial'], ['st_callback', 'Qayta aloqa'], ['st_thinking', "O'ylab ko'radi"], ['st_video', "Video ko'rishi kerak"], ['st_cancelled', 'Bekor qilindi'], ['sales', 'Sotuv'], ['revenue', "Tushgan pul, so'm"]],
     required: ['leads', 'sales', 'revenue'],
     autoFields: [['starts', 'Bot start'], ['sales', 'Xarid'], ['revenue', "Tushgan pul, so'm"]],
     autoRequired: ['sales', 'revenue'],
@@ -129,7 +129,7 @@ export async function renderToday() {
 
   // calc: jonli hisob — 1 lid narxi (cpl) yoki 1 start narxi (cps)
   function numTable(projects, fields, required, calc) {
-    return `<div class="table-wrap"><table class="grid-entry ${fields.length > 4 ? 'wide' : ''}" style="--cols:${fields.length % 3 ? 2 : 3}" ${calc ? `data-calc="${calc}"` : ''}><thead><tr><th>Loyiha</th>${fields.map(([, l]) => `<th class="n">${l}</th>`).join('')}${calc ? `<th class="n">${calc === 'cpl' ? '1 lid' : '1 start'}</th>` : ''}<th></th></tr></thead>
+    return `<div class="table-wrap"><table class="grid-entry ${fields.length > 4 ? 'wide' : ''} ${fields.length > 7 ? 'xwide' : ''}" style="--cols:${fields.length % 3 ? 2 : 3}" ${calc ? `data-calc="${calc}"` : ''}><thead><tr><th>Loyiha</th>${fields.map(([, l]) => `<th class="n">${l}</th>`).join('')}${calc ? `<th class="n">${calc === 'cpl' ? '1 lid' : '1 start'}</th>` : ''}<th></th></tr></thead>
       <tbody>${projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
         ${fields.map(([f, l]) => `<td class="n" data-label="${l}"><input class="cell-in" inputmode="decimal" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}
         ${calc ? `<td class="n calc" data-label="${calc === 'cpl' ? '1 lid narxi' : '1 start narxi'}" data-cpl>${cplText(p.row.spend, calc === 'cpl' ? p.row.leads : p.row.starts)}</td>` : ''}

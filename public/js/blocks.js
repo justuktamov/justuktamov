@@ -164,7 +164,7 @@ export function sourcesBlock(p) {
 
 export function qualityBlock(p) {
   if (!p.leads) return '';
-  const parts = [['Sifatli', p.qualified, 'q-good'], ['Potensial', p.potential, 'q-mid'], ['Sifatsiz', p.unqualified, 'q-bad']];
+  const parts = [['Sifatli', p.qualified, 'q-good'], ['Sifatsiz', p.unqualified, 'q-bad'], ['Potensial', p.potential, 'q-mid']];
   const known = parts.reduce((a, x) => a + x[1], 0);
   const wasted = p.cpl != null ? p.unqualified * p.cpl : null;
   return `<div class="sub-card"><h3>Lid sifati</h3>
@@ -172,8 +172,17 @@ export function qualityBlock(p) {
       <div class="qlegend">${parts.map(([l, v, c]) => `<span><i class="${c}"></i>${l} <b>${fmtN(v)}</b> · ${fmtP(v / p.leads, 0)}</span>`).join('')}</div>
       ${wasted ? `<p class="small" style="margin:8px 0 0">Sifatsiz lidlarga ketgan pul: <b>${fmtUsd(wasted, 0)}</b></p>` : ''}`
       : '<p class="small muted">Sifatli / sifatsiz bo\'linmasi kiritilmagan.</p>'}
+    ${leadStatus(p)}
     ${reasonBars('Nega sifatsiz', p.reasons.bad)}
   </div>`;
+}
+
+// Lid holatlari: qayta aloqa, o'ylab ko'radi, video ko'rishi kerak, bekor qilindi
+export const LEAD_STATUS = [['st_callback', 'Qayta aloqa'], ['st_thinking', "O'ylab ko'radi"], ['st_video', "Video ko'rishi kerak"], ['st_cancelled', 'Bekor qilindi']];
+function leadStatus(p) {
+  const rows = LEAD_STATUS.filter(([k]) => p.reported?.[k]);
+  if (!rows.length) return '';
+  return `<div class="lead-st"><h4>Lid holatlari</h4>${rows.map(([k, l]) => `<div class="src-row"><span>${l}</span><b>${fmtN(p[k])}</b><em>${p.leads ? fmtP(p[k] / p.leads, 0) : ''}</em></div>`).join('')}</div>`;
 }
 
 export function lostBlock(p) {
