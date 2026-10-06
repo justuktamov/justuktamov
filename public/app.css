@@ -1121,3 +1121,4 @@ input, select, textarea { color-scheme: light; }
 .cal-pp .pp-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .cal-pp .pp-grid .cal-day { height: 44px; font-weight: 600; }
 .cal-pp .pp-grid .cal-day { font-size: 13px; }
+.cal-pp .cal-hint { margin: 2px 0 0; }

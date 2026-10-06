@@ -207,7 +207,7 @@ export function openCalendar(anchor, { value, min = null, max = null, onPick }) 
 export function openPeriodPicker(anchor, { kind = 'day', value, max, onPick }) {
   calClose?.();
   menuClose?.();
-  let tab = kind;
+  let tab = 'year'; // doim yildan boshlanadi: yil → oy → kun
   let view = value.slice(0, 7); // Kun: ko'rinayotgan oy
   let year = Number(value.slice(0, 4)); // Oy: ko'rinayotgan yil
   const maxY = Number(max.slice(0, 4));
@@ -241,7 +241,12 @@ export function openPeriodPicker(anchor, { kind = 'day', value, max, onPick }) {
       body = head(String(yPage - 12), `${ys[0]} – ${ys[11]}`, String(yPage + 12), false, yPage >= maxY)
         + `<div class="cal-grid pp-grid">${ys.map((y) => `<button type="button" data-pick="${y}" class="cal-day ${kind === 'year' && value.startsWith(String(y)) ? 'sel' : ''}" ${y <= maxY ? '' : 'disabled'}>${y}</button>`).join('')}</div>`;
     }
-    pop.innerHTML = tabs() + body;
+    // Yil → Oy → Kun ketma-ket: kun bosilganda yopiladi; butun yil yoki oyni ham shu yerdan ko'rsatsa bo'ladi
+    const [vy, vm] = view.split('-').map(Number);
+    const foot = tab === 'month' ? `<div class="cal-foot"><button type="button" data-apply="year">Butun ${year} yilni ko'rsatish</button></div>`
+      : tab === 'day' ? `<div class="cal-foot"><button type="button" data-apply="month">Butun ${MONTHS[vm - 1]} ${vy} ni ko'rsatish</button></div>` : '';
+    const hint = `<p class="cal-hint">${tab === 'year' ? '<b>Yil</b>ni tanlang → keyin oy → keyin kun' : tab === 'month' ? `<b>${year}</b> · oyni tanlang` : `<b>${cap(MONTHS[vm - 1])} ${vy}</b> · kunni tanlang`}</p>`;
+    pop.innerHTML = tabs() + hint + body + foot;
   };
   draw();
   document.body.append(pop);
@@ -252,14 +257,20 @@ export function openPeriodPicker(anchor, { kind = 'day', value, max, onPick }) {
   pop.addEventListener('click', (e) => {
     e.stopPropagation();
     const t = e.target.closest('[data-tab]');
-    if (t) { tab = t.dataset.tab; draw(); return; }
+    if (t) { tab = t.dataset.tab; if (tab === 'year') yPage = Math.min(maxY, Math.max(yPage, year)); draw(); return; }
     const nav = e.target.closest('[data-nav]');
     if (nav && !nav.disabled) {
       if (tab === 'day') view = nav.dataset.nav; else if (tab === 'month') year = Number(nav.dataset.nav); else yPage = Math.min(Number(nav.dataset.nav), maxY);
       draw(); return;
     }
+    const ap = e.target.closest('[data-apply]');
+    if (ap) { close(); onPick(ap.dataset.apply === 'year' ? { kind: 'year', value: String(year) } : { kind: 'month', value: view }); return; }
     const pk = e.target.closest('[data-pick]');
-    if (pk && !pk.disabled) { close(); onPick({ kind: tab, value: pk.dataset.pick }); }
+    if (!pk || pk.disabled) return;
+    const v = pk.dataset.pick;
+    if (tab === 'year') { year = Number(v); const vm = `${year}-${view.slice(5, 7)}`; view = vm < max.slice(0, 7) ? vm : max.slice(0, 7); tab = 'month'; draw(); return; }
+    if (tab === 'month') { view = v.slice(0, 7) < max.slice(0, 7) ? v : max.slice(0, 7); tab = 'day'; draw(); return; }
+    close(); onPick({ kind: 'day', value: v });
   });
   const outside = (e) => { if (!pop.contains(e.target) && !anchor.contains(e.target)) close(); };
   const esc = (e) => { if (e.key === 'Escape') { close(); anchor.focus(); } };
