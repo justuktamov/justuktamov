@@ -1122,3 +1122,4 @@ input, select, textarea { color-scheme: light; }
 .cal-pp .pp-grid .cal-day { height: 44px; font-weight: 600; }
 .cal-pp .pp-grid .cal-day { font-size: 13px; }
 .cal-pp .cal-hint { margin: 2px 0 0; }
+.pp-tabs button small { display: block; font-size: 11px; font-weight: 700; color: var(--blue); }

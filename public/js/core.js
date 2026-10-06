@@ -204,20 +204,25 @@ export function openCalendar(anchor, { value, min = null, max = null, onPick }) 
 
 // Umumiy sana tanlagich: Yil · Oy · Kun yorliqlari — istalgan yil, oy yoki kunni tanlash
 // onPick({ kind: 'year' | 'month' | 'day', value: 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD' })
-export function openPeriodPicker(anchor, { kind = 'day', value, max, onPick }) {
+export function openPeriodPicker(anchor, { value = null, max, onPick }) {
   calClose?.();
   menuClose?.();
   let tab = 'year'; // doim yildan boshlanadi: yil → oy → kun
-  let view = value.slice(0, 7); // Kun: ko'rinayotgan oy
-  let year = Number(value.slice(0, 4)); // Oy: ko'rinayotgan yil
+  // Tanlanganlar ko'k bilan belgilanadi (orqaga qaytganda ham ko'rinadi): yil, oy, kun
+  let selY = value ? Number(value.slice(0, 4)) : null;
+  let selM = value && value.length >= 7 ? value.slice(0, 7) : null;
+  let selD = value && value.length === 10 ? value : null;
+  let view = selM || max.slice(0, 7); // Kun: ko'rinayotgan oy
+  let year = selY || Number(max.slice(0, 4)); // Oy: ko'rinayotgan yil
   const maxY = Number(max.slice(0, 4));
-  let yPage = maxY; // Yil: sahifaning oxirgi yili (12 tadan)
+  let yPage = year < maxY - 11 ? year + 11 : maxY; // Yil: sahifaning oxirgi yili (12 tadan)
   const pop = document.createElement('div');
   pop.className = 'cal cal-pp';
   pop.setAttribute('role', 'dialog');
   pop.setAttribute('aria-label', 'Yil, oy yoki kun tanlash');
   const cap = (s) => s[0].toUpperCase() + s.slice(1);
-  const tabs = () => `<div class="pp-tabs" role="tablist">${[['year', 'Yil'], ['month', 'Oy'], ['day', 'Kun']].map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" class="${tab === k ? 'on' : ''}" aria-selected="${tab === k}">${l}</button>`).join('')}</div>`;
+  // Yorliqlarda tanlangan qiymat ham yoziladi: Yil 2026 · Oy avgust · Kun 14
+  const tabs = () => `<div class="pp-tabs" role="tablist">${[['year', 'Yil', selY], ['month', 'Oy', selM && MONTHS[Number(selM.slice(5)) - 1]], ['day', 'Kun', selD && Number(selD.slice(8))]].map(([k, l, v]) => `<button type="button" role="tab" data-tab="${k}" class="${tab === k ? 'on' : ''}" aria-selected="${tab === k}">${l}${v ? `<small>${v}</small>` : ''}</button>`).join('')}</div>`;
   const head = (prev, label, next, prevOff, nextOff) => `<div class="cal-head">
       <button type="button" class="cal-nav" data-nav="${prev}" aria-label="Oldingi" ${prevOff ? 'disabled' : ''}>‹</button><b>${label}</b>
       <button type="button" class="cal-nav" data-nav="${next}" aria-label="Keyingi" ${nextOff ? 'disabled' : ''}>›</button></div>`;
@@ -232,14 +237,14 @@ export function openPeriodPicker(anchor, { kind = 'day', value, max, onPick }) {
       const nextM = addDays(`${view}-28`, 7).slice(0, 7);
       body = head(addDays(first, -1).slice(0, 7), `${cap(MONTHS[m - 1])} ${y}`, nextM, false, `${nextM}-01` > max)
         + `<div class="cal-grid">${WEEK.map((w) => `<span class="cal-wd">${w}</span>`).join('')}
-        ${days.slice(0, lastRow).map((d) => `<button type="button" data-pick="${d}" class="cal-day ${d.slice(0, 7) !== view ? 'out' : ''} ${kind === 'day' && d === value ? 'sel' : ''}" ${d <= max ? '' : 'disabled'}>${Number(d.slice(8))}</button>`).join('')}</div>`;
+        ${days.slice(0, lastRow).map((d) => `<button type="button" data-pick="${d}" class="cal-day ${d.slice(0, 7) !== view ? 'out' : ''} ${d === selD ? 'sel' : ''}" ${d <= max ? '' : 'disabled'}>${Number(d.slice(8))}</button>`).join('')}</div>`;
     } else if (tab === 'month') {
       body = head(String(year - 1), String(year), String(year + 1), false, year >= maxY)
-        + `<div class="cal-grid pp-grid">${MONTHS.map((n, i) => { const mm = `${year}-${String(i + 1).padStart(2, '0')}`; return `<button type="button" data-pick="${mm}" class="cal-day ${kind === 'month' && value.startsWith(mm) ? 'sel' : ''}" ${mm <= max.slice(0, 7) ? '' : 'disabled'}>${cap(n)}</button>`; }).join('')}</div>`;
+        + `<div class="cal-grid pp-grid">${MONTHS.map((n, i) => { const mm = `${year}-${String(i + 1).padStart(2, '0')}`; return `<button type="button" data-pick="${mm}" class="cal-day ${mm === selM ? 'sel' : ''}" ${mm <= max.slice(0, 7) ? '' : 'disabled'}>${cap(n)}</button>`; }).join('')}</div>`;
     } else {
       const ys = Array.from({ length: 12 }, (_, i) => yPage - 11 + i);
       body = head(String(yPage - 12), `${ys[0]} – ${ys[11]}`, String(yPage + 12), false, yPage >= maxY)
-        + `<div class="cal-grid pp-grid">${ys.map((y) => `<button type="button" data-pick="${y}" class="cal-day ${kind === 'year' && value.startsWith(String(y)) ? 'sel' : ''}" ${y <= maxY ? '' : 'disabled'}>${y}</button>`).join('')}</div>`;
+        + `<div class="cal-grid pp-grid">${ys.map((y) => `<button type="button" data-pick="${y}" class="cal-day ${y === selY ? 'sel' : ''}" ${y <= maxY ? '' : 'disabled'}>${y}</button>`).join('')}</div>`;
     }
     // Yil → Oy → Kun ketma-ket: kun bosilganda yopiladi; butun yil yoki oyni ham shu yerdan ko'rsatsa bo'ladi
     const [vy, vm] = view.split('-').map(Number);
@@ -268,8 +273,8 @@ export function openPeriodPicker(anchor, { kind = 'day', value, max, onPick }) {
     const pk = e.target.closest('[data-pick]');
     if (!pk || pk.disabled) return;
     const v = pk.dataset.pick;
-    if (tab === 'year') { year = Number(v); const vm = `${year}-${view.slice(5, 7)}`; view = vm < max.slice(0, 7) ? vm : max.slice(0, 7); tab = 'month'; draw(); return; }
-    if (tab === 'month') { view = v.slice(0, 7) < max.slice(0, 7) ? v : max.slice(0, 7); tab = 'day'; draw(); return; }
+    if (tab === 'year') { year = Number(v); if (selY !== year) { selY = year; selM = null; selD = null; } const vm = `${year}-${view.slice(5, 7)}`; view = vm < max.slice(0, 7) ? vm : max.slice(0, 7); tab = 'month'; draw(); return; }
+    if (tab === 'month') { view = v.slice(0, 7) < max.slice(0, 7) ? v : max.slice(0, 7); selY = year; if (selM !== v) { selM = v; selD = null; } tab = 'day'; draw(); return; }
     close(); onPick({ kind: 'day', value: v });
   });
   const outside = (e) => { if (!pop.contains(e.target) && !anchor.contains(e.target)) close(); };

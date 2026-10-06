@@ -105,7 +105,7 @@ export async function renderDynamics(inside = false) {
   document.querySelectorAll('[data-dd]').forEach((b) => { b.onclick = () => { f.day = Math.max(0, f.day + Number(b.dataset.dd)); f.pick = null; renderDynamics(true); }; });
   // Umumiy tanlash: yil → o'sha yilning oylari yonma-yon; oy → kunma-kun; kun → o'sha kun hisoboti
   const pb = $('#dynPick');
-  pb.onclick = () => openPeriodPicker(pb, { kind: f.pick?.kind || 'day', value: f.pick?.value || yday, max: yday, onPick: ({ kind, value }) => {
+  pb.onclick = () => openPeriodPicker(pb, { value: f.pick?.value || null, max: yday, onPick: ({ kind, value }) => {
     const [y, m] = value.split('-').map(Number);
     const [ty, tm] = yday.split('-').map(Number);
     if (kind === 'day') { f.view = 'day'; f.day = Math.round((Date.parse(yday) - Date.parse(value)) / 864e5); f.pick = { kind, value, label: prettyDate(value) }; }
