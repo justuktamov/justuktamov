@@ -56,11 +56,11 @@ export async function renderDynamics(inside = false) {
   state.dyn.mcount ||= 6;
   const f = state.dyn;
   const V = VIEWS.find((v) => v[0] === f.view) || VIEWS[0];
-  // «Hafta (7 kun)»: dushanbadan yakshanbagacha; ‹ › bilan oldingi haftalar
+  // «Hafta (7 kun)»: kechagi kun bilan tugaydigan oxirgi 7 kun; ‹ › bilan oldingi 7 kunlar
   f.week ||= 0;
   const yday = state.me.reportDay;
-  const monday = addDays(yday, -((new Date(`${yday}T00:00:00Z`).getUTCDay() + 6) % 7) - 7 * f.week);
-  const sunday = addDays(monday, 6);
+  const sunday = addDays(yday, -7 * f.week);
+  const monday = addDays(sunday, -6);
   // «Oy (kunma-kun)»: oyning 1-kunidan oxirigacha, kalendar ko'rinishida; ‹ › bilan oldingi oylar
   f.month ||= 0;
   const mFirst = (() => { const [y, m] = yday.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 - f.month, 1)); return d.toISOString().slice(0, 10); })();
@@ -179,7 +179,7 @@ export async function renderDynamics(inside = false) {
         + h(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar' : 'Sof foyda', `${signed(r.net_profit, false)}<i>so'm</i>`, `xarajatdan keyin${delta(r, prevR, 'net_profit', 1)}`);
     };
     // Kalendar: dushanbadan boshlanadi — oyning birinchi kunigacha bo'sh kataklar
-    const lead = (new Date(`${pStart}T00:00:00Z`).getUTCDay() + 6) % 7;
+    const lead = isMo ? (new Date(`${mFirst}T00:00:00Z`).getUTCDay() + 6) % 7 : 0;
     const cards = '<div class="wd-blank"></div>'.repeat(lead) + list.map((x, i) => `<div class="wd-card ${x.r ? '' : 'empty'}"><div class="wd-head"><b>${shortDate(x.d)}</b><span>${x.name}</span></div>
       ${x.r ? heroes(x.r, list[i - 1]?.r) : `<div class="wd-none">${x.future ? 'hali kelmagan' : 'kiritilmagan'}</div>`}</div>`).join('');
     const title = isMo ? 'Oy jami' : 'Hafta jami';
