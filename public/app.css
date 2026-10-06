@@ -1107,3 +1107,8 @@ input, select, textarea { color-scheme: light; }
 .wd-grid.mon-grid { grid-template-columns: repeat(var(--mc, 6), minmax(0, 1fr)) !important; }
 .mon-grid .wd-head b { text-transform: capitalize; }
 @media (max-width: 860px) { .wd-grid.mon-grid { grid-template-columns: minmax(0, 1fr) !important; } }
+.mp-caret { display: inline-block; margin-left: 5px; transition: transform .2s; }
+.mp-caret.open { transform: rotate(180deg); }
+.mon-seg.mp-in { animation: mpIn .28s ease-out; transform-origin: left center; }
+@keyframes mpIn { from { opacity: 0; transform: translateX(-14px) scaleX(.92); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mon-seg.mp-in { animation: none; } .mp-caret { transition: none; } }
