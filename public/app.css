@@ -1112,3 +1112,12 @@ input, select, textarea { color-scheme: light; }
 .mon-seg.mp-in { animation: mpIn .28s ease-out; transform-origin: left center; }
 @keyframes mpIn { from { opacity: 0; transform: translateX(-14px) scaleX(.92); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .mon-seg.mp-in { animation: none; } .mp-caret { transition: none; } }
+/* Dinamika: umumiy «Sana tanlash» — Yil · Oy · Kun */
+.pp-btn.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+.pp-btn.on svg { stroke: #fff; }
+.pp-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; background: var(--surface-2); border-radius: 12px; }
+.pp-tabs button { border: 0; background: none; border-radius: 9px; padding: 7px; font: inherit; font-size: 13px; font-weight: 700; color: var(--text-2); cursor: pointer; }
+.pp-tabs button.on { background: #fff; color: var(--text); box-shadow: 0 1px 4px rgba(16, 24, 40, .12); }
+.cal-pp .pp-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.cal-pp .pp-grid .cal-day { height: 44px; font-weight: 600; }
+.cal-pp .pp-grid .cal-day { font-size: 13px; }

@@ -202,6 +202,72 @@ export function openCalendar(anchor, { value, min = null, max = null, onPick }) 
   (pop.querySelector('.cal-day.sel:not([disabled])') || pop.querySelector('.cal-day:not([disabled])'))?.focus();
 }
 
+// Umumiy sana tanlagich: Yil · Oy · Kun yorliqlari — istalgan yil, oy yoki kunni tanlash
+// onPick({ kind: 'year' | 'month' | 'day', value: 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD' })
+export function openPeriodPicker(anchor, { kind = 'day', value, max, onPick }) {
+  calClose?.();
+  menuClose?.();
+  let tab = kind;
+  let view = value.slice(0, 7); // Kun: ko'rinayotgan oy
+  let year = Number(value.slice(0, 4)); // Oy: ko'rinayotgan yil
+  const maxY = Number(max.slice(0, 4));
+  let yPage = maxY; // Yil: sahifaning oxirgi yili (12 tadan)
+  const pop = document.createElement('div');
+  pop.className = 'cal cal-pp';
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-label', 'Yil, oy yoki kun tanlash');
+  const cap = (s) => s[0].toUpperCase() + s.slice(1);
+  const tabs = () => `<div class="pp-tabs" role="tablist">${[['year', 'Yil'], ['month', 'Oy'], ['day', 'Kun']].map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" class="${tab === k ? 'on' : ''}" aria-selected="${tab === k}">${l}</button>`).join('')}</div>`;
+  const head = (prev, label, next, prevOff, nextOff) => `<div class="cal-head">
+      <button type="button" class="cal-nav" data-nav="${prev}" aria-label="Oldingi" ${prevOff ? 'disabled' : ''}>‹</button><b>${label}</b>
+      <button type="button" class="cal-nav" data-nav="${next}" aria-label="Keyingi" ${nextOff ? 'disabled' : ''}>›</button></div>`;
+  const draw = () => {
+    let body = '';
+    if (tab === 'day') {
+      const [y, m] = view.split('-').map(Number);
+      const first = `${view}-01`;
+      const start = addDays(first, -((new Date(`${first}T00:00:00Z`).getUTCDay() + 6) % 7));
+      const days = Array.from({ length: 42 }, (_, i) => addDays(start, i));
+      const lastRow = days.slice(35).every((d) => d.slice(0, 7) !== view) ? 35 : 42;
+      const nextM = addDays(`${view}-28`, 7).slice(0, 7);
+      body = head(addDays(first, -1).slice(0, 7), `${cap(MONTHS[m - 1])} ${y}`, nextM, false, `${nextM}-01` > max)
+        + `<div class="cal-grid">${WEEK.map((w) => `<span class="cal-wd">${w}</span>`).join('')}
+        ${days.slice(0, lastRow).map((d) => `<button type="button" data-pick="${d}" class="cal-day ${d.slice(0, 7) !== view ? 'out' : ''} ${kind === 'day' && d === value ? 'sel' : ''}" ${d <= max ? '' : 'disabled'}>${Number(d.slice(8))}</button>`).join('')}</div>`;
+    } else if (tab === 'month') {
+      body = head(String(year - 1), String(year), String(year + 1), false, year >= maxY)
+        + `<div class="cal-grid pp-grid">${MONTHS.map((n, i) => { const mm = `${year}-${String(i + 1).padStart(2, '0')}`; return `<button type="button" data-pick="${mm}" class="cal-day ${kind === 'month' && value.startsWith(mm) ? 'sel' : ''}" ${mm <= max.slice(0, 7) ? '' : 'disabled'}>${cap(n)}</button>`; }).join('')}</div>`;
+    } else {
+      const ys = Array.from({ length: 12 }, (_, i) => yPage - 11 + i);
+      body = head(String(yPage - 12), `${ys[0]} – ${ys[11]}`, String(yPage + 12), false, yPage >= maxY)
+        + `<div class="cal-grid pp-grid">${ys.map((y) => `<button type="button" data-pick="${y}" class="cal-day ${kind === 'year' && value.startsWith(String(y)) ? 'sel' : ''}" ${y <= maxY ? '' : 'disabled'}>${y}</button>`).join('')}</div>`;
+    }
+    pop.innerHTML = tabs() + body;
+  };
+  draw();
+  document.body.append(pop);
+  const r = anchor.getBoundingClientRect();
+  const w = pop.offsetWidth;
+  pop.style.top = `${r.bottom + window.scrollY + 8}px`;
+  pop.style.left = `${Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - w - 8))}px`;
+  pop.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const t = e.target.closest('[data-tab]');
+    if (t) { tab = t.dataset.tab; draw(); return; }
+    const nav = e.target.closest('[data-nav]');
+    if (nav && !nav.disabled) {
+      if (tab === 'day') view = nav.dataset.nav; else if (tab === 'month') year = Number(nav.dataset.nav); else yPage = Math.min(Number(nav.dataset.nav), maxY);
+      draw(); return;
+    }
+    const pk = e.target.closest('[data-pick]');
+    if (pk && !pk.disabled) { close(); onPick({ kind: tab, value: pk.dataset.pick }); }
+  });
+  const outside = (e) => { if (!pop.contains(e.target) && !anchor.contains(e.target)) close(); };
+  const esc = (e) => { if (e.key === 'Escape') { close(); anchor.focus(); } };
+  function close() { pop.remove(); document.removeEventListener('mousedown', outside); document.removeEventListener('keydown', esc); calClose = null; }
+  setTimeout(() => { document.addEventListener('mousedown', outside); document.addEventListener('keydown', esc); });
+  calClose = close;
+}
+
 // Oraliq: bitta kalendarda 1-bosish — boshlanish, 2-bosish — tugash; orasidagi kunlar belgilanadi
 export function openRangeCalendar(anchor, { from, to, max = null, onPick }) {
   calClose?.();

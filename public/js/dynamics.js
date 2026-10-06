@@ -1,6 +1,6 @@
 // Oylar bo'yicha dinamika: tushum, xarajat, foyda, lid narxi, konversiya — oyma-oy qanday o'zgaryapti
 import {
-  $, esc, api, state, shell, fmtN, fmtUsd, fmtUzs, fmtP, spinnerBlock, isStale, monthLabel, shortDate, addDays, chartBase, cssVar,
+  $, esc, api, state, shell, fmtN, fmtUsd, fmtUzs, fmtP, spinnerBlock, isStale, monthLabel, shortDate, addDays, chartBase, cssVar, openPeriodPicker, ICONS, prettyDate,
 } from './core.js';
 import { dot, signed, M_IC } from './blocks.js';
 
@@ -52,7 +52,7 @@ function change(key, perDay, cur, prev) {
 // Sahifaga kirilganda doim «Hafta (7 kun)», joriy hafta; sahifa ichidagi almashtirishlar saqlanadi
 export async function renderDynamics(inside = false) {
   state.dyn ||= { project: '', view: 'wk' };
-  if (!inside) Object.assign(state.dyn, { view: 'wk', week: 0, month: 0, day: 0 });
+  if (!inside) Object.assign(state.dyn, { view: 'wk', week: 0, month: 0, day: 0, pick: null });
   const f = state.dyn;
   // «Oylar»: istalgan oylarni belgilab solishtirish (masalan 1- va 6-oy); standart — oxirgi 3 oy
   const yMon = state.me.reportDay.slice(0, 7);
@@ -86,8 +86,9 @@ export async function renderDynamics(inside = false) {
   const projects = state.projects.filter((x) => x.active);
   shell(`<div class="page-head"><div><h1>Dinamika</h1><div class="sub">${V[4]}: o'syapmizmi yoki pasayyapmizmi</div></div>
       <div class="filters">${isDay ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-dd="1" aria-label="Oldingi kun">‹</button><b>${shortDate(dSel)}${f.day ? '' : dBase ? ' · 3 kun oldin' : ' · kecha'}</b><button type="button" class="btn small icon" data-dd="-1" aria-label="Keyingi kun" ${f.day ? '' : 'disabled'}>›</button></span>` : ''}${isWk ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-wk="1" aria-label="${isMo ? 'Oldingi oy' : 'Oldingi hafta'}">‹</button><b>${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`}</b><button type="button" class="btn small icon" data-wk="-1" aria-label="${isMo ? 'Keyingi oy' : 'Keyingi hafta'}" ${(isMo ? f.month : f.week) ? '' : 'disabled'}>›</button></span>` : ''}</div></div>
-    <div class="dyn-bar"><div class="seg" id="dynMonths">${VIEWS.map((v) => `<button data-m="${v[0]}" class="${V[0] === v[0] ? 'on' : ''}" ${v[0] === 'mon' ? `aria-expanded="${isMon && f.mOpen}"` : ''}>${v[1]}${v[0] === 'mon' ? `<span class="mp-caret ${isMon && f.mOpen ? 'open' : ''}">›</span>` : ''}</button>`).join('')}</div>
-      ${isMon && f.mOpen ? `<div class="seg mon-seg ${f.mAnim ? 'mp-in' : ''}" id="dynMp" role="group" aria-label="Oylar — solishtirish uchun bir nechtasini belgilang"><span class="mp-year"><button type="button" data-my="-1" aria-label="Oldingi yil">‹</button><b>${f.mYear}</b><button type="button" data-my="1" aria-label="Keyingi yil" ${f.mYear >= Number(yMon.slice(0, 4)) ? 'disabled' : ''}>›</button></span>${MSHORT.map((n, i) => { const m = `${f.mYear}-${String(i + 1).padStart(2, '0')}`; const on = isMon && f.mSel.includes(m); return `<button type="button" data-ms="${m}" class="mp-m ${on ? 'on' : ''}" aria-pressed="${on}" title="${esc(monthLabel(m))}" ${m > yMon ? 'disabled' : ''}><b>${i + 1}</b><small>${n}</small></button>`; }).join('')}</div>` : ''}</div>
+    <div class="dyn-bar"><div class="seg" id="dynMonths">${VIEWS.map((v) => `<button data-m="${v[0]}" class="${V[0] === v[0] && !f.pick ? 'on' : ''}" ${v[0] === 'mon' ? `aria-expanded="${isMon && f.mOpen}"` : ''}>${v[1]}${v[0] === 'mon' ? `<span class="mp-caret ${isMon && f.mOpen ? 'open' : ''}">›</span>` : ''}</button>`).join('')}</div>
+      ${isMon && f.mOpen ? `<div class="seg mon-seg ${f.mAnim ? 'mp-in' : ''}" id="dynMp" role="group" aria-label="Oylar — solishtirish uchun bir nechtasini belgilang"><span class="mp-year"><button type="button" data-my="-1" aria-label="Oldingi yil">‹</button><b>${f.mYear}</b><button type="button" data-my="1" aria-label="Keyingi yil" ${f.mYear >= Number(yMon.slice(0, 4)) ? 'disabled' : ''}>›</button></span>${MSHORT.map((n, i) => { const m = `${f.mYear}-${String(i + 1).padStart(2, '0')}`; const on = isMon && f.mSel.includes(m); return `<button type="button" data-ms="${m}" class="mp-m ${on ? 'on' : ''}" aria-pressed="${on}" title="${esc(monthLabel(m))}" ${m > yMon ? 'disabled' : ''}><b>${i + 1}</b><small>${n}</small></button>`; }).join('')}</div>` : ''}
+      <button type="button" class="date-btn range-btn pp-btn ${f.pick ? 'on' : ''}" id="dynPick" aria-haspopup="dialog">${ICONS.cal}<span>${f.pick ? esc(f.pick.label) : 'Sana tanlash'}</span></button></div>
     <div class="chips" id="dynProj"><button class="chip ${!f.project ? 'on' : ''}" data-p="">Hammasi</button>${projects.map((p) => `<button class="chip ${String(f.project) === String(p.id) ? 'on' : ''}" data-p="${p.id}">${dot(p.color)}${esc(p.name)}</button>`).join('')}</div>
     <div id="dyn">${spinnerBlock()}</div>`);
   const rid = state.renderId;
@@ -96,11 +97,26 @@ export async function renderDynamics(inside = false) {
   $('#dynMonths').onclick = (e) => {
     const b = e.target.closest('[data-m]');
     if (!b) return;
+    f.pick = null;
     if (b.dataset.m === 'mon') { f.mOpen = isMon ? !f.mOpen : true; f.mAnim = f.mOpen; } else f.mOpen = false;
     f.view = b.dataset.m; f.day = 0; renderDynamics(true);
   };
-  document.querySelectorAll('[data-wk]').forEach((b) => { b.onclick = () => { const k = isMo ? 'month' : 'week'; f[k] = Math.max(0, f[k] + Number(b.dataset.wk)); renderDynamics(true); }; });
-  document.querySelectorAll('[data-dd]').forEach((b) => { b.onclick = () => { f.day = Math.max(0, f.day + Number(b.dataset.dd)); renderDynamics(true); }; });
+  document.querySelectorAll('[data-wk]').forEach((b) => { b.onclick = () => { const k = isMo ? 'month' : 'week'; f[k] = Math.max(0, f[k] + Number(b.dataset.wk)); f.pick = null; renderDynamics(true); }; });
+  document.querySelectorAll('[data-dd]').forEach((b) => { b.onclick = () => { f.day = Math.max(0, f.day + Number(b.dataset.dd)); f.pick = null; renderDynamics(true); }; });
+  // Umumiy tanlash: yil → o'sha yilning oylari yonma-yon; oy → kunma-kun; kun → o'sha kun hisoboti
+  const pb = $('#dynPick');
+  pb.onclick = () => openPeriodPicker(pb, { kind: f.pick?.kind || 'day', value: f.pick?.value || yday, max: yday, onPick: ({ kind, value }) => {
+    const [y, m] = value.split('-').map(Number);
+    const [ty, tm] = yday.split('-').map(Number);
+    if (kind === 'day') { f.view = 'day'; f.day = Math.round((Date.parse(yday) - Date.parse(value)) / 864e5); f.pick = { kind, value, label: prettyDate(value) }; }
+    else if (kind === 'month') { f.view = 'mo'; f.month = (ty - y) * 12 + tm - m; f.pick = { kind, value, label: monthLabel(value) }; }
+    else {
+      f.view = 'mon'; f.mOpen = false; f.mYear = y;
+      f.mSel = Array.from({ length: 12 }, (_, i) => `${y}-${String(i + 1).padStart(2, '0')}`).filter((x) => x <= yMon);
+      f.pick = { kind, value, label: `${y} yil` };
+    }
+    renderDynamics(true);
+  } });
   const mp = $('#dynMp');
   if (mp) mp.onclick = (e) => {
     const y = e.target.closest('[data-my]');
@@ -108,6 +124,7 @@ export async function renderDynamics(inside = false) {
     const b = e.target.closest('[data-ms]');
     if (!b || b.disabled) return;
     const m = b.dataset.ms;
+    f.pick = null;
     if (f.mSel.includes(m)) { if (f.mSel.length > 1) f.mSel = f.mSel.filter((x) => x !== m); } // kamida bitta oy qoladi
     else if (f.mSel.length < 12) f.mSel = [...f.mSel, m];
     renderDynamics(true);
