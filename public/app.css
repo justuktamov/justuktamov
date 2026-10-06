@@ -1093,3 +1093,7 @@ input, select, textarea { color-scheme: light; }
 .cal-months .mgrid { grid-template-columns: repeat(3, 1fr); gap: 6px 0; }
 .cal-months .cal-day { height: 42px; text-transform: capitalize; font-weight: 600; }
 .range-btn .mr-n { font-style: normal; font-size: 12px; font-weight: 700; color: var(--blue); background: #e6efff; border-radius: 999px; padding: 2px 8px; margin-left: 2px; }
+/* Dinamika «Oylar»: tanlangan oylar yonma-yon (6 tadan ko'p bo'lsa keyingi qatorga) */
+.wd-grid.mon-grid { grid-template-columns: repeat(var(--mc, 6), minmax(0, 1fr)) !important; }
+.mon-grid .wd-head b { text-transform: capitalize; }
+@media (max-width: 860px) { .wd-grid.mon-grid { grid-template-columns: minmax(0, 1fr) !important; } }

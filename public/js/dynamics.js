@@ -149,7 +149,7 @@ export async function renderDynamics(inside = false) {
           ${spark(months.map((m) => row(m)?.[k] ?? 0), cls)}</div>`;
       };
       const loss = (L.net_profit || 0) < 0;
-      if (isWk) return weekDays(p, row);
+      if (isWk || isMon) return weekDays(p, row);
       return `<section class="card dp-card" style="--pc:${esc(p.color || '#4c86ff')}"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${isWk ? `${shortDate(monday)} – ${shortDate(sunday)}` : esc(periodLabel(last))}</span></div>
         ${`
         ${hero('ad', M_IC.ad, 'Reklama', 'spend', (x) => fmtUsd(x, 0), 0, `${fmtUzs(L.spend_uzs)} so'm`)}
@@ -165,34 +165,39 @@ export async function renderDynamics(inside = false) {
   function weekDays(p, row) {
     const DAYS = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'];
     const list = [];
-    for (let d = pStart; d <= pEnd; d = addDays(d, 1)) {
+    // Oylar: tanlangan davrning har bir oyi yonma-yon (ma'lumotsiz oylar ham)
+    if (isMon) for (const m of data) list.push({ head: esc(monthLabel(m.month)), name: m.partial ? `${m.days} kun` : '', r: m.has ? row(m) : null, days: m.days });
+    else for (let d = pStart; d <= pEnd; d = addDays(d, 1)) {
       const m = months.find((x) => x.from === d);
-      list.push({ name: DAYS[(new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7], d, r: m?.has ? row(m) : null, future: d > yday });
+      list.push({ head: shortDate(d), name: DAYS[(new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7], d, r: m?.has ? row(m) : null, future: d > yday, days: 1 });
     }
     const tot = { spend: 0, spend_uzs: 0, revenue: 0, net_profit: 0, sales: 0 };
     for (const x of list) if (x.r) for (const k of Object.keys(tot)) tot[k] += x.r[k] || 0;
-    const delta = (cur, prevR, k, good) => {
-      const a = cur?.[k], b0 = prevR?.[k];
+    const delta = (cur, prevR, k, good, dc = 1, dp = 1) => {
+      // Oylar: tugamagan oy to'liq oy bilan kunlik sur'atda solishtiriladi
+      const a = cur?.[k] == null ? null : cur[k] / dc, b0 = prevR?.[k] == null ? null : prevR[k] / dp;
       if (a == null || b0 == null || b0 === 0) return '';
       const d = (a - b0) / Math.abs(b0);
       const cls = !good || Math.abs(d) < 0.03 ? '' : (d > 0) === (good > 0) ? 'up' : 'down';
       return `<span class="wd-delta dp-d ${cls}">${d > 0 ? '▲' : '▼'} ${Math.abs(d) >= 10 ? '>999' : fmtN(Math.abs(d) * 100, 0)}%</span>`;
     };
-    const heroes = (r, prevR) => {
+    const heroes = (r, prevR, dc, dp) => {
       const loss = (r.net_profit || 0) < 0;
       const h = (cls, icon, label, value, sub) => `<div class="m-hero ${cls} wd-hero"><span class="m-ic">${icon}</span><div><small>${label}</small><b>${value}</b><span class="m-sub">${sub}</span></div></div>`; // ▲▼ — o'ng yuqori burchakda
-      return h('ad', M_IC.ad, 'Reklama', fmtUsd(r.spend, 0), `${fmtUzs(r.spend_uzs)} so'm${delta(r, prevR, 'spend', 0)}`)
-        + h('rev', M_IC.rev, 'Tushum', `${fmtUzs(r.revenue)}<i>so'm</i>`, `${fmtN(r.sales)} ta sotuv${delta(r, prevR, 'revenue', 1)}`)
-        + h(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar' : 'Sof foyda', `${signed(r.net_profit, false)}<i>so'm</i>`, `xarajatdan keyin${delta(r, prevR, 'net_profit', 1)}`);
+      return h('ad', M_IC.ad, 'Reklama', fmtUsd(r.spend, 0), `${fmtUzs(r.spend_uzs)} so'm${delta(r, prevR, 'spend', 0, dc, dp)}`)
+        + h('rev', M_IC.rev, 'Tushum', `${fmtUzs(r.revenue)}<i>so'm</i>`, `${fmtN(r.sales)} ta sotuv${delta(r, prevR, 'revenue', 1, dc, dp)}`)
+        + h(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar' : 'Sof foyda', `${signed(r.net_profit, false)}<i>so'm</i>`, `xarajatdan keyin${delta(r, prevR, 'net_profit', 1, dc, dp)}`);
     };
     // Kalendar: dushanbadan boshlanadi — oyning birinchi kunigacha bo'sh kataklar
     const lead = isMo ? (new Date(`${mFirst}T00:00:00Z`).getUTCDay() + 6) % 7 : 0;
-    const cards = '<div class="wd-blank"></div>'.repeat(lead) + list.map((x, i) => `<div class="wd-card ${x.r ? '' : 'empty'}"><div class="wd-head"><b>${shortDate(x.d)}</b><span>${x.name}</span></div>
-      ${x.r ? heroes(x.r, list[i - 1]?.r) : `<div class="wd-none">${x.future ? 'hali kelmagan' : 'kiritilmagan'}</div>`}</div>`).join('');
-    const title = isMo ? 'Oy jami' : 'Hafta jami';
-    return `<section class="card wd-proj" style="--pc:${esc(p.color || '#4c86ff')}"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`} · ▲▼ oldingi kunga</span></div>
-      <div class="wd-grid">${cards}</div>
-      <div class="wd-card total wd-total"><div class="wd-head"><b>${title}</b><span>${list.filter((x) => x.r).length} kun</span></div><div class="wd-total-row">${heroes(tot)}</div></div></section>`;
+    const cards = '<div class="wd-blank"></div>'.repeat(lead) + list.map((x, i) => `<div class="wd-card ${x.r ? '' : 'empty'}"><div class="wd-head"><b>${x.head}</b><span>${x.name}</span></div>
+      ${x.r ? heroes(x.r, list[i - 1]?.r, x.days, list[i - 1]?.days) : `<div class="wd-none">${x.future ? 'hali kelmagan' : 'kiritilmagan'}</div>`}</div>`).join('');
+    const title = isMon ? 'Davr jami' : isMo ? 'Oy jami' : 'Hafta jami';
+    const span = isMon ? `${esc(monthLabel(f.mFrom))} – ${esc(monthLabel(f.mTo))} · ▲▼ o'tgan oyga (kunlik sur'atda)` : `${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`} · ▲▼ oldingi kunga`;
+    const cols = isMon ? ` style="--mc:${Math.min(list.length, 6)}"` : '';
+    return `<section class="card wd-proj" style="--pc:${esc(p.color || '#4c86ff')}"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${span}</span></div>
+      <div class="wd-grid ${isMon ? 'mon-grid' : ''}"${cols}>${cards}</div>
+      <div class="wd-card total wd-total"><div class="wd-head"><b>${title}</b><span>${isMon ? `${list.filter((x) => x.r).length} oy` : `${list.filter((x) => x.r).length} kun`}</span></div><div class="wd-total-row">${heroes(tot)}</div></div></section>`;
   }
 
 
