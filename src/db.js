@@ -27,6 +27,7 @@ export const FIELDS = {
   potential: 'Potensial lidlar',
   unqualified: 'Sifatsiz lidlar',
   // Lid holatlari (ROP aytadi): qayta aloqa, o'ylab ko'radi, video ko'rishi kerak, bekor qilindi
+  st_nopickup: "Ko'tarmadi",
   st_callback: 'Qayta aloqa',
   st_thinking: "O'ylab ko'radi",
   st_video: "Video ko'rishi kerak",

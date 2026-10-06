@@ -120,7 +120,7 @@ export function generateDemo(end, days = 150) {
       // Lid holatlari (ROP): potensial va sotib olmaganlar ichidan
       if (!auto && !noData && k < 30) {
         const pool = Math.max(leads - unqualified - sales, 0);
-        Object.assign(daily.at(-1), { st_callback: Math.round(pool * jitter(0.3, 0.3)), st_thinking: Math.round(pool * jitter(0.25, 0.3)), st_video: Math.round(pool * jitter(0.15, 0.4)), st_cancelled: Math.round(pool * jitter(0.1, 0.4)) });
+        Object.assign(daily.at(-1), { st_nopickup: Math.round(pool * jitter(0.2, 0.4)), st_callback: Math.round(pool * jitter(0.3, 0.3)), st_thinking: Math.round(pool * jitter(0.25, 0.3)), st_video: Math.round(pool * jitter(0.15, 0.4)), st_cancelled: Math.round(pool * jitter(0.1, 0.4)) });
       }
       if (!auto && !noData && k < 30) Object.assign(daily.at(-1), { src_ig: Math.round(leads * jitter(SRC_MIX[i][0], 0.3)), src_tg: Math.round(leads * jitter(SRC_MIX[i][1], 0.3)) });
       // Kanallar bo'yicha bo'linish (oxirgi 30 kun — PM shundan beri kiritadi)

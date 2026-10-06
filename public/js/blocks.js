@@ -178,7 +178,7 @@ export function qualityBlock(p) {
 }
 
 // Lid holatlari: qayta aloqa, o'ylab ko'radi, video ko'rishi kerak, bekor qilindi
-export const LEAD_STATUS = [['st_callback', 'Qayta aloqa'], ['st_thinking', "O'ylab ko'radi"], ['st_video', "Video ko'rishi kerak"], ['st_cancelled', 'Bekor qilindi']];
+export const LEAD_STATUS = [['st_nopickup', "Ko'tarmadi"], ['st_callback', 'Qayta aloqa'], ['st_thinking', "O'ylab ko'radi"], ['st_video', "Video ko'rishi kerak"], ['st_cancelled', 'Bekor qilindi']];
 function leadStatus(p) {
   const rows = LEAD_STATUS.filter(([k]) => p.reported?.[k]);
   if (!rows.length) return '';
