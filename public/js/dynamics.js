@@ -31,7 +31,7 @@ const ROWS = [
 ];
 
 // [kalit, tugma, birlik, nechta, sarlavha]
-const VIEWS = [['wk', 'Hafta (7 kun)', 'day', 7, 'Bir hafta kunma-kun'], ['mo', 'Oy (kunma-kun)', 'day', 31, 'Bir oy kunma-kun'], ['day', 'Kun', 'day', 2, 'Bir kun'], ['w8', 'Haftalar', 'week', 8, 'Haftama-hafta'], ['mon', 'Oylar', 'month', 6, 'Oyma-oy']];
+const VIEWS = [['wk', 'Hafta (7 kun)', 'day', 7, 'Bir hafta kunma-kun'], ['mo', 'Oy (kunma-kun)', 'day', 31, 'Bir oy kunma-kun'], ['day', 'Kecha', 'day', 2, 'Kechagi hisobot'], ['w8', 'Haftalar', 'week', 8, 'Haftama-hafta'], ['mon', 'Oylar', 'month', 6, 'Oyma-oy']];
 const MONTH_COUNTS = [3, 6, 12, 24];
 const WD = ['yak', 'dush', 'sesh', 'chor', 'pay', 'jum', 'shan'];
 function periodLabel(m) {
