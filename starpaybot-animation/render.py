@@ -1,5 +1,5 @@
 """@STARPAYBOT logo reveal: star pops in, then letters pop in one by one.
-Outputs green-screen MP4, white MP4 and transparent MOV (ProRes 4444)."""
+Outputs green-screen MP4, black MP4 and transparent MOV (ProRes 4444)."""
 import math, os, subprocess, sys
 from PIL import Image, ImageDraw, ImageFont
 
@@ -9,8 +9,7 @@ TEXT = "@STARPAYBOT"
 FONT = "/usr/share/fonts/opentype/inter/InterDisplay-Black.otf"
 SIZE = 88
 TRACK = 7  # extra letter spacing px
-PURPLE = (43, 10, 140, 255)
-ORANGE = (255, 159, 10, 255)
+TEXT_COL = (255, 255, 255, 255)
 SS = 2  # supersampling for glyph sprites
 
 font = ImageFont.truetype(FONT, SIZE * SS)
@@ -36,7 +35,7 @@ glyphs, adv = [], []
 for i, ch in enumerate(TEXT):
     w = int(font.getlength(ch)) + 8 * SS
     im = Image.new("RGBA", (w, asc + desc), (0, 0, 0, 0))
-    ImageDraw.Draw(im).text((4 * SS, 0), ch, font=font, fill=ORANGE if ch == "@" else PURPLE)
+    ImageDraw.Draw(im).text((4 * SS, 0), ch, font=font, fill=TEXT_COL)
     glyphs.append(im)
 # advance from prefix lengths (keeps kerning)
 pref = [font.getlength(TEXT[:i]) / SS + TRACK * i for i in range(len(TEXT) + 1)]
@@ -117,10 +116,10 @@ def frame(t):
         alpha = img.getchannel("A")
         band = Image.new("L", (W, H), 0)
         bx = x0 - 120 + (group + 240) * ease_in_out(sh)
-        ImageDraw.Draw(band).polygon([(bx - 70, top + GH + 40), (bx + 20, top + GH + 40), (bx + 110, top - 40), (bx + 20, top - 40)], fill=110)
+        ImageDraw.Draw(band).polygon([(bx - 70, top + GH + 40), (bx + 20, top + GH + 40), (bx + 110, top - 40), (bx + 20, top - 40)], fill=200)
         from PIL import ImageChops
         mask = ImageChops.multiply(band, alpha)
-        img.paste(Image.new("RGBA", (W, H), (255, 255, 255, 255)), (0, 0), mask)
+        img.paste(Image.new("RGBA", (W, H), (255, 200, 40, 255)), (0, 0), mask)
         img.putalpha(alpha)
     return img
 
@@ -132,7 +131,7 @@ out = sys.argv[1] if len(sys.argv) > 1 else HERE
 h264 = ["-c:v", "libx264", "-preset", "slow", "-crf", "16", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
 procs = {
     (0, 255, 0): enc(os.path.join(out, "starpaybot_green.mp4"), h264),
-    (255, 255, 255): enc(os.path.join(out, "starpaybot_white.mp4"), h264),
+    (0, 0, 0): enc(os.path.join(out, "starpaybot_black.mp4"), h264),
     None: enc(os.path.join(out, "starpaybot_transparent.mov"), ["-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le"]),
 }
 for f in range(int(DUR * FPS)):
