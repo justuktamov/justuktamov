@@ -202,12 +202,20 @@ function column(p, plan, collapsed = false) {
   const issue = p.insights.find((i) => i.level === 'critical') || p.insights.find((i) => i.level === 'warning');
   // Workflow: ko'rish → klik → lid (bot start) → sotuv (xarid); bosqichlar orasida o'tish foizi
   const fc = Object.fromEntries((p.funnel_check?.steps || []).map((x) => [x.key, x]));
+  // Narx hisobi ko'rinib tursin: «1 lid = $30 ÷ 36 = $0.83» (target puli); bloger/kanal ham bo'lsa — umumiy narx alohida
+  const unitCost = (label, n) => {
+    if (!n || !(p.spend > 0)) return null;
+    const t = p.target_spend || 0;
+    const main = t > 0 ? `${label} = ${fmtUsd(t, 0)} ÷ ${fmtN(n)} = <b>${fmtUsd(t / n)}</b>` : '';
+    const all = p.spend > t + 0.5 ? `umumiy ${fmtUsd(p.spend, 0)} ÷ ${fmtN(n)} = <b>${fmtUsd(p.spend / n)}</b>` : '';
+    return [main, all].filter(Boolean).join('<br>');
+  };
   const steps = [
     p.reported.impressions ? ["Ko'rishlar", p.impressions, null] : null,
     ['Klik', p.clicks, p.reported.impressions ? ['CTR', p.ctr, fc.ctr] : null, p.cpc != null ? `1 klik ${fmtUsd(p.cpc)} · target ${fmtUsd(p.target_spend, 0)}` : null],
-    auto ? (p.reported.starts ? ['Bot start', p.starts, ['', p.click_to_start, fc.click_to_start]] : null)
-      : ['Lid', p.leads, ['', p.click_to_lead, fc.click_to_lead]],
-    [auto ? 'Xarid' : 'Sotuv', p.sales, ['', p.conv, fc.conv]],
+    auto ? (p.reported.starts ? ['Bot start', p.starts, ['', p.click_to_start, fc.click_to_start], unitCost('1 start', p.starts)] : null)
+      : ['Lid', p.leads, ['', p.click_to_lead, fc.click_to_lead], unitCost('1 lid', p.leads)],
+    [auto ? 'Xarid' : 'Sotuv', p.sales, ['', p.conv, fc.conv], unitCost('1 mijoz', p.sales)],
   ].filter(Boolean);
   const worst = p.funnel_check?.worst;
   const q = [['q-good', p.qualified], ['q-mid', p.potential], ['q-bad', p.unqualified]];

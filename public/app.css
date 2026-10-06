@@ -1087,3 +1087,4 @@ input, select, textarea { color-scheme: light; }
 .cal-range .cal-day.r-one { border-radius: 10px; }
 .cal-range .cal-day:not(.r-in):not(.r-start):not(.r-end):not(.r-one) { border-radius: 10px; }
 .range-btn span { font-variant-numeric: tabular-nums; font-weight: 700; }
+.fv-node em b { color: var(--text); font-weight: 800; }
