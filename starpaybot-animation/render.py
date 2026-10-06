@@ -132,17 +132,21 @@ h264 = ["-c:v", "libx264", "-preset", "slow", "-crf", "16", "-pix_fmt", "yuv420p
 procs = {
     (0, 255, 0): enc(os.path.join(out, "starpaybot_green.mp4"), h264),
     (0, 0, 0): enc(os.path.join(out, "starpaybot_black.mp4"), h264),
-    None: enc(os.path.join(out, "starpaybot_transparent.mov"), ["-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le"]),
 }
+alpha_outs = [
+    enc(os.path.join(out, "starpaybot_transparent.mov"), ["-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le"]),
+    enc(os.path.join(out, "starpaybot_transparent.webm"), ["-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", "-b:v", "0", "-crf", "24", "-auto-alt-ref", "0"]),
+    enc(os.path.join(out, "starpaybot_transparent_png.mov"), ["-c:v", "png", "-pix_fmt", "rgba"]),
+]
 for f in range(int(DUR * FPS)):
     fr = frame(f / FPS)
+    for p in alpha_outs:
+        p.stdin.write(fr.tobytes())
     for bg, p in procs.items():
-        if bg is None:
-            p.stdin.write(fr.tobytes())
-        else:
+        if True:
             b = Image.new("RGBA", (W, H), bg + (255,))
             b.alpha_composite(fr)
             p.stdin.write(b.tobytes())
-for p in procs.values():
+for p in list(procs.values()) + alpha_outs:
     p.stdin.close(); p.wait()
 print("done")
