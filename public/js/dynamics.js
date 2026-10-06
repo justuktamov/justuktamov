@@ -31,7 +31,8 @@ const ROWS = [
 ];
 
 // [kalit, tugma, birlik, nechta, sarlavha]
-const VIEWS = [['wk', 'Hafta (7 kun)', 'day', 7, 'Bir hafta kunma-kun'], ['mo', 'Oy (kunma-kun)', 'day', 31, 'Bir oy kunma-kun'], ['d14', 'Kunlar', 'day', 14, 'Kunma-kun'], ['w8', 'Haftalar', 'week', 8, 'Haftama-hafta'], ['m6', '6 oy', 'month', 6, 'Oyma-oy'], ['m12', '12 oy', 'month', 12, 'Oyma-oy']];
+const VIEWS = [['wk', 'Hafta (7 kun)', 'day', 7, 'Bir hafta kunma-kun'], ['mo', 'Oy (kunma-kun)', 'day', 31, 'Bir oy kunma-kun'], ['day', 'Kun', 'day', 2, 'Bir kun'], ['w8', 'Haftalar', 'week', 8, 'Haftama-hafta'], ['mon', 'Oylar', 'month', 6, 'Oyma-oy']];
+const MONTH_COUNTS = [3, 6, 12, 24];
 const WD = ['yak', 'dush', 'sesh', 'chor', 'pay', 'jum', 'shan'];
 function periodLabel(m) {
   if (m.unit === 'day') return `${shortDate(m.from)}, ${WD[new Date(`${m.from}T00:00:00Z`).getUTCDay()]}`;
@@ -51,7 +52,8 @@ function change(key, perDay, cur, prev) {
 // Sahifaga kirilganda doim «Hafta (7 kun)», joriy hafta; sahifa ichidagi almashtirishlar saqlanadi
 export async function renderDynamics(inside = false) {
   state.dyn ||= { project: '', view: 'wk' };
-  if (!inside) Object.assign(state.dyn, { view: 'wk', week: 0, month: 0 });
+  if (!inside) Object.assign(state.dyn, { view: 'wk', week: 0, month: 0, day: 0 });
+  state.dyn.mcount ||= 6;
   const f = state.dyn;
   const V = VIEWS.find((v) => v[0] === f.view) || VIEWS[0];
   // «Hafta (7 kun)»: dushanbadan yakshanbagacha; ‹ › bilan oldingi haftalar
@@ -67,21 +69,31 @@ export async function renderDynamics(inside = false) {
   const pStart = isMo ? mFirst : monday, pEnd = isMo ? mLast : sunday;
   const wkTo = pEnd < yday ? pEnd : yday;
   const isWk = V[0] === 'wk' || isMo;
+  // «Kun»: kechagi hisobot (‹ › bilan oldingi kunlar), oldingi kun bilan solishtiriladi
+  f.day ||= 0;
+  const isDay = V[0] === 'day';
+  const dSel = addDays(yday, -f.day);
+  const isMon = V[0] === 'mon';
   const projects = state.projects.filter((x) => x.active);
   shell(`<div class="page-head"><div><h1>Dinamika</h1><div class="sub">${V[4]}: o'syapmizmi yoki pasayyapmizmi</div></div>
-      <div class="filters">${isWk ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-wk="1" aria-label="${isMo ? 'Oldingi oy' : 'Oldingi hafta'}">‹</button><b>${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`}</b><button type="button" class="btn small icon" data-wk="-1" aria-label="${isMo ? 'Keyingi oy' : 'Keyingi hafta'}" ${(isMo ? f.month : f.week) ? '' : 'disabled'}>›</button></span>` : ''}<div class="seg" id="dynMonths">${VIEWS.map((v) => `<button data-m="${v[0]}" class="${V[0] === v[0] ? 'on' : ''}">${v[1]}</button>`).join('')}</div></div></div>
+      <div class="filters">${isDay ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-dd="1" aria-label="Oldingi kun">‹</button><b>${shortDate(dSel)}${f.day ? '' : ' · kecha'}</b><button type="button" class="btn small icon" data-dd="-1" aria-label="Keyingi kun" ${f.day ? '' : 'disabled'}>›</button></span>` : ''}${isMon ? `<span class="seg seg-sm" id="dynMc" role="group" aria-label="Necha oy">${MONTH_COUNTS.map((n) => `<button data-mc="${n}" class="${f.mcount === n ? 'on' : ''}">${n} oy</button>`).join('')}</span>` : ''}${isWk ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-wk="1" aria-label="${isMo ? 'Oldingi oy' : 'Oldingi hafta'}">‹</button><b>${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`}</b><button type="button" class="btn small icon" data-wk="-1" aria-label="${isMo ? 'Keyingi oy' : 'Keyingi hafta'}" ${(isMo ? f.month : f.week) ? '' : 'disabled'}>›</button></span>` : ''}<div class="seg" id="dynMonths">${VIEWS.map((v) => `<button data-m="${v[0]}" class="${V[0] === v[0] ? 'on' : ''}">${v[1]}</button>`).join('')}</div></div></div>
     <div class="chips" id="dynProj"><button class="chip ${!f.project ? 'on' : ''}" data-p="">Hammasi</button>${projects.map((p) => `<button class="chip ${String(f.project) === String(p.id) ? 'on' : ''}" data-p="${p.id}">${dot(p.color)}${esc(p.name)}</button>`).join('')}</div>
     <div id="dyn">${spinnerBlock()}</div>`);
   const rid = state.renderId;
   $('#dynMonths').onclick = (e) => { const b = e.target.closest('[data-m]'); if (b) { f.view = b.dataset.m; renderDynamics(true); } };
   document.querySelectorAll('[data-wk]').forEach((b) => { b.onclick = () => { const k = isMo ? 'month' : 'week'; f[k] = Math.max(0, f[k] + Number(b.dataset.wk)); renderDynamics(true); }; });
+  document.querySelectorAll('[data-dd]').forEach((b) => { b.onclick = () => { f.day = Math.max(0, f.day + Number(b.dataset.dd)); renderDynamics(true); }; });
+  const mc = $('#dynMc');
+  if (mc) mc.onclick = (e) => { const b = e.target.closest('[data-mc]'); if (b) { f.mcount = Number(b.dataset.mc); renderDynamics(true); } };
   $('#dynProj').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { f.project = b.dataset.p; renderDynamics(true); } };
   let data;
-  try { data = await api(`/api/monthly?${new URLSearchParams({ unit: V[2], months: isWk ? Math.round((Date.parse(wkTo) - Date.parse(pStart)) / 864e5) + 1 : V[3], ...(isWk ? { to: wkTo } : {}), ...(f.project ? { project: f.project } : {}) })}`); } catch (e) { const el = $('#dyn'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  try { data = await api(`/api/monthly?${new URLSearchParams({ unit: V[2], months: isWk ? Math.round((Date.parse(wkTo) - Date.parse(pStart)) / 864e5) + 1 : isMon ? f.mcount : V[3], ...(isWk ? { to: wkTo } : isDay ? { to: dSel } : {}), ...(f.project ? { project: f.project } : {}) })}`); } catch (e) { const el = $('#dyn'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#dyn');
   if (!box || isStale(rid)) return;
-  const months = data.filter((m, i) => m.has || data.slice(0, i).some((x) => x.has));
-  if (!months.length) { box.innerHTML = '<div class="card empty">Hali ma\'lumot yo\'q — kunlik raqamlar kiritilgach davrlar shu yerda solishtiriladi.</div>'; return; }
+  // Hafta/oy/kun ko'rinishida kunlar doim ko'rsatiladi (bir kun kiritilgan bo'lsa ham); qolganlarida — birinchi ma'lumotli davrdan
+  const months = isWk || isDay ? data : data.filter((m, i) => m.has || data.slice(0, i).some((x) => x.has));
+  const anyData = months.some((m) => m.has);
+  if (!months.length || (!anyData && !isWk && !isDay)) { box.innerHTML = '<div class="card empty">Hali ma\'lumot yo\'q — kunlik raqamlar kiritilgach davrlar shu yerda solishtiriladi.</div>'; return; }
 
   const auto = f.project && projects.find((p) => String(p.id) === String(f.project))?.kind === 'auto';
   // «Hammasi»da mijoz narxi va o'rtacha chek arzon avtovoronka bilan aralashib ma'nosini yo'qotadi — faqat loyiha tanlanganda
@@ -185,6 +197,13 @@ export async function renderDynamics(inside = false) {
       return `<td class="n ${x?.net_profit < 0 ? 'neg' : 'pos'}">${x && (x.revenue || x.spend) ? signed(x.net_profit, false) : '—'}</td>`;
     }).join('')}</tr>`).join('')}</tbody></table></div></div>` : '';
 
+  // Kun ko'rinishi: tanlangan kun raqamlari kiritilmagan bo'lsa — ochiq aytiladi
+  if (isDay && !months.at(-1)?.has) {
+    box.innerHTML = `<div class="card empty">${shortDate(dSel)} raqamlari hali kiritilmagan. <a href="#/kiritish">Kechagi hisobot</a> bo'limida kiriting yoki ‹ bilan oldingi kunni oching.</div>`;
+    return;
+  }
+  // Hafta/oy: hech bir kun kiritilmagan bo'lsa ham kunlar kartasi chiqadi (grafik va jadvalsiz)
+  if (!anyData) { box.innerHTML = projCards(); return; }
   box.innerHTML = `${projCards()}<div class="card"><div class="card-head"><h2>Tushum va barcha xarajat</h2><span class="muted small">reklama + tannarx + doimiy xarajat, so'm</span></div>
       <div class="chart-box"><canvas aria-label="Oylar bo'yicha tushum va xarajat"></canvas></div></div>
     <div class="card mt"><div class="card-head"><h2>Ko'rsatkichlar</h2><span class="muted small">▲▼ — ${V[2] === 'day' ? 'oldingi kunga' : V[2] === 'week' ? 'oldingi haftaga' : 'o\'tgan oyga'} nisbatan${V[2] === 'day' ? '' : '; summalar kunlik sur\'atda solishtiriladi'}</span></div>
