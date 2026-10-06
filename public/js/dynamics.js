@@ -112,6 +112,8 @@ export async function renderDynamics(inside = false) {
     const [y, m] = String(value).split('-').map(Number);
     const [ty, tm] = yday.split('-').map(Number);
     if (kind === 'days' && value.length === 1) { f.view = 'day'; f.day = Math.round((Date.parse(yday) - Date.parse(value[0])) / 864e5); f.pick = { kind, value, label: prettyDate(value[0]) }; }
+    else if (kind === 'months' && value.length === 1) { const [my, mm] = value[0].split('-').map(Number); f.view = 'mo'; f.month = (ty - my) * 12 + tm - mm; f.pick = { kind, value, label: monthLabel(value[0]) }; }
+    else if (kind === 'months') { f.view = 'mon'; f.mOpen = false; f.mSel = value; f.mYear = Number(value.at(-1).slice(0, 4)); f.pick = { kind, value, label: `${value.length} oy taqqoslash` }; }
     else if (kind === 'days') { f.view = 'days'; f.dList = value; f.pick = { kind, value, label: `${value.length} kun taqqoslash` }; }
     else if (kind === 'month') { f.view = 'mo'; f.month = (ty - y) * 12 + tm - m; f.pick = { kind, value, label: monthLabel(value) }; }
     else {
