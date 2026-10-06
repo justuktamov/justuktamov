@@ -1,6 +1,6 @@
 // Oylar bo'yicha dinamika: tushum, xarajat, foyda, lid narxi, konversiya — oyma-oy qanday o'zgaryapti
 import {
-  $, esc, api, state, shell, fmtN, fmtUsd, fmtUzs, fmtP, spinnerBlock, isStale, monthLabel, shortDate, addDays, chartBase, cssVar, openMonthRange, ICONS,
+  $, esc, api, state, shell, fmtN, fmtUsd, fmtUzs, fmtP, spinnerBlock, isStale, monthLabel, shortDate, addDays, chartBase, cssVar,
 } from './core.js';
 import { dot, signed, M_IC } from './blocks.js';
 
@@ -31,6 +31,7 @@ const ROWS = [
 ];
 
 // [kalit, tugma, birlik, nechta, sarlavha]
+const MSHORT = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
 const VIEWS = [['wk', 'Hafta (7 kun)', 'day', 7, 'Bir hafta kunma-kun'], ['mo', 'Oy (kunma-kun)', 'day', 31, 'Bir oy kunma-kun'], ['day', 'Kecha', 'day', 2, 'Kechagi hisobot'], ['d3', '3 kun oldin', 'day', 2, '3 kun oldingi hisobot'], ['mon', 'Oylar', 'month', 6, 'Oyma-oy']];
 const WD = ['yak', 'dush', 'sesh', 'chor', 'pay', 'jum', 'shan'];
 function periodLabel(m) {
@@ -53,13 +54,14 @@ export async function renderDynamics(inside = false) {
   state.dyn ||= { project: '', view: 'wk' };
   if (!inside) Object.assign(state.dyn, { view: 'wk', week: 0, month: 0, day: 0 });
   const f = state.dyn;
-  // «Oylar»: qo'lda tanlanadigan davr — qaysi oydan qaysi oygacha (standart: oxirgi 6 oy)
+  // «Oylar»: istalgan oylarni belgilab solishtirish (masalan 1- va 6-oy); standart — oxirgi 3 oy
   const yMon = state.me.reportDay.slice(0, 7);
   const mShift = (m, n) => { const [y, mm] = m.split('-').map(Number); return new Date(Date.UTC(y, mm - 1 + n, 1)).toISOString().slice(0, 7); };
-  if (!f.mTo || f.mTo > yMon) f.mTo = yMon;
-  if (!f.mFrom || f.mFrom > f.mTo) f.mFrom = mShift(f.mTo, -5);
-  const mCount = (Number(f.mTo.slice(0, 4)) - Number(f.mFrom.slice(0, 4))) * 12 + Number(f.mTo.slice(5)) - Number(f.mFrom.slice(5)) + 1;
-  const mToDay = (() => { const [y, m] = f.mTo.split('-').map(Number); const d = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); return d < state.me.reportDay ? d : state.me.reportDay; })();
+  f.mSel = (f.mSel || []).filter((m) => m <= yMon);
+  if (!f.mSel.length) f.mSel = [mShift(yMon, -2), mShift(yMon, -1), yMon];
+  f.mSel.sort();
+  f.mYear ||= Number(yMon.slice(0, 4));
+  const mEnd = (m) => { const [y, mm] = m.split('-').map(Number); const d = new Date(Date.UTC(y, mm, 0)).toISOString().slice(0, 10); return d < state.me.reportDay ? d : state.me.reportDay; };
   const V = VIEWS.find((v) => v[0] === f.view) || VIEWS[0];
   // «Hafta (7 kun)»: kechagi kun bilan tugaydigan oxirgi 7 kun; ‹ › bilan oldingi 7 kunlar
   f.week ||= 0;
@@ -83,22 +85,39 @@ export async function renderDynamics(inside = false) {
   const isMon = V[0] === 'mon';
   const projects = state.projects.filter((x) => x.active);
   shell(`<div class="page-head"><div><h1>Dinamika</h1><div class="sub">${V[4]}: o'syapmizmi yoki pasayyapmizmi</div></div>
-      <div class="filters">${isDay ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-dd="1" aria-label="Oldingi kun">‹</button><b>${shortDate(dSel)}${f.day ? '' : dBase ? ' · 3 kun oldin' : ' · kecha'}</b><button type="button" class="btn small icon" data-dd="-1" aria-label="Keyingi kun" ${f.day ? '' : 'disabled'}>›</button></span>` : ''}${isMon ? `<button type="button" class="date-btn range-btn" id="dynMr" aria-haspopup="dialog" aria-label="Davr: ${esc(monthLabel(f.mFrom))} — ${esc(monthLabel(f.mTo))}">${ICONS.cal}<span>${esc(monthLabel(f.mFrom))} — ${esc(monthLabel(f.mTo))}</span><i class="mr-n">${mCount} oy</i></button>` : ''}${isWk ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-wk="1" aria-label="${isMo ? 'Oldingi oy' : 'Oldingi hafta'}">‹</button><b>${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`}</b><button type="button" class="btn small icon" data-wk="-1" aria-label="${isMo ? 'Keyingi oy' : 'Keyingi hafta'}" ${(isMo ? f.month : f.week) ? '' : 'disabled'}>›</button></span>` : ''}<div class="seg" id="dynMonths">${VIEWS.map((v) => `<button data-m="${v[0]}" class="${V[0] === v[0] ? 'on' : ''}">${v[1]}</button>`).join('')}</div></div></div>
+      <div class="filters">${isDay ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-dd="1" aria-label="Oldingi kun">‹</button><b>${shortDate(dSel)}${f.day ? '' : dBase ? ' · 3 kun oldin' : ' · kecha'}</b><button type="button" class="btn small icon" data-dd="-1" aria-label="Keyingi kun" ${f.day ? '' : 'disabled'}>›</button></span>` : ''}${isWk ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-wk="1" aria-label="${isMo ? 'Oldingi oy' : 'Oldingi hafta'}">‹</button><b>${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`}</b><button type="button" class="btn small icon" data-wk="-1" aria-label="${isMo ? 'Keyingi oy' : 'Keyingi hafta'}" ${(isMo ? f.month : f.week) ? '' : 'disabled'}>›</button></span>` : ''}<div class="seg" id="dynMonths">${VIEWS.map((v) => `<button data-m="${v[0]}" class="${V[0] === v[0] ? 'on' : ''}">${v[1]}</button>`).join('')}</div></div></div>
     <div class="chips" id="dynProj"><button class="chip ${!f.project ? 'on' : ''}" data-p="">Hammasi</button>${projects.map((p) => `<button class="chip ${String(f.project) === String(p.id) ? 'on' : ''}" data-p="${p.id}">${dot(p.color)}${esc(p.name)}</button>`).join('')}</div>
+    ${isMon ? `<div class="mon-pick" id="dynMp" role="group" aria-label="Solishtiriladigan oylar"><span class="mp-year"><button type="button" class="btn small icon" data-my="-1" aria-label="Oldingi yil">‹</button><b>${f.mYear}</b><button type="button" class="btn small icon" data-my="1" aria-label="Keyingi yil" ${f.mYear >= Number(yMon.slice(0, 4)) ? 'disabled' : ''}>›</button></span>
+      <span class="mp-months">${MSHORT.map((n, i) => { const m = `${f.mYear}-${String(i + 1).padStart(2, '0')}`; return `<button type="button" data-ms="${m}" class="${f.mSel.includes(m) ? 'on' : ''}" aria-pressed="${f.mSel.includes(m)}" title="${esc(monthLabel(m))}" ${m > yMon ? 'disabled' : ''}><b>${i + 1}</b><small>${n}</small></button>`; }).join('')}</span>
+      <span class="muted small mp-hint">${f.mSel.length} oy tanlangan · solishtirish uchun oylarni bosing</span></div>` : ''}
     <div id="dyn">${spinnerBlock()}</div>`);
   const rid = state.renderId;
   $('#dynMonths').onclick = (e) => { const b = e.target.closest('[data-m]'); if (b) { f.view = b.dataset.m; f.day = 0; renderDynamics(true); } };
   document.querySelectorAll('[data-wk]').forEach((b) => { b.onclick = () => { const k = isMo ? 'month' : 'week'; f[k] = Math.max(0, f[k] + Number(b.dataset.wk)); renderDynamics(true); }; });
   document.querySelectorAll('[data-dd]').forEach((b) => { b.onclick = () => { f.day = Math.max(0, f.day + Number(b.dataset.dd)); renderDynamics(true); }; });
-  const mr = $('#dynMr');
-  if (mr) mr.onclick = () => openMonthRange(mr, { from: f.mFrom, to: f.mTo, max: yMon, onPick: (a, b) => { f.mFrom = a; f.mTo = b; renderDynamics(true); } });
+  const mp = $('#dynMp');
+  if (mp) mp.onclick = (e) => {
+    const y = e.target.closest('[data-my]');
+    if (y && !y.disabled) { f.mYear += Number(y.dataset.my); renderDynamics(true); return; }
+    const b = e.target.closest('[data-ms]');
+    if (!b || b.disabled) return;
+    const m = b.dataset.ms;
+    if (f.mSel.includes(m)) { if (f.mSel.length > 1) f.mSel = f.mSel.filter((x) => x !== m); } // kamida bitta oy qoladi
+    else if (f.mSel.length < 12) f.mSel = [...f.mSel, m];
+    renderDynamics(true);
+  };
   $('#dynProj').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { f.project = b.dataset.p; renderDynamics(true); } };
   let data;
-  try { data = await api(`/api/monthly?${new URLSearchParams({ unit: V[2], months: isWk ? Math.round((Date.parse(wkTo) - Date.parse(pStart)) / 864e5) + 1 : isMon ? mCount : V[3], ...(isWk ? { to: wkTo } : isMon ? { to: mToDay } : isDay ? { to: dSel } : {}), ...(f.project ? { project: f.project } : {}) })}`); } catch (e) { const el = $('#dyn'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const q = (o) => api(`/api/monthly?${new URLSearchParams({ ...o, ...(f.project ? { project: f.project } : {}) })}`);
+  try {
+    // Oylar: har bir belgilangan oy alohida olinadi (oralig'idagi oylar kerak emas)
+    data = isMon ? (await Promise.all(f.mSel.map((m) => q({ unit: 'month', months: 1, to: mEnd(m) })))).flat()
+      : await q({ unit: V[2], months: isWk ? Math.round((Date.parse(wkTo) - Date.parse(pStart)) / 864e5) + 1 : V[3], ...(isWk ? { to: wkTo } : isDay ? { to: dSel } : {}) });
+  } catch (e) { const el = $('#dyn'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#dyn');
   if (!box || isStale(rid)) return;
   // Hafta/oy/kun ko'rinishida kunlar doim ko'rsatiladi (bir kun kiritilgan bo'lsa ham); qolganlarida — birinchi ma'lumotli davrdan
-  const months = isWk || isDay ? data : data.filter((m, i) => m.has || data.slice(0, i).some((x) => x.has));
+  const months = isWk || isDay || isMon ? data : data.filter((m, i) => m.has || data.slice(0, i).some((x) => x.has));
   const anyData = months.some((m) => m.has);
   if (!months.length || (!anyData && !isWk && !isDay)) { box.innerHTML = '<div class="card empty">Hali ma\'lumot yo\'q — kunlik raqamlar kiritilgach davrlar shu yerda solishtiriladi.</div>'; return; }
 
@@ -192,8 +211,8 @@ export async function renderDynamics(inside = false) {
     const lead = isMo ? (new Date(`${mFirst}T00:00:00Z`).getUTCDay() + 6) % 7 : 0;
     const cards = '<div class="wd-blank"></div>'.repeat(lead) + list.map((x, i) => `<div class="wd-card ${x.r ? '' : 'empty'}"><div class="wd-head"><b>${x.head}</b><span>${x.name}</span></div>
       ${x.r ? heroes(x.r, list[i - 1]?.r, x.days, list[i - 1]?.days) : `<div class="wd-none">${x.future ? 'hali kelmagan' : 'kiritilmagan'}</div>`}</div>`).join('');
-    const title = isMon ? 'Davr jami' : isMo ? 'Oy jami' : 'Hafta jami';
-    const span = isMon ? `${esc(monthLabel(f.mFrom))} – ${esc(monthLabel(f.mTo))} · ▲▼ o'tgan oyga (kunlik sur'atda)` : `${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`} · ▲▼ oldingi kunga`;
+    const title = isMon ? 'Tanlangan oylar jami' : isMo ? 'Oy jami' : 'Hafta jami';
+    const span = isMon ? `${list.length} oy · ▲▼ chapdagi oyga nisbatan (kunlik sur'atda)` : `${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`} · ▲▼ oldingi kunga`;
     const cols = isMon ? ` style="--mc:${Math.min(list.length, 6)}"` : '';
     return `<section class="card wd-proj" style="--pc:${esc(p.color || '#4c86ff')}"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${span}</span></div>
       <div class="wd-grid ${isMon ? 'mon-grid' : ''}"${cols}>${cards}</div>
