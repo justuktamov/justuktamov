@@ -365,7 +365,6 @@ route('POST', '/api/report/ai', async (req, res) => {
   if (!isDate(b.date) || b.date > today()) throw new HttpError(400, "Sana noto'g'ri");
   const st = aiStatus();
   if (!st.enabled) throw new HttpError(503, `AI ulanmagan: ${st.reason}`);
-  if (getReport(b.date)?.status === 'reviewed') throw new HttpError(409, "Direktor ko'rib chiqqan hisobotni o'zgartirib bo'lmaydi");
   if (aiBusy.has(b.date)) throw new HttpError(429, 'AI tahlil allaqachon ketyapti — kuting');
   const input = buildAiInput(reportBundle(b.date));
   if (!input.projects.length) throw new HttpError(400, 'Avval raqamlarni kiriting — tahlil qiladigan loyiha yo\'q');
@@ -394,9 +393,11 @@ route('POST', '/api/report/submit', async (req, res) => {
   const b = await readBody(req);
   if (!isDate(b.date) || b.date > today()) throw new HttpError(400, "Sana noto'g'ri");
   if (b.summary !== undefined || b.project_notes !== undefined) saveDraft(b.date, u.id, b);
+  const resend = Boolean(getReport(b.date)?.submitted_at);
   const r = submitReport(b.date, u.id);
   const chats = splitIds(getSetting('report_chat_id'));
-  const text = reportText(b.date);
+  // Qayta yuborilgan (tuzatilgan) hisobot — direktor farqlashi uchun belgi bilan
+  const text = `${resend ? '✏️ <b>Tuzatilgan hisobot</b> — raqamlar yangilandi\n\n' : ''}${reportText(b.date)}`;
   for (const c of chats) sendMessage(c, text).catch((e) => console.error('Telegram:', e.message));
   send(res, 200, { ...r, notified: Boolean(chats.length && telegramStatus().enabled) });
 });

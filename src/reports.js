@@ -4,7 +4,6 @@ import { summary, weekStatus, addDays, dailyAdvice, PROJECT_STATUS, ADVICE_WHO }
 import { buildAiInput, hashInput, aiText } from './ai/prompt.js';
 
 const nowIso = () => nowLocal();
-const reviewedError = () => Object.assign(new Error("Direktor ko'rib chiqqan hisobotni o'zgartirib bo'lmaydi"), { status: 409 });
 
 export function getReport(date) {
   const r = getDb().prepare('SELECT * FROM daily_reports WHERE date = ?').get(date);
@@ -52,7 +51,6 @@ function aiView(bundle) {
 
 // AI natijasini saqlaydi. Hisobot qatori bo'lmasa — muallifsiz qoralama yaratiladi (PM hali tahlil qadamini saqlamagan)
 export function saveAiAnalysis(date, result, inputHash) {
-  if (getReport(date)?.status === 'reviewed') throw reviewedError();
   getDb().prepare("INSERT INTO daily_reports (date, status, updated_at) VALUES (?, 'draft', ?) ON CONFLICT(date) DO NOTHING").run(date, nowIso());
   const data = { at: nowIso(), provider: result.provider, model: result.model, input_hash: inputHash, projects: result.projects, xulosa: result.xulosa, ertaga: result.ertaga };
   getDb().prepare('UPDATE daily_reports SET ai_analysis = ? WHERE date = ?').run(JSON.stringify(data), date);
@@ -71,8 +69,6 @@ function cleanNotes(notes) {
 }
 
 export function saveDraft(date, userId, { summary: text, tomorrow, project_notes }) {
-  const cur = getReport(date);
-  if (cur?.status === 'reviewed') throw reviewedError();
   getDb().prepare(`INSERT INTO daily_reports (date, author_id, status, summary, tomorrow, project_notes, updated_at)
     VALUES (?, ?, 'draft', ?, ?, ?, ?)
     ON CONFLICT(date) DO UPDATE SET author_id = excluded.author_id, summary = excluded.summary, tomorrow = excluded.tomorrow,
@@ -83,8 +79,8 @@ export function saveDraft(date, userId, { summary: text, tomorrow, project_notes
 }
 
 export function submitReport(date, userId) {
+  // Hisobotni istalgan payt tuzatib qayta yuborish mumkin (direktor javob bergan bo'lsa ham) — javobi saqlanib qoladi
   const cur = getReport(date);
-  if (cur?.status === 'reviewed') throw reviewedError();
   if (!cur) saveDraft(date, userId, {});
   getDb().prepare("UPDATE daily_reports SET status = 'submitted', submitted_at = ?, author_id = ? WHERE date = ?").run(nowIso(), userId, date);
   return getReport(date);

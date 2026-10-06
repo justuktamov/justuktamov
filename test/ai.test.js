@@ -23,7 +23,6 @@ const chatOk = (content) => () => json(200, { id: 'x', object: 'chat.completion'
 const { today } = await import('../src/db.js');
 const { createUser } = await import('../src/auth.js');
 const { addDays } = await import('../src/metrics.js');
-const { addDirectorReply } = await import('../src/reports.js');
 const { aiConfig } = await import('../src/ai/index.js');
 const { buildAiInput } = await import('../src/ai/prompt.js');
 const { createApp } = await import('../src/server.js');
@@ -237,7 +236,7 @@ test('Claude (anthropic): rasmiy SDK so\'rovi — model, JSON sxema, zaxira mode
   assert.match((await r.json()).error, /bosh tortdi/);
 });
 
-test("cheklovlar: kelajak sana, raqamsiz kun, ko'rib chiqilgan hisobot", async () => {
+test("cheklovlar: kelajak sana, raqamsiz kun", async () => {
   process.env.AI_API_KEY = 'test-key';
   reply = chatOk(vizResult());
   let r = await pm('/api/report/ai', { method: 'POST', body: { date: addDays(today(), 1) } });
@@ -245,10 +244,6 @@ test("cheklovlar: kelajak sana, raqamsiz kun, ko'rib chiqilgan hisobot", async (
   r = await pm('/api/report/ai', { method: 'POST', body: { date: addDays(d, -30) } });
   assert.equal(r.status, 400);
   assert.match((await r.json()).error, /raqamlarni kiriting/);
-  await pm.json('/api/report/submit', { method: 'POST', body: { date: d } });
-  addDirectorReply(d, 'OK');
-  r = await pm('/api/report/ai', { method: 'POST', body: { date: d } });
-  assert.equal(r.status, 409);
   assert.equal(calls.length, 0, 'pullik so\'rov yuborilmadi');
   // Bo'sh loyiha (STARPAY) kiritilgunicha AI ga bormaydi
   const input = buildAiInput((await pm.json(`/api/report?date=${d}`)));

@@ -81,11 +81,14 @@ test('direktor avtomatik hisobotga javob yozsa saqlanadi, PM keyin ham yubora ol
   const sent = await pm.json('/api/report/submit', { method: 'POST', body: { date: d, summary: 'Kechikib yubordim' } });
   assert.equal(sent.status, 'submitted');
   assert.equal(sent.director_comment, 'Byudjetni kamaytiring');
-  // Yuborilgandan keyin javob — «ko'rildi»; ko'rilgan hisobotni qayta yuborib bo'lmaydi
+  // Yuborilgandan keyin javob — «ko'rildi»; tuzatib qayta yuborsa bo'ladi, direktor javobi saqlanadi
   assert.equal(addDirectorReply(d, 'OK').status, 'reviewed');
-  const again = await pm('/api/report/submit', { method: 'POST', body: { date: d } });
-  assert.equal(again.status, 409);
-  assert.equal(getReport(d).status, 'reviewed');
+  const again = await pm('/api/report/submit', { method: 'POST', body: { date: d, summary: 'Raqamlar tuzatildi' } });
+  assert.equal(again.status, 200);
+  const after = getReport(d);
+  assert.equal(after.status, 'submitted');
+  assert.equal(after.summary, 'Raqamlar tuzatildi');
+  assert.match(after.director_comment, /OK/);
 });
 
 test("hisobot vaqti Toshkent vaqtida saqlanadi", async () => {

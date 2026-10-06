@@ -263,7 +263,8 @@ export async function renderToday() {
         </div>
         <div class="stack"><span class="eyebrow">Direktor ko'radigan xabar</span><pre class="tg" id="preview">Yuklanmoqda…</pre></div>
       </div>
-      <div class="step-foot"><button class="btn ghost" data-back>← Orqaga</button><span class="spacer"></span><button class="btn primary big" data-send>${ICONS.send} Direktorga yuborish</button></div>
+      ${report?.submitted_at ? `<div class="insight info"><span class="ic">Qayta</span><span>Bu hisobot ${esc(String(report.submitted_at).slice(0, 16).replace('T', ' '))} da yuborilgan${report.status === 'reviewed' ? ', direktor javob bergan' : ''}. Raqamlarni tuzatgan bo'lsangiz — qayta yuboring: direktorga <b>«✏️ Tuzatilgan hisobot»</b> bo'lib boradi, eski javobi saqlanadi.</span></div>` : ''}
+      <div class="step-foot"><button class="btn ghost" data-back>← Orqaga</button><span class="spacer"></span><button class="btn primary big" data-send>${ICONS.send} ${report?.submitted_at ? 'Tuzatilgan hisobotni qayta yuborish' : 'Direktorga yuborish'}</button></div>
     </section>`;
   }
 
@@ -276,7 +277,8 @@ export async function renderToday() {
       <p class="muted">${String(report.submitted_at || '').slice(11, 16)} da yuborildi${report.status === 'reviewed' ? ' · direktor javob berdi' : ' · direktor javobini kutyapmiz'}</p>
       ${report.director_comment ? `<div class="reply-banner" style="text-align:left"><span class="eyebrow">Direktor yechimi</span><p>${esc(report.director_comment).replace(/\n/g, '<br>')}</p></div>` : ''}
       <div class="nums big-nums"><span><b>${fmtUsd(t.spend, 0)}</b>xarajat</span><span><b>${fmtSom(t.net_profit)}</b>sof foyda</span><span><b>${fmtN(t.leads)}</b>lid</span><span><b>${fmtN(t.sales)}</b>sotuv</span><span><b>${fmtUzs(t.revenue)}</b>tushum</span></div>
-      <div class="row" style="justify-content:center"><button class="btn" data-step-go="send">Xabarni ko'rish</button><button class="btn ghost" data-step-go="target">Raqamlarni o'zgartirish</button></div>
+      <div class="row" style="justify-content:center"><button class="btn" data-step-go="send">Xabarni ko'rish</button><button class="btn ghost" data-step-go="target">Raqamlarni tuzatish</button><button class="btn primary" data-step-go="send">${ICONS.send} Qayta yuborish</button></div>
+      <p class="small muted">Raqamlarni tuzatib, hisobotni istalgan payt qayta yuborishingiz mumkin — eski kunlarniki ham («Hisobotlar» bo'limidan oching).</p>
       <p class="small muted">Ertaga shu yerda bugungi kun hisobotini tayyorlaysiz.</p>
     </section>`;
   }
@@ -406,7 +408,8 @@ export async function renderToday() {
         btn.disabled = true;
         try {
           const r = await api('/api/report/submit', { method: 'POST', body: { date, ...collectDraft() } });
-          toast(r.notified ? 'Yuborildi ✓ Direktor Telegramda oldi' : window.DEMO ? 'Yuborildi ✓ (demoda Telegram xabari ketmaydi)' : 'Hisobot saqlandi ✓');
+          const again = Boolean(report?.submitted_at);
+          toast(`${again ? 'Tuzatilgan hisobot yuborildi ✓' : 'Yuborildi ✓'}${r.notified ? ' Direktor Telegramda oldi' : window.DEMO ? ' (demoda Telegram xabari ketmaydi)' : ''}`);
           state.pmStep = null;
           await refreshMe();
           renderToday();
