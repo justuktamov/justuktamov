@@ -304,7 +304,7 @@ route('GET', '/api/summary', async (req, res, _p, q) => {
 route('GET', '/api/monthly', async (req, res, _p, q) => {
   requireUser(req);
   const unit = ['day', 'week', 'month'].includes(q.get('unit')) ? q.get('unit') : 'month';
-  const months = Math.min(Math.max(Number(q.get('months')) || 6, unit === 'day' ? 1 : 2), unit === 'day' ? 62 : 24);
+  const months = Math.min(Math.max(Number(q.get('months')) || 6, 1), unit === 'day' ? 62 : 24);
   // to — davr oxiri (bitta haftani ko'rish uchun); kechadan keyin bo'lmaydi
   const yesterday = addDays(today(), -1);
   const asOf = isDate(q.get('to')) && q.get('to') < yesterday ? q.get('to') : yesterday;

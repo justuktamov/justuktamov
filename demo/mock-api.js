@@ -219,7 +219,7 @@ const routes = {
   'GET /api/monthly': (_b, _p, q) => {
     needUser();
     const unit = ['day', 'week', 'month'].includes(q.get('unit')) ? q.get('unit') : 'month';
-    const months = Math.min(Math.max(Number(q.get('months')) || 6, unit === 'day' ? 1 : 2), unit === 'day' ? 62 : 24);
+    const months = Math.min(Math.max(Number(q.get('months')) || 6, 1), unit === 'day' ? 62 : 24);
     const y = addDays(TODAY, -1);
     return monthly({ months, projectId: projectParam(q), asOf: isDate(q.get('to')) && q.get('to') < y ? q.get('to') : y, unit });
   },

@@ -274,6 +274,67 @@ export function openRangeCalendar(anchor, { from, to, max = null, onPick }) {
   calClose = close;
 }
 
+// Oylar oralig'i: yil bo'yicha 12 ta oy — 1-bosish boshlanish oyi, 2-bosish tugash oyi (YYYY-MM)
+export function openMonthRange(anchor, { from, to, max, limit = 24, onPick }) {
+  calClose?.();
+  menuClose?.();
+  let year = Number(to.slice(0, 4));
+  let a = from, b = to, hover = null;
+  const pop = document.createElement('div');
+  pop.className = 'cal cal-range cal-months';
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-label', 'Oylar oralig\'ini tanlash');
+  const mAdd = (m, n) => { const [y, mm] = m.split('-').map(Number); const d = new Date(Date.UTC(y, mm - 1 + n, 1)); return d.toISOString().slice(0, 7); };
+  const count = (x, y) => (Number(y.slice(0, 4)) - Number(x.slice(0, 4))) * 12 + Number(y.slice(5)) - Number(x.slice(5)) + 1;
+  // Boshlanish tanlangach: tugash undan ko'pi bilan limit oy uzoqda bo'lishi mumkin
+  const ok = (m) => m <= max && (b != null || Math.abs(count(m < a ? m : a, m < a ? a : m)) <= limit);
+  const draw = () => {
+    const end = b ?? hover;
+    const lo = end && end < a ? end : a, hi = end && end < a ? a : end;
+    const cls = (m) => {
+      if (m === lo && m === hi) return 'r-one';
+      if (m === lo) return 'r-start';
+      if (hi && m === hi) return 'r-end';
+      return hi && m > lo && m < hi ? 'r-in' : '';
+    };
+    const ms = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+    pop.innerHTML = `<div class="cal-head">
+        <button type="button" class="cal-nav" data-y="-1" aria-label="Oldingi yil">‹</button>
+        <b>${year}</b>
+        <button type="button" class="cal-nav" data-y="1" aria-label="Keyingi yil" ${`${year + 1}-01` > max ? 'disabled' : ''}>›</button></div>
+      <p class="cal-hint">${b == null ? '<b>Tugash</b> oyini bosing' : `<b>${monthLabel(lo)} – ${monthLabel(hi)}</b> · ${count(lo, hi)} oy · yangi davr uchun boshlanish oyini bosing`}</p>
+      <div class="cal-grid mgrid">${ms.map((m, i) => `<button type="button" data-mo="${m}" class="cal-day ${cls(m)}" ${ok(m) ? '' : 'disabled'}>${MONTHS[i].slice(0, 3)}</button>`).join('')}</div>
+      <div class="cal-foot">${[3, 6, 12].map((n) => `<button type="button" data-preset="${n}">${n} oy</button>`).join('')}<button type="button" data-preset="year">Shu yil</button></div>`;
+  };
+  draw();
+  document.body.append(pop);
+  const r = anchor.getBoundingClientRect();
+  const w = pop.offsetWidth;
+  pop.style.top = `${r.bottom + window.scrollY + 8}px`;
+  pop.style.left = `${Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - w - 8))}px`;
+  const done = (x, y) => { close(); onPick(x <= y ? x : y, x <= y ? y : x); };
+  pop.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const nav = e.target.closest('[data-y]');
+    if (nav && !nav.disabled) { year += Number(nav.dataset.y); draw(); return; }
+    const pr = e.target.closest('[data-preset]');
+    if (pr) { done(pr.dataset.preset === 'year' ? `${max.slice(0, 4)}-01` : mAdd(max, 1 - Number(pr.dataset.preset)), max); return; }
+    const mo = e.target.closest('[data-mo]');
+    if (!mo || mo.disabled) return;
+    if (b == null) done(a, mo.dataset.mo);
+    else { a = mo.dataset.mo; b = null; hover = null; draw(); pop.querySelector(`[data-mo="${a}"]`)?.focus(); }
+  });
+  pop.addEventListener('mouseover', (e) => {
+    const mo = e.target.closest('[data-mo]');
+    if (b == null && mo && !mo.disabled && mo.dataset.mo !== hover) { hover = mo.dataset.mo; draw(); }
+  });
+  const outside = (e) => { if (!pop.contains(e.target) && !anchor.contains(e.target)) close(); };
+  const esc = (e) => { if (e.key === 'Escape') { close(); anchor.focus(); } };
+  function close() { pop.remove(); document.removeEventListener('mousedown', outside); document.removeEventListener('keydown', esc); calClose = null; }
+  setTimeout(() => { document.addEventListener('mousedown', outside); document.addEventListener('keydown', esc); });
+  calClose = close;
+}
+
 // ---------- Tanlash ro'yxati va rang ----------
 // Brauzerning o'z <select> va rang oynasi o'rniga: yashirin input (forma uchun) + tugma + ochiladigan oyna
 let menuClose = null;

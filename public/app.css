@@ -1089,3 +1089,7 @@ input, select, textarea { color-scheme: light; }
 .range-btn span { font-variant-numeric: tabular-nums; font-weight: 700; }
 .fv-node em b { color: var(--text); font-weight: 800; }
 .seg-sm button { padding: 6px 11px; font-size: 12.5px; } #dynMc { margin-right: 8px; }
+/* Dinamika «Oylar»: oylar oralig'i tanlagichi */
+.cal-months .mgrid { grid-template-columns: repeat(3, 1fr); gap: 6px 0; }
+.cal-months .cal-day { height: 42px; text-transform: capitalize; font-weight: 600; }
+.range-btn .mr-n { font-style: normal; font-size: 12px; font-weight: 700; color: var(--blue); background: #e6efff; border-radius: 999px; padding: 2px 8px; margin-left: 2px; }
