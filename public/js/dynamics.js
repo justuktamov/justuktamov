@@ -32,7 +32,7 @@ const ROWS = [
 
 // [kalit, tugma, birlik, nechta, sarlavha]
 const MSHORT = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
-const VIEWS = [['wk', 'Hafta (7 kun)', 'day', 7, 'Bir hafta kunma-kun'], ['mo', 'Oy (kunma-kun)', 'day', 31, 'Bir oy kunma-kun'], ['day', 'Kecha', 'day', 2, 'Kechagi hisobot'], ['d3', '3 kun oldin', 'day', 2, '3 kun oldingi hisobot'], ['mon', 'Oylar', 'month', 6, 'Oyma-oy']];
+const VIEWS = [['wk', 'Hafta (7 kun)', 'day', 7, 'Bir hafta kunma-kun'], ['mo', 'Oy (kunma-kun)', 'day', 31, 'Bir oy kunma-kun'], ['day', 'Kecha', 'day', 2, 'Kechagi hisobot'], ['d3', '3 kun oldin', 'day', 2, '3 kun oldingi hisobot'], ['days', 'Kunlar', 'day', 2, 'Tanlangan kunlar'], ['mon', 'Oylar', 'month', 6, 'Oyma-oy']];
 const WD = ['yak', 'dush', 'sesh', 'chor', 'pay', 'jum', 'shan'];
 function periodLabel(m) {
   if (m.unit === 'day') return `${shortDate(m.from)}, ${WD[new Date(`${m.from}T00:00:00Z`).getUTCDay()]}`;
@@ -83,10 +83,13 @@ export async function renderDynamics(inside = false) {
   const dBase = V[0] === 'd3' ? 2 : 0;
   const dSel = addDays(yday, -(dBase + f.day));
   const isMon = V[0] === 'mon';
+  // «Kunlar»: «Sana tanlash»da belgilangan bir nechta kun yonma-yon taqqoslanadi
+  const isDays = V[0] === 'days' && f.dList?.length > 0;
+  const isCmp = isMon || isDays;
   const projects = state.projects.filter((x) => x.active);
   shell(`<div class="page-head"><div><h1>Dinamika</h1><div class="sub">${V[4]}: o'syapmizmi yoki pasayyapmizmi</div></div>
       <div class="filters">${isDay ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-dd="1" aria-label="Oldingi kun">‹</button><b>${shortDate(dSel)}${f.day ? '' : dBase ? ' · 3 kun oldin' : ' · kecha'}</b><button type="button" class="btn small icon" data-dd="-1" aria-label="Keyingi kun" ${f.day ? '' : 'disabled'}>›</button></span>` : ''}${isWk ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-wk="1" aria-label="${isMo ? 'Oldingi oy' : 'Oldingi hafta'}">‹</button><b>${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`}</b><button type="button" class="btn small icon" data-wk="-1" aria-label="${isMo ? 'Keyingi oy' : 'Keyingi hafta'}" ${(isMo ? f.month : f.week) ? '' : 'disabled'}>›</button></span>` : ''}</div></div>
-    <div class="dyn-bar"><div class="seg" id="dynMonths">${VIEWS.map((v) => `<button data-m="${v[0]}" class="${V[0] === v[0] && !f.pick ? 'on' : ''}" ${v[0] === 'mon' ? `aria-expanded="${isMon && f.mOpen}"` : ''}>${v[1]}${v[0] === 'mon' ? `<span class="mp-caret ${isMon && f.mOpen ? 'open' : ''}">›</span>` : ''}</button>`).join('')}</div>
+    <div class="dyn-bar"><div class="seg" id="dynMonths">${VIEWS.filter((v) => v[0] !== 'days').map((v) => `<button data-m="${v[0]}" class="${V[0] === v[0] && !f.pick ? 'on' : ''}" ${v[0] === 'mon' ? `aria-expanded="${isMon && f.mOpen}"` : ''}>${v[1]}${v[0] === 'mon' ? `<span class="mp-caret ${isMon && f.mOpen ? 'open' : ''}">›</span>` : ''}</button>`).join('')}</div>
       ${isMon && f.mOpen ? `<div class="seg mon-seg ${f.mAnim ? 'mp-in' : ''}" id="dynMp" role="group" aria-label="Oylar — solishtirish uchun bir nechtasini belgilang"><span class="mp-year"><button type="button" data-my="-1" aria-label="Oldingi yil">‹</button><b>${f.mYear}</b><button type="button" data-my="1" aria-label="Keyingi yil" ${f.mYear >= Number(yMon.slice(0, 4)) ? 'disabled' : ''}>›</button></span>${MSHORT.map((n, i) => { const m = `${f.mYear}-${String(i + 1).padStart(2, '0')}`; const on = isMon && f.mSel.includes(m); return `<button type="button" data-ms="${m}" class="mp-m ${on ? 'on' : ''}" aria-pressed="${on}" title="${esc(monthLabel(m))}" ${m > yMon ? 'disabled' : ''}><b>${i + 1}</b><small>${n}</small></button>`; }).join('')}</div>` : ''}
       <button type="button" class="date-btn range-btn pp-btn ${f.pick ? 'on' : ''}" id="dynPick" aria-haspopup="dialog">${ICONS.cal}<span>${f.pick ? esc(f.pick.label) : 'Sana tanlash'}</span></button></div>
     <div class="chips" id="dynProj"><button class="chip ${!f.project ? 'on' : ''}" data-p="">Hammasi</button>${projects.map((p) => `<button class="chip ${String(f.project) === String(p.id) ? 'on' : ''}" data-p="${p.id}">${dot(p.color)}${esc(p.name)}</button>`).join('')}</div>
@@ -106,9 +109,10 @@ export async function renderDynamics(inside = false) {
   // Umumiy tanlash: yil → o'sha yilning oylari yonma-yon; oy → kunma-kun; kun → o'sha kun hisoboti
   const pb = $('#dynPick');
   pb.onclick = () => openPeriodPicker(pb, { value: f.pick?.value || null, max: yday, onPick: ({ kind, value }) => {
-    const [y, m] = value.split('-').map(Number);
+    const [y, m] = String(value).split('-').map(Number);
     const [ty, tm] = yday.split('-').map(Number);
-    if (kind === 'day') { f.view = 'day'; f.day = Math.round((Date.parse(yday) - Date.parse(value)) / 864e5); f.pick = { kind, value, label: prettyDate(value) }; }
+    if (kind === 'days' && value.length === 1) { f.view = 'day'; f.day = Math.round((Date.parse(yday) - Date.parse(value[0])) / 864e5); f.pick = { kind, value, label: prettyDate(value[0]) }; }
+    else if (kind === 'days') { f.view = 'days'; f.dList = value; f.pick = { kind, value, label: `${value.length} kun taqqoslash` }; }
     else if (kind === 'month') { f.view = 'mo'; f.month = (ty - y) * 12 + tm - m; f.pick = { kind, value, label: monthLabel(value) }; }
     else {
       f.view = 'mon'; f.mOpen = false; f.mYear = y;
@@ -135,12 +139,13 @@ export async function renderDynamics(inside = false) {
   try {
     // Oylar: har bir belgilangan oy alohida olinadi (oralig'idagi oylar kerak emas)
     data = isMon ? (await Promise.all(f.mSel.map((m) => q({ unit: 'month', months: 1, to: mEnd(m) })))).flat()
+      : isDays ? (await Promise.all(f.dList.map((d) => q({ unit: 'day', months: 1, to: d })))).flat()
       : await q({ unit: V[2], months: isWk ? Math.round((Date.parse(wkTo) - Date.parse(pStart)) / 864e5) + 1 : V[3], ...(isWk ? { to: wkTo } : isDay ? { to: dSel } : {}) });
   } catch (e) { const el = $('#dyn'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#dyn');
   if (!box || isStale(rid)) return;
   // Hafta/oy/kun ko'rinishida kunlar doim ko'rsatiladi (bir kun kiritilgan bo'lsa ham); qolganlarida — birinchi ma'lumotli davrdan
-  const months = isWk || isDay || isMon ? data : data.filter((m, i) => m.has || data.slice(0, i).some((x) => x.has));
+  const months = isWk || isDay || isCmp ? data : data.filter((m, i) => m.has || data.slice(0, i).some((x) => x.has));
   const anyData = months.some((m) => m.has);
   if (!months.length || (!anyData && !isWk && !isDay)) { box.innerHTML = '<div class="card empty">Hali ma\'lumot yo\'q — kunlik raqamlar kiritilgach davrlar shu yerda solishtiriladi.</div>'; return; }
 
@@ -191,7 +196,7 @@ export async function renderDynamics(inside = false) {
           ${spark(months.map((m) => row(m)?.[k] ?? 0), cls)}</div>`;
       };
       const loss = (L.net_profit || 0) < 0;
-      if (isWk || isMon) return weekDays(p, row);
+      if (isWk || isCmp) return weekDays(p, row);
       return `<section class="card dp-card" style="--pc:${esc(p.color || '#4c86ff')}"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${isWk ? `${shortDate(monday)} – ${shortDate(sunday)}` : esc(periodLabel(last))}</span></div>
         ${`
         ${hero('ad', M_IC.ad, 'Reklama', 'spend', (x) => fmtUsd(x, 0), 0, `${fmtUzs(L.spend_uzs)} so'm`)}
@@ -209,6 +214,7 @@ export async function renderDynamics(inside = false) {
     const list = [];
     // Oylar: tanlangan davrning har bir oyi yonma-yon (ma'lumotsiz oylar ham)
     if (isMon) for (const m of data) list.push({ head: esc(monthLabel(m.month)), name: m.partial ? `${m.days} kun` : '', r: m.has ? row(m) : null, days: m.days });
+    else if (isDays) for (const m of data) list.push({ head: `${shortDate(m.from)}.${m.from.slice(2, 4)}`, name: DAYS[(new Date(`${m.from}T00:00:00Z`).getUTCDay() + 6) % 7], r: m.has ? row(m) : null, days: 1 });
     else for (let d = pStart; d <= pEnd; d = addDays(d, 1)) {
       const m = months.find((x) => x.from === d);
       list.push({ head: shortDate(d), name: DAYS[(new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7], d, r: m?.has ? row(m) : null, future: d > yday, days: 1 });
@@ -234,12 +240,12 @@ export async function renderDynamics(inside = false) {
     const lead = isMo ? (new Date(`${mFirst}T00:00:00Z`).getUTCDay() + 6) % 7 : 0;
     const cards = '<div class="wd-blank"></div>'.repeat(lead) + list.map((x, i) => `<div class="wd-card ${x.r ? '' : 'empty'}"><div class="wd-head"><b>${x.head}</b><span>${x.name}</span></div>
       ${x.r ? heroes(x.r, list[i - 1]?.r, x.days, list[i - 1]?.days) : `<div class="wd-none">${x.future ? 'hali kelmagan' : 'kiritilmagan'}</div>`}</div>`).join('');
-    const title = isMon ? 'Tanlangan oylar jami' : isMo ? 'Oy jami' : 'Hafta jami';
-    const span = isMon ? `${list.length} oy · ▲▼ chapdagi oyga nisbatan (kunlik sur'atda)` : `${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`} · ▲▼ oldingi kunga`;
-    const cols = isMon ? ` style="--mc:${Math.min(list.length, 6)}"` : '';
+    const title = isDays ? 'Tanlangan kunlar jami' : isMon ? 'Tanlangan oylar jami' : isMo ? 'Oy jami' : 'Hafta jami';
+    const span = isDays ? `${list.length} kun · ▲▼ chapdagi kunga nisbatan` : isMon ? `${list.length} oy · ▲▼ chapdagi oyga nisbatan (kunlik sur'atda)` : `${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`} · ▲▼ oldingi kunga`;
+    const cols = isCmp ? ` style="--mc:${Math.min(list.length, 6)}"` : '';
     return `<section class="card wd-proj" style="--pc:${esc(p.color || '#4c86ff')}"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${span}</span></div>
-      <div class="wd-grid ${isMon ? 'mon-grid' : ''}"${cols}>${cards}</div>
-      <div class="wd-card total wd-total"><div class="wd-head"><b>${title}</b><span>${isMon ? `${list.filter((x) => x.r).length} oy` : `${list.filter((x) => x.r).length} kun`}</span></div><div class="wd-total-row">${heroes(tot)}</div></div></section>`;
+      <div class="wd-grid ${isCmp ? 'mon-grid' : ''}"${cols}>${cards}</div>
+      <div class="wd-card total wd-total"><div class="wd-head"><b>${title}</b><span>${isMon && !isDays ? `${list.filter((x) => x.r).length} oy` : `${list.filter((x) => x.r).length} kun`}</span></div><div class="wd-total-row">${heroes(tot)}</div></div></section>`;
   }
 
 

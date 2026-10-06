@@ -203,15 +203,16 @@ export function openCalendar(anchor, { value, min = null, max = null, onPick }) 
 }
 
 // Umumiy sana tanlagich: Yil · Oy · Kun yorliqlari — istalgan yil, oy yoki kunni tanlash
-// onPick({ kind: 'year' | 'month' | 'day', value: 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD' })
+// onPick({ kind: 'year' | 'month' | 'days', value: 'YYYY' | 'YYYY-MM' | ['YYYY-MM-DD', …] }) — kunlar bir nechta belgilanib taqqoslanadi
 export function openPeriodPicker(anchor, { value = null, max, onPick }) {
   calClose?.();
   menuClose?.();
   let tab = 'year'; // doim yildan boshlanadi: yil → oy → kun
   // Tanlanganlar ko'k bilan belgilanadi (orqaga qaytganda ham ko'rinadi): yil, oy, kun
-  let selY = value ? Number(value.slice(0, 4)) : null;
-  let selM = value && value.length >= 7 ? value.slice(0, 7) : null;
-  let selD = value && value.length === 10 ? value : null;
+  let selDs = Array.isArray(value) ? [...value] : value?.length === 10 ? [value] : [];
+  const v0 = Array.isArray(value) ? value.at(-1) : value;
+  let selY = v0 ? Number(v0.slice(0, 4)) : null;
+  let selM = v0 && v0.length >= 7 ? v0.slice(0, 7) : null;
   let view = selM || max.slice(0, 7); // Kun: ko'rinayotgan oy
   let year = selY || Number(max.slice(0, 4)); // Oy: ko'rinayotgan yil
   const maxY = Number(max.slice(0, 4));
@@ -222,7 +223,7 @@ export function openPeriodPicker(anchor, { value = null, max, onPick }) {
   pop.setAttribute('aria-label', 'Yil, oy yoki kun tanlash');
   const cap = (s) => s[0].toUpperCase() + s.slice(1);
   // Yorliqlarda tanlangan qiymat ham yoziladi: Yil 2026 · Oy avgust · Kun 14
-  const tabs = () => `<div class="pp-tabs" role="tablist">${[['year', 'Yil', selY], ['month', 'Oy', selM && MONTHS[Number(selM.slice(5)) - 1]], ['day', 'Kun', selD && Number(selD.slice(8))]].map(([k, l, v]) => `<button type="button" role="tab" data-tab="${k}" class="${tab === k ? 'on' : ''}" aria-selected="${tab === k}">${l}${v ? `<small>${v}</small>` : ''}</button>`).join('')}</div>`;
+  const tabs = () => `<div class="pp-tabs" role="tablist">${[['year', 'Yil', selY], ['month', 'Oy', selM && MONTHS[Number(selM.slice(5)) - 1]], ['day', 'Kun', selDs.length === 1 ? Number(selDs[0].slice(8)) : selDs.length ? `${selDs.length} ta` : null]].map(([k, l, v]) => `<button type="button" role="tab" data-tab="${k}" class="${tab === k ? 'on' : ''}" aria-selected="${tab === k}">${l}${v ? `<small>${v}</small>` : ''}</button>`).join('')}</div>`;
   const head = (prev, label, next, prevOff, nextOff) => `<div class="cal-head">
       <button type="button" class="cal-nav" data-nav="${prev}" aria-label="Oldingi" ${prevOff ? 'disabled' : ''}>‹</button><b>${label}</b>
       <button type="button" class="cal-nav" data-nav="${next}" aria-label="Keyingi" ${nextOff ? 'disabled' : ''}>›</button></div>`;
@@ -237,7 +238,7 @@ export function openPeriodPicker(anchor, { value = null, max, onPick }) {
       const nextM = addDays(`${view}-28`, 7).slice(0, 7);
       body = head(addDays(first, -1).slice(0, 7), `${cap(MONTHS[m - 1])} ${y}`, nextM, false, `${nextM}-01` > max)
         + `<div class="cal-grid">${WEEK.map((w) => `<span class="cal-wd">${w}</span>`).join('')}
-        ${days.slice(0, lastRow).map((d) => `<button type="button" data-pick="${d}" class="cal-day ${d.slice(0, 7) !== view ? 'out' : ''} ${d === selD ? 'sel' : ''}" ${d <= max ? '' : 'disabled'}>${Number(d.slice(8))}</button>`).join('')}</div>`;
+        ${days.slice(0, lastRow).map((d) => `<button type="button" data-pick="${d}" class="cal-day ${d.slice(0, 7) !== view ? 'out' : ''} ${selDs.includes(d) ? 'sel' : ''}" aria-pressed="${selDs.includes(d)}" ${d <= max ? '' : 'disabled'}>${Number(d.slice(8))}</button>`).join('')}</div>`;
     } else if (tab === 'month') {
       body = head(String(year - 1), String(year), String(year + 1), false, year >= maxY)
         + `<div class="cal-grid pp-grid">${MONTHS.map((n, i) => { const mm = `${year}-${String(i + 1).padStart(2, '0')}`; return `<button type="button" data-pick="${mm}" class="cal-day ${mm === selM ? 'sel' : ''}" ${mm <= max.slice(0, 7) ? '' : 'disabled'}>${cap(n)}</button>`; }).join('')}</div>`;
@@ -249,8 +250,8 @@ export function openPeriodPicker(anchor, { value = null, max, onPick }) {
     // Yil → Oy → Kun ketma-ket: kun bosilganda yopiladi; butun yil yoki oyni ham shu yerdan ko'rsatsa bo'ladi
     const [vy, vm] = view.split('-').map(Number);
     const foot = tab === 'month' ? `<div class="cal-foot"><button type="button" data-apply="year">Butun ${year} yilni ko'rsatish</button></div>`
-      : tab === 'day' ? `<div class="cal-foot"><button type="button" data-apply="month">Butun ${MONTHS[vm - 1]} ${vy} ni ko'rsatish</button></div>` : '';
-    const hint = `<p class="cal-hint">${tab === 'year' ? '<b>Yil</b>ni tanlang → keyin oy → keyin kun' : tab === 'month' ? `<b>${year}</b> · oyni tanlang` : `<b>${cap(MONTHS[vm - 1])} ${vy}</b> · kunni tanlang`}</p>`;
+      : tab === 'day' ? `<div class="cal-foot pp-foot"><button type="button" class="pp-go" data-apply="days" ${selDs.length ? '' : 'disabled'}>${selDs.length > 1 ? `Taqqoslash · ${selDs.length} kun` : "Ko'rsatish"}</button>${selDs.length ? '<button type="button" data-apply="clear">Tozalash</button>' : ''}<button type="button" data-apply="month">Butun ${MONTHS[vm - 1]} ${vy}</button></div>` : '';
+    const hint = `<p class="cal-hint">${tab === 'year' ? '<b>Yil</b>ni tanlang → keyin oy → keyin kun' : tab === 'month' ? `<b>${year}</b> · oyni tanlang` : `<b>${cap(MONTHS[vm - 1])} ${vy}</b> · kunlarni belgilang — bir nechtasini tanlab taqqoslang`}</p>`;
     pop.innerHTML = tabs() + hint + body + foot;
   };
   draw();
@@ -269,13 +270,21 @@ export function openPeriodPicker(anchor, { value = null, max, onPick }) {
       draw(); return;
     }
     const ap = e.target.closest('[data-apply]');
-    if (ap) { close(); onPick(ap.dataset.apply === 'year' ? { kind: 'year', value: String(year) } : { kind: 'month', value: view }); return; }
+    if (ap) {
+      if (ap.disabled) return;
+      if (ap.dataset.apply === 'clear') { selDs = []; draw(); return; }
+      close();
+      onPick(ap.dataset.apply === 'year' ? { kind: 'year', value: String(year) } : ap.dataset.apply === 'days' ? { kind: 'days', value: [...selDs].sort() } : { kind: 'month', value: view });
+      return;
+    }
     const pk = e.target.closest('[data-pick]');
     if (!pk || pk.disabled) return;
     const v = pk.dataset.pick;
-    if (tab === 'year') { year = Number(v); if (selY !== year) { selY = year; selM = null; selD = null; } const vm = `${year}-${view.slice(5, 7)}`; view = vm < max.slice(0, 7) ? vm : max.slice(0, 7); tab = 'month'; draw(); return; }
-    if (tab === 'month') { view = v.slice(0, 7) < max.slice(0, 7) ? v : max.slice(0, 7); selY = year; if (selM !== v) { selM = v; selD = null; } tab = 'day'; draw(); return; }
-    close(); onPick({ kind: 'day', value: v });
+    if (tab === 'year') { year = Number(v); if (selY !== year) { selY = year; selM = null; } const vm = `${year}-${view.slice(5, 7)}`; view = vm < max.slice(0, 7) ? vm : max.slice(0, 7); tab = 'month'; draw(); return; }
+    if (tab === 'month') { view = v.slice(0, 7) < max.slice(0, 7) ? v : max.slice(0, 7); selY = year; selM = v; tab = 'day'; draw(); return; }
+    // Kun: bosilsa belgilanadi, yana bosilsa olib tashlanadi (boshqa oylardagi belgilar saqlanadi)
+    selDs = selDs.includes(v) ? selDs.filter((x) => x !== v) : [...selDs, v].slice(-14);
+    draw();
   });
   const outside = (e) => { if (!pop.contains(e.target) && !anchor.contains(e.target)) close(); };
   const esc = (e) => { if (e.key === 'Escape') { close(); anchor.focus(); } };
