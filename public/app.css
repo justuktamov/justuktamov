@@ -1089,20 +1089,20 @@ input, select, textarea { color-scheme: light; }
 .range-btn span { font-variant-numeric: tabular-nums; font-weight: 700; }
 .fv-node em b { color: var(--text); font-weight: 800; }
 .seg-sm button { padding: 6px 11px; font-size: 12.5px; } #dynMc { margin-right: 8px; }
-/* Dinamika «Oylar»: solishtiriladigan oylarni belgilash (1–12) */
-.mon-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: -4px 0 14px; padding: 10px 12px; background: #fff; border: 1px solid var(--border); border-radius: 18px; }
-.mp-year { display: inline-flex; align-items: center; gap: 8px; }
-.mp-year b { font-size: 15px; font-variant-numeric: tabular-nums; }
-.mp-months { display: grid; grid-template-columns: repeat(12, minmax(42px, 1fr)); gap: 6px; flex: 1 1 520px; }
-.mp-months button { display: grid; justify-items: center; gap: 1px; padding: 6px 2px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); font: inherit; color: var(--text); cursor: pointer; }
-.mp-months button b { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.mp-months button small { font-size: 10.5px; color: var(--text-3); font-weight: 600; }
-.mp-months button:hover:not([disabled]) { border-color: var(--blue); }
-.mp-months button.on { background: var(--blue); border-color: var(--blue); color: #fff; box-shadow: 0 4px 12px rgba(47, 99, 240, .3); }
-.mp-months button.on small { color: rgba(255, 255, 255, .85); }
-.mp-months button[disabled] { opacity: .35; cursor: default; }
-.mp-hint { flex-basis: 100%; }
-@media (max-width: 860px) { .mp-months { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+/* Dinamika: bo'limlar + oy tugmalari (1–12) bir qatorda; oylar bir nechtasi belgilanib solishtiriladi */
+.dyn-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; margin: -8px 0 16px; }
+.dyn-bar .seg { align-items: center; }
+.mon-seg { gap: 3px; }
+.mon-seg .mp-year { display: inline-flex; align-items: center; gap: 2px; padding: 0 6px 0 2px; margin-right: 2px; border-right: 1px solid var(--border); }
+.mon-seg .mp-year b { font-size: 13px; font-variant-numeric: tabular-nums; padding: 0 2px; }
+.mon-seg .mp-year button { padding: 4px 7px; font-size: 14px; }
+.mon-seg .mp-year button[disabled] { opacity: .3; cursor: default; }
+.mon-seg .mp-m { display: grid; justify-items: center; gap: 0; padding: 3px 8px; min-width: 38px; line-height: 1.15; border-radius: 12px; }
+.mon-seg .mp-m b { font-size: 13.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.mon-seg .mp-m small { font-size: 9.5px; font-weight: 600; color: var(--text-3); }
+.mon-seg .mp-m.on { background: var(--blue); color: #fff; }
+.mon-seg .mp-m.on small { color: rgba(255, 255, 255, .85); }
+.mon-seg .mp-m[disabled] { opacity: .3; cursor: default; }
 /* Dinamika «Oylar»: tanlangan oylar yonma-yon (6 tadan ko'p bo'lsa keyingi qatorga) */
 .wd-grid.mon-grid { grid-template-columns: repeat(var(--mc, 6), minmax(0, 1fr)) !important; }
 .mon-grid .wd-head b { text-transform: capitalize; }

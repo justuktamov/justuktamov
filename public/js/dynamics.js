@@ -85,11 +85,10 @@ export async function renderDynamics(inside = false) {
   const isMon = V[0] === 'mon';
   const projects = state.projects.filter((x) => x.active);
   shell(`<div class="page-head"><div><h1>Dinamika</h1><div class="sub">${V[4]}: o'syapmizmi yoki pasayyapmizmi</div></div>
-      <div class="filters">${isDay ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-dd="1" aria-label="Oldingi kun">‹</button><b>${shortDate(dSel)}${f.day ? '' : dBase ? ' · 3 kun oldin' : ' · kecha'}</b><button type="button" class="btn small icon" data-dd="-1" aria-label="Keyingi kun" ${f.day ? '' : 'disabled'}>›</button></span>` : ''}${isWk ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-wk="1" aria-label="${isMo ? 'Oldingi oy' : 'Oldingi hafta'}">‹</button><b>${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`}</b><button type="button" class="btn small icon" data-wk="-1" aria-label="${isMo ? 'Keyingi oy' : 'Keyingi hafta'}" ${(isMo ? f.month : f.week) ? '' : 'disabled'}>›</button></span>` : ''}<div class="seg" id="dynMonths">${VIEWS.map((v) => `<button data-m="${v[0]}" class="${V[0] === v[0] ? 'on' : ''}">${v[1]}</button>`).join('')}</div></div></div>
+      <div class="filters">${isDay ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-dd="1" aria-label="Oldingi kun">‹</button><b>${shortDate(dSel)}${f.day ? '' : dBase ? ' · 3 kun oldin' : ' · kecha'}</b><button type="button" class="btn small icon" data-dd="-1" aria-label="Keyingi kun" ${f.day ? '' : 'disabled'}>›</button></span>` : ''}${isWk ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-wk="1" aria-label="${isMo ? 'Oldingi oy' : 'Oldingi hafta'}">‹</button><b>${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`}</b><button type="button" class="btn small icon" data-wk="-1" aria-label="${isMo ? 'Keyingi oy' : 'Keyingi hafta'}" ${(isMo ? f.month : f.week) ? '' : 'disabled'}>›</button></span>` : ''}</div></div>
+    <div class="dyn-bar"><div class="seg" id="dynMonths">${VIEWS.filter((v) => v[0] !== 'mon').map((v) => `<button data-m="${v[0]}" class="${V[0] === v[0] ? 'on' : ''}">${v[1]}</button>`).join('')}</div>
+      <div class="seg mon-seg" id="dynMp" role="group" aria-label="Oylar — solishtirish uchun bir nechtasini belgilang"><span class="mp-year"><button type="button" data-my="-1" aria-label="Oldingi yil">‹</button><b>${f.mYear}</b><button type="button" data-my="1" aria-label="Keyingi yil" ${f.mYear >= Number(yMon.slice(0, 4)) ? 'disabled' : ''}>›</button></span>${MSHORT.map((n, i) => { const m = `${f.mYear}-${String(i + 1).padStart(2, '0')}`; const on = isMon && f.mSel.includes(m); return `<button type="button" data-ms="${m}" class="mp-m ${on ? 'on' : ''}" aria-pressed="${on}" title="${esc(monthLabel(m))}" ${m > yMon ? 'disabled' : ''}><b>${i + 1}</b><small>${n}</small></button>`; }).join('')}</div></div>
     <div class="chips" id="dynProj"><button class="chip ${!f.project ? 'on' : ''}" data-p="">Hammasi</button>${projects.map((p) => `<button class="chip ${String(f.project) === String(p.id) ? 'on' : ''}" data-p="${p.id}">${dot(p.color)}${esc(p.name)}</button>`).join('')}</div>
-    ${isMon ? `<div class="mon-pick" id="dynMp" role="group" aria-label="Solishtiriladigan oylar"><span class="mp-year"><button type="button" class="btn small icon" data-my="-1" aria-label="Oldingi yil">‹</button><b>${f.mYear}</b><button type="button" class="btn small icon" data-my="1" aria-label="Keyingi yil" ${f.mYear >= Number(yMon.slice(0, 4)) ? 'disabled' : ''}>›</button></span>
-      <span class="mp-months">${MSHORT.map((n, i) => { const m = `${f.mYear}-${String(i + 1).padStart(2, '0')}`; return `<button type="button" data-ms="${m}" class="${f.mSel.includes(m) ? 'on' : ''}" aria-pressed="${f.mSel.includes(m)}" title="${esc(monthLabel(m))}" ${m > yMon ? 'disabled' : ''}><b>${i + 1}</b><small>${n}</small></button>`; }).join('')}</span>
-      <span class="muted small mp-hint">${f.mSel.length} oy tanlangan · solishtirish uchun oylarni bosing</span></div>` : ''}
     <div id="dyn">${spinnerBlock()}</div>`);
   const rid = state.renderId;
   $('#dynMonths').onclick = (e) => { const b = e.target.closest('[data-m]'); if (b) { f.view = b.dataset.m; f.day = 0; renderDynamics(true); } };
@@ -102,7 +101,9 @@ export async function renderDynamics(inside = false) {
     const b = e.target.closest('[data-ms]');
     if (!b || b.disabled) return;
     const m = b.dataset.ms;
-    if (f.mSel.includes(m)) { if (f.mSel.length > 1) f.mSel = f.mSel.filter((x) => x !== m); } // kamida bitta oy qoladi
+    // Boshqa bo'limdan oy bosilsa — «Oylar» shu bitta oy bilan ochiladi; keyingi bosishlar qo'shadi/olib tashlaydi
+    if (!isMon) { f.view = 'mon'; f.mSel = [m]; }
+    else if (f.mSel.includes(m)) { if (f.mSel.length > 1) f.mSel = f.mSel.filter((x) => x !== m); } // kamida bitta oy qoladi
     else if (f.mSel.length < 12) f.mSel = [...f.mSel, m];
     renderDynamics(true);
   };
