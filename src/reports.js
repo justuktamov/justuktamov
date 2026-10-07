@@ -121,7 +121,7 @@ const esc = (s) => String(s ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>':
 const ICON = { unprofitable: '🔴', sales_issue: '🟠', creative: '🟠', needs_leads: '🟡', scale: '🟢', good: '🟢', nodata: '⚪' };
 
 const usd = (x) => (x == null ? '—' : `$${x.toFixed(2)}`);
-const sum = (x) => (Math.abs(x) >= 1e6 ? `${(x / 1e6).toFixed(1).replace('.0', '')} mln` : n(x));
+const sum = (x) => n(x); // aniq summa, kiritilganidek
 export const REPORT_HEAD = 'PM hisoboti —';
 
 export function reportText(date) {

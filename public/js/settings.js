@@ -104,7 +104,7 @@ const PLAN_INPUTS = [['budget', "Reklama byudjeti, $"], ['leads', 'Lidlar soni']
 const num = (v) => { const x = Number(String(v ?? '').replace(/\s/g, '').replace(',', '.')); return v === '' || v == null || !Number.isFinite(x) ? null : x; };
 const usd2 = (x) => (x == null || !Number.isFinite(x) ? '—' : `$${x.toFixed(2)}`);
 const pctS = (x) => (x == null || !Number.isFinite(x) ? '—' : `${(x * 100).toFixed(1)}%`);
-const som = (x) => (x == null || !Number.isFinite(x) ? '—' : `${x >= 1e6 ? `${(x / 1e6).toFixed(1)} mln` : Math.round(x).toLocaleString('ru-RU')} so'm`);
+const som = (x) => (x == null || !Number.isFinite(x) ? '—' : `${Math.round(x).toLocaleString('ru-RU')} so'm`);
 
 // Rejadan chiqadigan ko'rsatkichlar: [nom, qanday hisoblanadi, qiymat, format, yaxshi tomoni (-1 — kami yaxshi, 1 — ko'pi, 0 — neytral)]
 function planDerived(v, auto) {

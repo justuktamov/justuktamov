@@ -8,12 +8,8 @@ export const state = { me: null, projects: [], period: 'y', from: null, to: null
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const fmtN = (x, d = 0) => (x == null || Number.isNaN(x) ? '—' : Number(x).toLocaleString('ru-RU', { maximumFractionDigits: d, minimumFractionDigits: d }).replace(/,/g, '.'));
 export const fmtUsd = (x, d = 2) => (x == null ? '—' : `$${fmtN(x, d)}`);
-export const fmtUzs = (x) => {
-  if (x == null) return '—';
-  if (Math.abs(x) >= 1e9) return `${fmtN(x / 1e9, 2)} mlrd`;
-  if (Math.abs(x) >= 1e6) return `${fmtN(x / 1e6, 1)} mln`;
-  return fmtN(x);
-};
+// So'm doim aniq, kiritilganidek (4 050 000) — «4.1 mln» kabi yaxlitlanmaydi
+export const fmtUzs = (x) => (x == null ? '—' : fmtN(Math.round(x)));
 // So'mdagi summa doim «so'm» bilan, dollar — «$» bilan (adashmaslik uchun)
 export const fmtSom = (x) => (x == null ? '—' : `${fmtUzs(x)} so'm`);
 export const fmtP = (x, d = 1) => (x == null || !Number.isFinite(x) ? '—' : `${fmtN(x * 100, d)}%`);

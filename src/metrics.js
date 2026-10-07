@@ -5,7 +5,7 @@ const SUM_FIELDS = Object.keys(FIELDS);
 const pct = (x) => `${(x * 100).toFixed(1)}%`;
 const pct0 = (x) => `${Math.round(x * 100)}%`;
 const fmt = (x) => Math.round(x).toLocaleString('ru-RU').replace(/,/g, ' ');
-const mln = (x) => (Math.abs(x) >= 1e6 ? `${(x / 1e6).toFixed(1).replace('.0', '')} mln` : fmt(x));
+const mln = (x) => fmt(x); // aniq summa (yaxlitlanmaydi)
 const div = (a, b) => (b > 0 && a != null ? a / b : null);
 const DAY_SHARE = 12 / 365; // oylik doimiy xarajatning bir kunlik ulushi
 
