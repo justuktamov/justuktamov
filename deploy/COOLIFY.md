@@ -43,9 +43,9 @@ After a deploy the log line `Yangi ma'lumotlar bazasi yaratildi: /data/analytika
 | `AI_PROVIDER` | `openrouter` | default; or `deepseek` / `anthropic` / `openai` |
 | `AI_API_KEY` | OpenRouter API key | secret; https://openrouter.ai/keys |
 | `AI_MODEL` | `deepseek/deepseek-v4-pro` | `deepseek/deepseek-v4-flash` is faster/cheaper |
-| `APP_URL` | the app's address | shows the app by name in OpenRouter usage stats |
-| `USD_RATE` | `12800` | starting rate; later changed in Settings |
-| `COOKIE_SECURE` | `0` now, `1` once the site opens via **https://** | with `1` on plain http, login stops working |
+| `APP_URL` | `https://perfo.uz` | shows the app by name in OpenRouter usage stats |
+| `USD_RATE` | `12800` | fallback only, for days before the PM started entering a rate; the PM enters the rate for each day in the report (step 1) |
+| `COOKIE_SECURE` | `1` | the site is served over **https://**; on plain http with `1`, login stops working |
 | `TZ_NAME` | `Asia/Tashkent` | |
 
 `DB_PATH`, `PORT` and `NODE_ENV` are already set in the Dockerfile. After changing a variable: **Restart** (or Deploy) — a running app does not see changes.
@@ -83,25 +83,33 @@ Optional: Coolify → **Notifications** → Telegram, so failed deployments are 
 
 ## 6. Domain
 
-**Now:** the generated address `http://edcxoidyeqsptqtqhwsmjktq.77.83.192.117.sslip.io` (points to the server IP `77.83.192.117`). Keep `COOKIE_SECURE=0` while it is plain http.
+**Production:** `https://perfo.uz` (also `https://www.perfo.uz`). Plain http redirects to https.
 
-**When the domain is active** (e.g. `crm.perfo.uz`):
-1. At the domain registrar, add a DNS **A record** `crm` → `77.83.192.117`.
-2. Application → **Domains** → enter `https://crm.perfo.uz` and save. Coolify gets a free Let's Encrypt certificate.
-3. Set `APP_URL=https://crm.perfo.uz`, `COOKIE_SECURE=1`, then **Deploy**.
+How it was set up:
+1. DNS at ahost.uz (nameservers `rdns1/2/3.ahost.uz`): **A record** `@` → `77.83.192.117`, **CNAME** `www` → `perfo.uz`.
+2. Application → **Domains**: `https://perfo.uz` and `https://www.perfo.uz`. Coolify (Traefik) gets and renews a free Let's Encrypt certificate for each on its own.
+3. Environment variables `APP_URL=https://perfo.uz` and `COOKIE_SECURE=1`, then **Deploy**.
 
-## 7. Daily database backup (already done)
+With `COOKIE_SECURE=1` login only works over https. The old generated address `http://edcxoidyeqsptqtqhwsmjktq.77.83.192.117.sslip.io` still opens, but you can't log in there.
 
-Application → **Scheduled Tasks**: name `backup`, command `node --disable-warning=ExperimentalWarning src/backup.js`, frequency `0 22 * * *` (server time is UTC → 03:00 Tashkent).
+To add another domain or subdomain (e.g. `crm.perfo.uz`): add its A record → `77.83.192.117`, append `https://crm.perfo.uz` to **Domains** (comma-separated), save, **Deploy**.
 
-It writes `/data/backups/analytika-YYYY-MM-DD.db` (a consistent copy taken while the app runs) and keeps 30 days. These copies are on the same server — regularly copy `/data/backups` somewhere else as well.
+## 7. Daily database backup (automatic)
+
+The app makes the backup itself every day at 03:00 Tashkent time. If the server was down at 03:00, it runs at the next start. It writes `/data/backups/analytika-YYYY-MM-DD.db` (a consistent copy taken while the app runs) and keeps 30 days. **Settings → Telegram** shows the last backup; it turns yellow if the last copy is older than a day.
+
+The Coolify scheduled task `backup` (`node --disable-warning=ExperimentalWarning src/backup.js`, `0 22 * * *`) is now an optional second run — both write the same daily file safely.
+
+These copies are on the same server — regularly copy `/data/backups` somewhere else as well.
+
+Every entry is also kept in the database's `entry_log` table (who, when, which day, which field, old → new value), visible in the app under «Kechagi hisobot» → «O'zgarishlar tarixi».
 
 ---
 
 ## Day-to-day
 
 - **Deploy a change:** push to `crm`. Watch it in GitHub → **Actions** and in Coolify → **Deployments**.
-- **Deploy by hand** (e.g. before the secrets exist): Coolify → application → **Actions → Deploy**.
+- **Deploy by hand:** GitHub → **Actions → CI/CD → Run workflow** (branch `crm`), or Coolify → application → **Actions → Deploy**.
 - **Roll back:** revert the bad commit on `crm` (the pipeline redeploys the previous code), or use Coolify's rollback to a previous image in the application settings.
 - **Change a secret:** edit it in Coolify → **Environment Variables**, then **Restart**.
 - **Logs:** Coolify → application → **Logs**.
