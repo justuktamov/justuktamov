@@ -13,7 +13,8 @@ const ROWS = [
   ['clicks', 'Klik', fmtN, 1, true],
   ['ctr', 'CTR (ko\'rish → klik)', (x) => fmtP(x), 1, false],
   ['§', 'Lidlar'],
-  ['leads', 'Lidlar', fmtN, 1, true, 'leads'],
+  ['target_leads', 'Lidlar (targetolog)', fmtN, 1, true],
+  ['leads', "Lidlar (sotuv bo'limi)", fmtN, 1, true, 'leads'],
   ['starts', 'Bot start', fmtN, 1, true, 'auto'],
   ['qualified_share', 'Sifatli lid ulushi', (x) => fmtP(x, 0), 1, false, 'leads'],
   ['cpl', '1 lid narxi', (x) => fmtUsd(x), -1, false, 'leads'],
@@ -159,7 +160,7 @@ export async function renderDynamics(inside = false) {
     if (r[5] === 'leads' && auto) return false;
     if (r[5] === 'auto' && (!auto || !has('starts'))) return false;
     if (!f.project && ['cac', 'avg_check'].includes(r[0])) return false;
-    return !['impressions', 'ctr', 'repeat_share'].includes(r[0]) || has(r[0]);
+    return !['impressions', 'ctr', 'repeat_share', 'target_leads'].includes(r[0]) || has(r[0]);
   }).filter((r, i, list) => r[0] !== '§' || (list[i + 1] && list[i + 1][0] !== '§'))
     .map((r) => (r[0] === 'conv' ? [r[0], !f.project ? 'Konversiya (lid → sotuv)' : auto ? 'Konversiya (start → xarid)' : 'Konversiya (lid → sotuv)', ...r.slice(2)] : r));
   const head = months.map((m) => `<th class="n">${esc(periodLabel(m))}${m.partial && m.unit !== 'day' ? ` <span class="muted small">· ${m.days} kun</span>` : ''}</th>`).join('');

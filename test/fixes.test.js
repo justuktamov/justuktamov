@@ -19,7 +19,7 @@ globalThis.fetch = async (url, opts) => {
 
 const { getDb, today, getSetting, setSetting, nowLocal } = await import('../src/db.js');
 const { createUser } = await import('../src/auth.js');
-const { addDays, usdRate, monthly, toCsv } = await import('../src/metrics.js');
+const { addDays, legacyRate, monthly, toCsv } = await import('../src/metrics.js');
 const { addDirectorReply, getReport, reportBundle } = await import('../src/reports.js');
 const { createApp, sendPlanAlerts, runDaily } = await import('../src/server.js');
 
@@ -48,22 +48,21 @@ async function session(password = 'secret123') {
 
 test("dollar kursi: «12 900» va «12,900» raqam sifatida saqlanadi, mantiqsiz kurs rad etiladi", async () => {
   const pm = await session();
+  const d = addDays(today(), -60);
   for (const v of ['12 900', '12,900', '12.900', '12900']) {
-    await pm.json('/api/settings', { method: 'PUT', body: { usd_rate: v } });
-    assert.equal(getSetting('usd_rate'), '12900', v);
-    assert.equal(usdRate(), 12900, v);
+    assert.equal((await pm.json('/api/rate', { method: 'PUT', body: { date: d, usd_rate: v } })).usd_rate, 12900, v);
   }
-  await pm.json('/api/settings', { method: 'PUT', body: { usd_rate: '12 650,5' } });
-  assert.equal(usdRate(), 12650.5);
+  assert.equal((await pm.json('/api/rate', { method: 'PUT', body: { date: d, usd_rate: '12 650,5' } })).usd_rate, 12650.5);
   for (const v of ['12,9', '0', 'abc', '-12800']) {
-    const r = await pm('/api/settings', { method: 'PUT', body: { usd_rate: v } });
+    const r = await pm('/api/rate', { method: 'PUT', body: { date: d, usd_rate: v } });
     assert.equal(r.status, 400, v);
   }
-  // Eski bazada matn ko'rinishida saqlangan kurs ham to'g'ri o'qiladi
+  await pm.json('/api/rate', { method: 'PUT', body: { date: d, usd_rate: '' } });
+  // Kunlik kursdan oldingi kunlar — eski umumiy kurs; eski bazada matn ko'rinishida saqlangan bo'lsa ham to'g'ri o'qiladi
   setSetting('usd_rate', '12 800');
-  assert.equal(usdRate(), 12800);
+  assert.equal(legacyRate(), 12800);
   setSetting('usd_rate', '13,100');
-  assert.equal(usdRate(), 13100);
+  assert.equal(legacyRate(), 13100);
   const r = await pm('/api/settings', { method: 'PUT', body: { reminder_time: '24:00' } });
   assert.equal(r.status, 400, "24:00 — noto'g'ri vaqt");
 });
@@ -77,7 +76,11 @@ test('direktor avtomatik hisobotga javob yozsa saqlanadi, PM keyin ham yubora ol
   assert.equal(r.status, 'draft', "PM yubormagan — «ko'rildi» bo'lmaydi");
   assert.equal(r.director_comment, 'Byudjetni kamaytiring');
   assert.equal(reportBundle(addDays(d, 1)).prevReply.text, 'Byudjetni kamaytiring', 'ertasiga PM ko\'radi');
-  // PM keyin o'z hisobotini yuboradi — direktor javobi saqlanib qoladi
+  // PM keyin o'z hisobotini yuboradi — direktor javobi saqlanib qoladi. Kurssiz hisobot yuborilmaydi
+  const noRate = await pm('/api/report/submit', { method: 'POST', body: { date: d, summary: 'Kechikib yubordim' } });
+  assert.equal(noRate.status, 400);
+  assert.match((await noRate.json()).error, /dollar kursi/i);
+  await pm.json('/api/rate', { method: 'PUT', body: { date: d, usd_rate: '12 700' } });
   const sent = await pm.json('/api/report/submit', { method: 'POST', body: { date: d, summary: 'Kechikib yubordim' } });
   assert.equal(sent.status, 'submitted');
   assert.equal(sent.director_comment, 'Byudjetni kamaytiring');

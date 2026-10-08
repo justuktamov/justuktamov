@@ -3,13 +3,14 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getDb, getSetting, setSetting, today, splitIds, normalizeIds, projectReasons, normalizeReasonKeys, DIZIPRO_REASONS, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from './db.js';
+import { getDb, getSetting, setSetting, today, nowLocal, logEntry, splitIds, normalizeIds, projectReasons, normalizeReasonKeys, DIZIPRO_REASONS, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from './db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText, getReport, saveAiAnalysis } from './reports.js';
 import { aiStatus, analyze, AiError } from './ai/index.js';
 import { buildAiInput, hashInput } from './ai/prompt.js';
 import { login, logout, userFromToken, changePassword, ensureUser, publicUser } from './auth.js';
-import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, planProgress, monthly, estimateLag, parseRate } from './metrics.js';
+import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, planProgress, monthly, estimateLag, parseRate, parseNum, dayRates } from './metrics.js';
 import { startPolling, telegramStatus, sendMessage } from './telegram.js';
+import { makeBackup, backupStatus } from './backup.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PUBLIC = join(ROOT, 'public');
@@ -80,9 +81,10 @@ function period(q) {
   return { from, to };
 }
 
+// «450.000» va «450,000» — 450000 (minglik ajratgich), «58.58» — kasr (parseNum)
 function num(v) {
-  if (v === '' || v == null) return null;
-  const x = Number(String(v).replace(/\s/g, '').replace(',', '.'));
+  const x = parseNum(v);
+  if (x === null) return null;
   if (!Number.isFinite(x) || x < 0) throw new HttpError(400, `Noto'g'ri son: ${v}`);
   return x;
 }
@@ -217,12 +219,16 @@ route('PUT', '/api/projects/:id', async (req, res, { id }) => {
 route('GET', '/api/daily', async (req, res, _p, q) => {
   requireUser(req);
   const date = isDate(q.get('date')) ? q.get('date') : today();
-  const { projects, rows } = loadRows(date, date);
-  const { rows: prevRows } = loadRows(addDays(date, -1), addDays(date, -1));
+  // Kiritish — faqat faol loyihalar (arxivdagisining eski raqamlari hisobda qoladi, lekin bu yerda tahrirlanmaydi)
+  const { projects, rows } = loadRows(date, date, null, { activeOnly: true });
+  const { rows: prevRows } = loadRows(addDays(date, -1), addDays(date, -1), null, { activeOnly: true });
   const reasons = loadReasons(date, date);
   const ch = loadChannels(date, date);
+  const rateOf = dayRates();
   send(res, 200, {
     date,
+    // value — shu kun uchun kiritilgan kurs (yo'q bo'lsa null), prev — kiritilmasa hisobda ishlatiladigan kurs (oldingi kunniki)
+    rate: { value: rateOf.entered(date), prev: rateOf(addDays(date, -1)) },
     projects: projects.map((p) => ({
       id: p.id, name: p.name, color: p.color, kind: p.kind || 'leads',
       channels: projectOut(p).channels,
@@ -235,7 +241,7 @@ route('GET', '/api/daily', async (req, res, _p, q) => {
   });
 });
 route('PUT', '/api/daily', async (req, res) => {
-  requireUser(req);
+  const u = requireUser(req);
   const b = await readBody(req);
   if (!isDate(b.date)) throw new HttpError(400, "Sana noto'g'ri");
   if (b.date > today()) throw new HttpError(400, "Kelajak sanasiga kiritib bo'lmaydi");
@@ -271,9 +277,11 @@ route('PUT', '/api/daily', async (req, res) => {
   }
   db.exec('BEGIN');
   try {
+    const log = (kind, field, oldValue, newValue) => logEntry({ userId: u.id, date: b.date, projectId: p.id, kind, field, oldValue, newValue });
     for (const [channel, v] of chans) {
       const cur = db.prepare('SELECT * FROM channel_daily WHERE project_id = ? AND date = ? AND channel = ?').get(p.id, b.date, channel) || {};
       const row = Object.fromEntries(Object.keys(CHANNEL_FIELDS).map((f) => [f, f in v ? v[f] : cur[f] ?? null]));
+      for (const f of Object.keys(v)) log('channel', `${channel}.${f}`, cur[f], row[f]);
       if (Object.values(row).every((x) => x == null)) db.prepare('DELETE FROM channel_daily WHERE project_id = ? AND date = ? AND channel = ?').run(p.id, b.date, channel);
       else db.prepare(`INSERT INTO channel_daily (project_id, date, channel, spend, clicks, leads, qualified, sales, revenue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT DO UPDATE SET spend = excluded.spend, clicks = excluded.clicks, leads = excluded.leads, qualified = excluded.qualified, sales = excluded.sales, revenue = excluded.revenue`)
@@ -281,9 +289,12 @@ route('PUT', '/api/daily', async (req, res) => {
     }
     db.prepare('INSERT OR IGNORE INTO daily (project_id, date) VALUES (?, ?)').run(p.id, b.date);
     for (const [field, v] of changes) {
+      log('daily', field, old[field], v);
       db.prepare(`UPDATE daily SET ${field} = ?, updated_at = datetime('now') WHERE project_id = ? AND date = ?`).run(v, p.id, b.date);
     }
     for (const [kind, reason, c] of reasons) {
+      const was = db.prepare('SELECT count FROM reasons WHERE project_id = ? AND date = ? AND kind = ? AND reason = ?').get(p.id, b.date, kind, reason)?.count;
+      log('reason', `${kind}.${reason}`, was, c ? Math.round(c) : null);
       if (!c) db.prepare('DELETE FROM reasons WHERE project_id = ? AND date = ? AND kind = ? AND reason = ?').run(p.id, b.date, kind, reason);
       else db.prepare('INSERT INTO reasons (project_id, date, kind, reason, count) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO UPDATE SET count = excluded.count').run(p.id, b.date, kind, reason, Math.round(c));
     }
@@ -293,6 +304,26 @@ route('PUT', '/api/daily', async (req, res) => {
     throw e;
   }
   send(res, 200, { ok: true, changed: changes.length + chans.length });
+});
+// Shu kunning dollar kursi (1-qadam): faqat shu kun hisobiga ta'sir qiladi; bo'sh qiymat — o'chiradi
+route('PUT', '/api/rate', async (req, res) => {
+  const u = requireUser(req);
+  const b = await readBody(req);
+  if (!isDate(b.date) || b.date > today()) throw new HttpError(400, "Sana noto'g'ri");
+  const db = getDb();
+  const was = db.prepare('SELECT usd_rate FROM day_rates WHERE date = ?').get(b.date)?.usd_rate;
+  const log = (v) => logEntry({ userId: u.id, date: b.date, kind: 'rate', field: 'usd_rate', oldValue: was, newValue: v });
+  if (b.usd_rate === '' || b.usd_rate == null) {
+    db.prepare('DELETE FROM day_rates WHERE date = ?').run(b.date);
+    log(null);
+    return send(res, 200, { date: b.date, usd_rate: null });
+  }
+  const rate = parseRate(b.usd_rate);
+  if (rate == null) throw new HttpError(400, "Dollar kursi noto'g'ri (masalan: 12650)");
+  db.prepare('INSERT INTO day_rates (date, usd_rate, updated_at) VALUES (?, ?, ?) ON CONFLICT(date) DO UPDATE SET usd_rate = excluded.usd_rate, updated_at = excluded.updated_at')
+    .run(b.date, rate, nowLocal());
+  log(rate);
+  send(res, 200, { date: b.date, usd_rate: rate });
 });
 
 // ---- Statistika ----
@@ -386,15 +417,32 @@ route('PUT', '/api/report', async (req, res) => {
   const u = requireUser(req);
   const b = await readBody(req);
   if (!isDate(b.date) || b.date > today()) throw new HttpError(400, "Sana noto'g'ri");
-  send(res, 200, saveDraft(b.date, u.id, b));
+  send(res, 200, saveDraftLogged(b.date, u.id, b));
 });
+// Xulosa, ertangi reja va loyihalar bo'yicha holat/taklif o'zgarishlari ham tarixga yoziladi
+function saveDraftLogged(date, userId, b) {
+  const before = getReport(date);
+  const after = saveDraft(date, userId, b);
+  const log = (field, oldValue, newValue, projectId = null) => logEntry({ userId, date, projectId, kind: 'report', field, oldValue, newValue });
+  log('summary', before?.summary, after.summary);
+  log('tomorrow', before?.tomorrow, after.tomorrow);
+  for (const pid of new Set([...Object.keys(before?.project_notes || {}), ...Object.keys(after.project_notes || {})])) {
+    const o = before?.project_notes?.[pid] || {}, n = after.project_notes?.[pid] || {};
+    log('status', o.status, n.status, Number(pid));
+    log('comment', o.comment, n.comment, Number(pid));
+  }
+  return after;
+}
 route('POST', '/api/report/submit', async (req, res) => {
   const u = requireUser(req);
   const b = await readBody(req);
   if (!isDate(b.date) || b.date > today()) throw new HttpError(400, "Sana noto'g'ri");
-  if (b.summary !== undefined || b.project_notes !== undefined) saveDraft(b.date, u.id, b);
+  // Har hisobotning o'z kursi bo'ladi: kiritilmasa yuborilmaydi
+  if (dayRates().entered(b.date) == null) throw new HttpError(400, "Shu kun uchun dollar kursini kiriting (1-qadam, «Target»)");
+  if (b.summary !== undefined || b.project_notes !== undefined) saveDraftLogged(b.date, u.id, b);
   const resend = Boolean(getReport(b.date)?.submitted_at);
   const r = submitReport(b.date, u.id);
+  logEntry({ userId: u.id, date: b.date, kind: 'report', field: 'submit', newValue: resend ? 'qayta yuborildi' : 'yuborildi' });
   const chats = splitIds(getSetting('report_chat_id'));
   // Qayta yuborilgan (tuzatilgan) hisobot — direktor farqlashi uchun belgi bilan
   const text = `${resend ? '✏️ <b>Tuzatilgan hisobot</b> — raqamlar yangilandi\n\n' : ''}${reportText(b.date)}`;
@@ -406,26 +454,39 @@ route('GET', '/api/report/preview', async (req, res, _p, q) => {
   requireUser(req);
   send(res, 200, { text: reportText(isDate(q.get('date')) ? q.get('date') : today()) });
 });
+// Shu kun bo'yicha barcha kiritishlar tarixi (eng yangisi birinchi)
+const HISTORY_LABEL = { usd_rate: 'Dollar kursi', summary: 'Kun xulosasi', tomorrow: 'Ertaga', status: 'Holat', comment: 'Direktorga taklif', submit: 'Hisobot' };
+route('GET', '/api/history', async (req, res, _p, q) => {
+  requireUser(req);
+  if (!isDate(q.get('date'))) throw new HttpError(400, "Sana noto'g'ri");
+  const db = getDb();
+  const users = new Map(db.prepare('SELECT id, name FROM users').all().map((x) => [x.id, x.name]));
+  const projects = new Map(db.prepare('SELECT id, name FROM projects').all().map((x) => [x.id, x.name]));
+  const label = (r) => {
+    if (r.kind === 'daily') return FIELDS[r.field] || TEXT_FIELDS[r.field] || r.field;
+    if (r.kind === 'reason') { const [k, x] = r.field.split('.'); return `${REASON_KINDS[k] || k}: ${REASONS[k]?.[x] || x}`; }
+    if (r.kind === 'channel') { const [c, f] = r.field.split('.'); return `${CHANNELS[c] || c}: ${CHANNEL_FIELDS[f] || f}`; }
+    return HISTORY_LABEL[r.field] || r.field;
+  };
+  send(res, 200, db.prepare('SELECT * FROM entry_log WHERE date = ? ORDER BY id DESC LIMIT 500').all(q.get('date')).map((r) => ({
+    at: r.at, user: users.get(r.user_id) || null, project: projects.get(r.project_id) || null, kind: r.kind, field: r.field, label: label(r), old: r.old_value, new: r.new_value,
+  })));
+});
 route('GET', '/api/reports', async (req, res, _p, q) => {
   requireUser(req);
   send(res, 200, listReports(Math.min(Number(q.get('limit')) || 30, 120)));
 });
 
 // ---- Sozlamalar ----
-const SETTING_KEYS = ['usd_rate', 'report_chat_id', 'report_time', 'reminder_time'];
+// Dollar kursi bu yerda yo'q: har kun uchun hisobotda kiritiladi (PUT /api/rate)
+const SETTING_KEYS = ['report_chat_id', 'report_time', 'reminder_time'];
 route('GET', '/api/settings', async (req, res) => {
   requireUser(req);
-  send(res, 200, { ...Object.fromEntries(SETTING_KEYS.map((k) => [k, getSetting(k)])), telegram: telegramStatus(), ai: aiStatus() });
+  send(res, 200, { ...Object.fromEntries(SETTING_KEYS.map((k) => [k, getSetting(k)])), telegram: telegramStatus(), ai: aiStatus(), backup: backupStatus() });
 });
 route('PUT', '/api/settings', async (req, res) => {
   requireUser(req);
   const b = await readBody(req);
-  // Kurs raqam sifatida saqlanadi: «12 800» yoki «12,800» yozilsa ham hisobda aynan shu kurs ishlatiladi
-  if (b.usd_rate !== undefined && b.usd_rate !== '' && b.usd_rate !== null) {
-    const rate = parseRate(b.usd_rate);
-    if (rate == null) throw new HttpError(400, "Dollar kursi noto'g'ri (masalan: 12800)");
-    b.usd_rate = String(rate);
-  }
   if (b.report_chat_id !== undefined) {
     try { b.report_chat_id = normalizeIds(b.report_chat_id) ?? ''; } catch (e) { throw new HttpError(400, e.message); }
   }
@@ -537,6 +598,8 @@ function startScheduler() {
     const d = addDays(today(), -1); // hisobot kechagi kun uchun
     const sent = () => ['submitted', 'reviewed'].includes(getDb().prepare('SELECT status FROM daily_reports WHERE date = ?').get(d)?.status);
     const jobs = [
+      // Har kuni bazaning zaxira nusxasi (/data/backups, 30 kun saqlanadi). Kalit — bugungi sana
+      ['last_backup', '03:00', () => { const r = makeBackup(); console.log(`Zaxira nusxa: ${r.file} (${Math.round(r.size / 1024)} KB)`); }, today()],
       ['last_reminder', getSetting('reminder_time', '11:00'), async () => {
         if (sent()) return;
         const pms = getDb().prepare('SELECT telegram_id FROM users WHERE active = 1 AND telegram_id IS NOT NULL').all();
@@ -549,9 +612,9 @@ function startScheduler() {
         for (const chat of splitIds(getSetting('report_chat_id'))) await sendMessage(chat, `⚠️ <i>PM hisobotni yubormadi — avtomatik hisobot</i>\n\n${reportText(d)}`);
       }],
     ];
-    for (const [key, at, fn] of jobs) {
+    for (const [key, at, fn, day = d] of jobs) {
       if (!at || hm < at) continue; // vaqt bo'sh — o'chirilgan
-      try { await runDaily(key, d, fn); } catch (e) { console.error(`Scheduler (${key}):`, e.message); }
+      try { await runDaily(key, day, fn); } catch (e) { console.error(`Scheduler (${key}):`, e.message); }
     }
   }, 30_000).unref();
 }

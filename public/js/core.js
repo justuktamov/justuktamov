@@ -13,6 +13,16 @@ export const fmtUzs = (x) => (x == null ? '—' : fmtN(Math.round(x)));
 // So'mdagi summa doim «so'm» bilan, dollar — «$» bilan (adashmaslik uchun)
 export const fmtSom = (x) => (x == null ? '—' : `${fmtUzs(x)} so'm`);
 export const fmtP = (x, d = 1) => (x == null || !Number.isFinite(x) ? '—' : `${fmtN(x * 100, d)}%`);
+// Kiritilgan son — serverdagi parseNum bilan bir xil: «450.000» va «450,000» — 450000 (minglik), «58.58», «12,5» — kasr
+export function parseNum(v) {
+  if (v === '' || v == null) return null;
+  let s = String(v).replace(/\s/g, '');
+  if (/^[1-9]\d{0,2}([.,])\d{3}(\1\d{3})*$/.test(s)) s = s.replace(/[.,]/g, '');
+  else if (/^[1-9]\d{0,2}(\.\d{3})+,\d+$/.test(s)) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^[1-9]\d{0,2}(,\d{3})+\.\d+$/.test(s)) s = s.replace(/,/g, '');
+  else s = s.replace(',', '.');
+  return s ? Number(s) : NaN;
+}
 export const addDays = (date, n) => { const d = new Date(`${date}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 export const shortDate = (d) => d.slice(5).split('-').reverse().join('.');
 const MONTHS = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'];
@@ -608,9 +618,13 @@ export async function refreshMe() {
 
 // Ilova uzoq ochiq tursa (telefonda — kunlab) «bugun» va «kecha» eskiradi: 5 daqiqadan eski bo'lsa qayta olinadi.
 // true — kun almashgan (sahifani qayta chizish kerak)
+// Kun almashganda state.dayRolled — avvalgi «kechagi kun» (hisobot sahifasi tugallanmagan hisobotda qolishi uchun)
 export async function syncDay(maxAge = 5 * 60e3) {
   if (!state.me || Date.now() - (state.meAt || 0) < maxAge) return false;
   const before = state.me.today;
+  const beforeDay = state.me.reportDay;
   await refreshMe().catch(() => {});
-  return Boolean(state.me) && state.me.today !== before;
+  const changed = Boolean(state.me) && state.me.today !== before;
+  if (changed) state.dayRolled = beforeDay;
+  return changed;
 }

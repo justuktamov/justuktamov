@@ -20,6 +20,12 @@ function compact(o) {
 
 const isEmpty = (p) => !p.reported.spend && !p.reported.leads && !p.reported.sales;
 
+// Jami targetolog lidlari — sotuv bo'limi lidlari bilan bir xil loyihalardan (avtovoronkasiz); kiritilmagan bo'lsa — yo'q
+function leadTargetTotal(byProject) {
+  const lp = byProject.filter((p) => p.kind !== 'auto' && p.reported?.target_leads);
+  return lp.length ? lp.reduce((a, p) => a + (p.target_leads || 0), 0) : undefined;
+}
+
 // Hisobot sahifasidagi ma'lumotdan (reportBundle) — modelga boradigan ixcham JSON.
 // Faqat raqami kiritilgan loyihalar; tizim topgan muammolar ham beriladi (ular tekshirilgan faktlar)
 export function buildAiInput(bundle) {
@@ -40,6 +46,7 @@ export function buildAiInput(bundle) {
         klik: has('clicks') ? p.clicks : undefined,
         ctr: has('impressions') && has('clicks') ? pct(p.ctr) : undefined,
         bot_start: has('starts') ? p.starts : undefined,
+        lid_target: has('target_leads') ? p.target_leads : undefined,
         lid: has('leads') ? p.leads : undefined,
         sifatli_lid: has('qualified') ? p.qualified : undefined,
         potensial_lid: has('potential') ? p.potential : undefined,
@@ -79,7 +86,8 @@ export function buildAiInput(bundle) {
     ...compact({
       sana: bundle.date,
       valyuta: "reklama — AQSh dollari ($); tushum, foyda va o'rtacha chek — so'm",
-      jami: { reklama_usd: r2(t.spend), tushum_som: som(t.revenue), sof_foyda_som: som(t.net_profit), lid: t.leads, sotuv: t.sales },
+      dollar_kursi: bundle.rate?.value ?? undefined,
+      jami: { reklama_usd: r2(t.spend), tushum_som: som(t.revenue), sof_foyda_som: som(t.net_profit), lid_target: leadTargetTotal(bundle.day.byProject), lid: t.leads, sotuv: t.sales },
       direktorning_oxirgi_yechimi: bundle.prevReply?.text,
     }),
     projects,
@@ -102,6 +110,7 @@ Qoidalar:
 - Faqat berilgan raqamlarga tayan. Raqam, sabab yoki fakt o'ylab topma. Ma'lumot yetarli bo'lmasa — buni ochiq ayt.
 - Har bir loyiha o'zining odatdagi normasi bilan solishtiriladi (odatdagi_norma): loyihalar har xil biznes, ularni bir-biri bilan solishtirma.
 - Reklama dollarda ($), tushum va foyda so'mda — birliklarni adashtirma.
+- lid_target — targetolog reklama kabinetidan aytgan lidlar, lid — sotuv bo'limi qabul qilgan lidlar. Ular alohida; farqi katta bo'lsa, buni ayt.
 - tizim_topgan_muammolar — tekshirilgan faktlar. Ularni inkor qilma; nima uchun bo'lganini va nima qilish kerakligini tushuntir.
 - Takliflar amaliy bo'lsin: kim (targetolog, sotuv bo'limi yoki direktor) aniq nima qiladi.
 - direktorning_oxirgi_yechimi berilgan bo'lsa — uning bajarilishini raqamlarda ko'rsa, eslatib o't.

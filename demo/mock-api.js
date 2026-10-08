@@ -2,13 +2,13 @@
 // Hisob-kitoblar serverdagi kod bilan bir xil (metrics.js, reports.js).
 // Kiritilgan ma'lumotlar shu brauzerning localStorage xotirasida saqlanadi.
 import { store } from './fake-sqlite.js';
-import { today, normalizeIds, projectReasons, normalizeReasonKeys, DIZIPRO_REASONS, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from '../src/db.js';
+import { today, nowLocal, normalizeIds, projectReasons, normalizeReasonKeys, DIZIPRO_REASONS, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from '../src/db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText } from '../src/reports.js';
-import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, monthly, estimateLag, parseRate } from '../src/metrics.js';
+import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, monthly, estimateLag, parseRate, parseNum, dayRates } from '../src/metrics.js';
 import { generateDemo, DEMO_USER } from '../src/demo-data.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v22';
+const SAVE_KEY = 'analitika-demo-v23';
 let me = null;
 
 function seed() {
@@ -18,6 +18,7 @@ function seed() {
   store.plans = demo.plans;
   store.reasons = demo.reasons;
   store.channels = demo.channels;
+  store.rates = demo.rates;
   store.reports = demo.reports.map((r) => ({
     date: r.date, author_id: 1, status: r.status, summary: r.summary, tomorrow: r.tomorrow,
     project_notes: JSON.stringify(r.project_notes), submitted_at: `${r.date} 19:30:00`,
@@ -41,15 +42,22 @@ function save() {
 load();
 
 const nextId = (list) => list.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1;
+// Kiritishlar tarixi (serverdagi entry_log ning soddalashtirilgani)
+function logDemo(date, project, label, oldValue, newValue) {
+  const s = (v) => (v == null || v === '' ? null : String(v));
+  if (s(oldValue) === s(newValue)) return;
+  (store.log ||= []).push({ at: nowLocal(), user: store.user?.name || null, date, project, label, old: s(oldValue), new: s(newValue) });
+}
 const publicUser = ({ password, ...u }) => u;
 
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
 const json = (status, data) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
 const isMonth = (s) => /^\d{4}-\d{2}$/.test(String(s || ''));
+// Serverdagi num bilan bir xil: «450.000» — 450000 (parseNum)
 function num(v) {
-  if (v === '' || v == null) return null;
-  const x = Number(String(v).replace(/\s/g, '').replace(',', '.'));
+  const x = parseNum(v);
+  if (x === null) return null;
   if (!Number.isFinite(x) || x < 0) throw new HttpError(400, `Noto'g'ri son: ${v}`);
   return x;
 }
@@ -152,12 +160,14 @@ const routes = {
   'GET /api/daily': (_b, _p, q) => {
     needUser();
     const date = isDate(q.get('date')) ? q.get('date') : TODAY;
-    const { projects, rows } = loadRows(date, date);
-    const { rows: prevRows } = loadRows(addDays(date, -1), addDays(date, -1));
+    const { projects, rows } = loadRows(date, date, null, { activeOnly: true });
+    const { rows: prevRows } = loadRows(addDays(date, -1), addDays(date, -1), null, { activeOnly: true });
     const reasons = loadReasons(date, date);
     const ch = loadChannels(date, date);
+    const rateOf = dayRates();
     return {
       date,
+      rate: { value: rateOf.entered(date), prev: rateOf(addDays(date, -1)) },
       projects: projects.map((p) => ({
         id: p.id, name: p.name, color: p.color, kind: p.kind || 'leads',
         channels: projectOut(p).channels,
@@ -208,12 +218,24 @@ const routes = {
       if (Object.values(next).some((x) => x != null)) store.channels.push({ project_id: project.id, date: b.date, channel, ...next });
     }
     if (!row) { row = { project_id: project.id, date: b.date }; store.daily.push(row); }
-    for (const [field, v] of changes) row[field] = v;
+    for (const [field, v] of changes) { logDemo(b.date, project.name, FIELDS[field] || TEXT_FIELDS[field], row[field], v); row[field] = v; }
     for (const [kind, reason, c] of rs) {
       store.reasons = store.reasons.filter((r) => !(r.project_id === project.id && r.date === b.date && r.kind === kind && r.reason === reason));
       if (c) store.reasons.push({ project_id: project.id, date: b.date, kind, reason, count: Math.round(c) });
     }
     return { ok: true, changed: changes.length + chans.length };
+  },
+  'PUT /api/rate': (b) => {
+    needUser();
+    if (!isDate(b.date) || b.date > TODAY) throw new HttpError(400, "Sana noto'g'ri");
+    const was = (store.rates || []).find((r) => r.date === b.date)?.usd_rate;
+    const rate = b.usd_rate === '' || b.usd_rate == null ? null : parseRate(b.usd_rate);
+    if (b.usd_rate !== '' && b.usd_rate != null && rate == null) throw new HttpError(400, "Dollar kursi noto'g'ri (masalan: 12650)");
+    store.rates = (store.rates || []).filter((r) => r.date !== b.date);
+    logDemo(b.date, null, 'Dollar kursi', was, rate);
+    if (rate == null) return { date: b.date, usd_rate: null };
+    store.rates.push({ date: b.date, usd_rate: rate });
+    return { date: b.date, usd_rate: rate };
   },
   'GET /api/summary': (_b, _p, q) => { needUser(); return summary({ ...period(q), projectId: projectParam(q) }); },
   'GET /api/monthly': (_b, _p, q) => {
@@ -262,23 +284,21 @@ const routes = {
   'POST /api/report/submit': (b) => {
     const u = needUser();
     if (!isDate(b.date) || b.date > TODAY) throw new HttpError(400, "Sana noto'g'ri");
+    if (dayRates().entered(b.date) == null) throw new HttpError(400, "Shu kun uchun dollar kursini kiriting (1-qadam, «Target»)");
     return wrap(() => {
       if (b.summary !== undefined || b.project_notes !== undefined) saveDraft(b.date, u.id, b);
       return { ...submitReport(b.date, u.id), notified: false };
     });
   },
   'GET /api/reports': () => { needUser(); return listReports(90); },
-  'GET /api/settings': () => { needUser(); return { ...store.settings, telegram: { enabled: false, running: false, bot: null }, ai: DEMO_AI }; },
+  'GET /api/history': (_b, _p, q) => { needUser(); return (store.log || []).filter((r) => r.date === q.get('date')).reverse(); },
+  // usd_rate — eski umumiy kurs (kunlik kursdan oldingi kunlar hisobi uchun), sozlamalarda ko'rsatilmaydi
+  'GET /api/settings': () => { needUser(); const { usd_rate: _legacy, ...rest } = store.settings; return { ...rest, telegram: { enabled: false, running: false, bot: null }, ai: DEMO_AI }; },
   'PUT /api/settings': (b) => {
     needUser();
-    if (b.usd_rate !== undefined && b.usd_rate !== '' && b.usd_rate !== null) {
-      const rate = parseRate(b.usd_rate);
-      if (rate == null) throw new HttpError(400, "Dollar kursi noto'g'ri (masalan: 12800)");
-      b.usd_rate = String(rate);
-    }
     for (const k of ['report_time', 'reminder_time']) if (b[k] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(b[k]))) throw new HttpError(400, "Vaqt noto'g'ri (SS:DD)");
     if (b.report_chat_id !== undefined) b.report_chat_id = wrap(() => normalizeIds(b.report_chat_id)) ?? '';
-    for (const k of ['usd_rate', 'report_chat_id', 'report_time', 'reminder_time']) if (k in b) store.settings[k] = b[k] === '' || b[k] == null ? null : String(b[k]).trim();
+    for (const k of ['report_chat_id', 'report_time', 'reminder_time']) if (k in b) store.settings[k] = b[k] === '' || b[k] == null ? null : String(b[k]).trim();
     return { ok: true };
   },
 };

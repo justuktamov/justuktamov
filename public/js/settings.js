@@ -1,6 +1,6 @@
 // Sozlamalar: loyihalar, oylik reja, Telegram (hisobot qayerga boradi), profil
 import {
-  $, $$, esc, api, state, shell, toast, ICONS, monthLabel, refreshMe, spinnerBlock, selectHtml, colorHtml, TIMES,
+  $, $$, esc, api, state, shell, toast, ICONS, monthLabel, refreshMe, spinnerBlock, selectHtml, colorHtml, TIMES, fmtN, addDays,
 } from './core.js';
 
 let settingsTab = 'projects';
@@ -234,7 +234,7 @@ async function tabTelegram(body) {
           <label class="field">Eslatma<span class="hint">hisobot yuborilmagan bo'lsa</span>${selectHtml(timeOpts(settings.reminder_time ?? '11:00'), settings.reminder_time ?? '11:00', 'name="reminder_time" id="sRem"', 'Eslatma vaqti')}</label>
           <label class="field">Avto-hisobot<span class="hint">siz yubormasangiz</span>${selectHtml(timeOpts(settings.report_time ?? '13:00'), settings.report_time ?? '13:00', 'name="report_time" id="sTime"', 'Avto-hisobot vaqti')}</label>
         </div>
-        <label class="field">Dollar kursi (so'm)<span class="hint">ROAS hisobi uchun: tushum so'mda, reklama dollarda</span><input name="usd_rate" id="sRate" inputmode="decimal" value="${esc(settings.usd_rate ?? '12800')}"></label>
+        <p class="small muted" style="margin:0">Dollar kursi bu yerda emas — har kun hisobotda kiritiladi («Kechagi hisobot» → 1-qadam) va faqat o'sha kun hisobiga ta'sir qiladi.</p>
         <div><button class="btn primary">Saqlash</button></div>
       </form>
       <div class="card stack"><h2>Telegram bot</h2>
@@ -252,6 +252,7 @@ async function tabTelegram(body) {
         <p class="small" style="margin:0;color:var(--text-2)">«Kechagi hisobot» → 3-qadamda AI har loyiha bo'yicha tahlil va taklif yozadi; siz o'qib, tuzatib, saqlaysiz.
           Provayder serverdagi <span class="code">.env</span> faylida tanlanadi: <span class="code">AI_PROVIDER</span> (openrouter, deepseek, anthropic yoki openai), <span class="code">AI_API_KEY</span>, <span class="code">AI_MODEL</span> — o'zgartirgach serverni qayta ishga tushiring. Kalit ilovada ko'rsatilmaydi.</p>
       </div>
+      ${backupCard(settings.backup)}
     </div>`;
   // ID ro'yxati: «+ ID qo'shish» yangi qator qo'shadi, «×» o'chiradi (oxirgi qator tozalanadi)
   body.querySelectorAll('.id-list').forEach((box) => box.addEventListener('click', (e) => {
@@ -280,6 +281,18 @@ async function tabTelegram(body) {
       renderSettings();
     } catch (err) { toast(err.message, true); }
   };
+}
+
+// Kunlik zaxira nusxa: ilova har kuni 03:00 da (Toshkent) bazadan nusxa oladi — shu yerda oxirgisi ko'rinadi
+function backupCard(b) {
+  if (window.DEMO || !b) return `<div class="card stack"><h2>Zaxira nusxa</h2><div class="insight info"><span class="ic">Demo</span><span>Demoda zaxira yo'q — haqiqiy serverda ilova har kuni o'zi nusxa oladi</span></div></div>`;
+  const fresh = b.last && b.last >= addDays(state.me.today, -1);
+  const when = b.at ? new Date(b.at).toLocaleString('ru-RU', { timeZone: 'Asia/Tashkent', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+  return `<div class="card stack"><h2>Zaxira nusxa</h2>
+    ${b.last ? `<div class="insight ${fresh ? 'good' : 'warning'}"><span class="ic">${fresh ? 'Bor' : 'Eski'}</span><span>Oxirgi nusxa: <b>${esc(when)}</b> · ${fmtN((b.size || 0) / 1048576, 1)} MB · saqlanayotgan nusxalar: ${b.count} ta (${esc(b.oldest)} dan)</span></div>`
+      : `<div class="insight warning"><span class="ic">Yo'q</span><span>Hali zaxira nusxa olinmagan — ilova birinchisini bugun 03:00 dan keyin oladi</span></div>`}
+    <p class="small" style="margin:0;color:var(--text-2)">Ilova har kuni 03:00 da (Toshkent vaqti) butun bazadan nusxa oladi: serverdagi <span class="code">/data/backups</span> papkasiga, 30 kun saqlanadi. Har bir kiritish va o'zgarish ham alohida tarixda saqlanadi («Kechagi hisobot» → «O'zgarishlar tarixi»).</p>
+  </div>`;
 }
 
 // ---------- Profil ----------

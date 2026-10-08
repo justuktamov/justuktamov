@@ -1,6 +1,6 @@
 // Proekt menejerning direktorga kunlik hisoboti: qoralama → yuborildi → ko'rib chiqildi
 import { getDb, nowLocal } from './db.js';
-import { summary, weekStatus, addDays, dailyAdvice, PROJECT_STATUS, ADVICE_WHO } from './metrics.js';
+import { summary, weekStatus, addDays, dailyAdvice, dayRates, PROJECT_STATUS, ADVICE_WHO } from './metrics.js';
 import { buildAiInput, hashInput, aiText } from './ai/prompt.js';
 
 const nowIso = () => nowLocal();
@@ -24,8 +24,11 @@ export function reportBundle(date) {
   const week = weekStatus({ from: addDays(date, -6), to: date });
   // Direktorning oxirgi javobi (kechagi yoki undan oldingi hisobotga) — PM bugun shuni bajaradi
   const prev = getDb().prepare('SELECT date, director_comment FROM daily_reports WHERE date < ? AND director_comment IS NOT NULL ORDER BY date DESC LIMIT 1').get(date);
+  const rateOf = dayRates();
   const bundle = {
     date,
+    // Shu kunning dollar kursi: value — PM kiritgani (yo'q bo'lsa null), used — hisobda ishlatilgani
+    rate: { value: rateOf.entered(date), used: rateOf(date) },
     report: getReport(date),
     advice: dailyAdvice(date, day, week),
     adviceWho: ADVICE_WHO,
@@ -114,6 +117,16 @@ export function listReports(limit = 30) {
   });
 }
 
+// Jami lidlar ikki manbadan — faqat sotuv bo'limi orqali ishlaydigan loyihalar (avtovoronkada targetolog lidi bot start bilan solishtiriladi)
+export function leadTotals(byProject) {
+  const lp = byProject.filter((p) => p.kind !== 'auto');
+  return {
+    has: lp.some((p) => p.reported?.target_leads),
+    target: lp.reduce((a, p) => a + (p.target_leads || 0), 0),
+    sales: lp.reduce((a, p) => a + (p.leads || 0), 0),
+  };
+}
+
 // Telegram uchun (HTML parse_mode)
 const n = (x) => Math.round(x || 0).toLocaleString('ru-RU').replace(/,/g, ' ');
 const p = (x) => (x == null ? '—' : `${(x * 100).toFixed(1)}%`);
@@ -128,10 +141,11 @@ export function reportText(date) {
   const b = reportBundle(date);
   const r = b.report || {};
   const t = b.day.totals;
+  const tl = leadTotals(b.day.byProject);
   const lines = [
     `<b>📋 ${REPORT_HEAD} ${date}</b>${r.author_name ? `\nTayyorladi: ${esc(r.author_name)}` : ''}`,
     '',
-    `💸 Reklama: <b>$${t.spend.toFixed(0)}</b> (${sum(t.spend_uzs)} so'm)${t.spend_blogger || t.spend_posts ? ` — target $${t.target_spend.toFixed(0)}${t.spend_blogger ? `, bloger $${t.spend_blogger.toFixed(0)}` : ''}${t.spend_posts ? `, TG kanallar $${t.spend_posts.toFixed(0)}` : ''}` : ''} · klik <b>${n(t.clicks)}</b> · lid <b>${n(t.leads)}</b>`,
+    `💸 Reklama: <b>$${t.spend.toFixed(0)}</b> (${sum(t.spend_uzs)} so'm, kurs ${n(b.rate.used)}${b.rate.value == null ? ' — kiritilmagan' : ''})${t.spend_blogger || t.spend_posts ? ` — target $${t.target_spend.toFixed(0)}${t.spend_blogger ? `, bloger $${t.spend_blogger.toFixed(0)}` : ''}${t.spend_posts ? `, TG kanallar $${t.spend_posts.toFixed(0)}` : ''}` : ''} · klik <b>${n(t.clicks)}</b> · ${tl.has ? `lid: target <b>${n(tl.target)}</b>, sotuv bo'limi <b>${n(tl.sales)}</b>` : `lid <b>${n(t.leads)}</b>`}`,
     `💰 Tushum: <b>${sum(t.revenue)} so'm</b> · sotuv <b>${n(t.sales)}</b>`,
     `${t.net_profit >= 0 ? '📈' : '📉'} Sof foyda: <b>${sum(t.net_profit)} so'm</b>${t.revenue ? ` (${p(t.net_margin)})` : ''} · reklamadan keyingi foyda ${sum(t.gross_profit)} so'm`,
   ];
@@ -144,9 +158,11 @@ export function reportText(date) {
       .filter(([, , f]) => pr.reported[f]).map(([l, v]) => `${l} ${n(v)}`);
     lines.push('', `${ICON[status]} <b>${esc(pr.name)}</b> — ${esc(PROJECT_STATUS[status])}`);
     lines.push(`   $${pr.spend.toFixed(0)} · ${n(pr.clicks)} klik · ${pr.unit_label} ${usd(pr.unit_cost)}`);
-    if (pr.kind === 'auto') lines.push(`   ${pr.reported.starts ? `${n(pr.starts)} bot start · ` : ''}${n(pr.sales)} xarid (${p(pr.conv)} ${pr.conv_label})`);
+    // Lidlar — ikki manba alohida: targetolog (reklama kabineti) va sotuv bo'limi
+    const tl = pr.reported.target_leads ? `target lid ${n(pr.target_leads)} · ` : '';
+    if (pr.kind === 'auto') lines.push(`   ${tl}${pr.reported.starts ? `${n(pr.starts)} bot start · ` : ''}${n(pr.sales)} xarid (${p(pr.conv)} ${pr.conv_label})`);
     else {
-      lines.push(`   ${n(pr.leads)} lid${q.length ? ` (${q.join(' · ')})` : ''} · ${n(pr.sales)} sotuv`);
+      lines.push(`   ${tl ? `${tl}sotuv bo'limi lid ${n(pr.leads)}` : `${n(pr.leads)} lid`}${q.length ? ` (${q.join(' · ')})` : ''} · ${n(pr.sales)} sotuv`);
       const st = [["ko'tarmadi", 'st_nopickup'], ['qayta aloqa', 'st_callback'], ["o'ylab ko'radi", 'st_thinking'], ["video ko'rishi kerak", 'st_video'], ['bekor qilindi', 'st_cancelled']].filter(([, f]) => pr.reported[f]);
       if (st.length) lines.push(`   📋 ${st.map(([l, f]) => `${l} ${n(pr[f])}`).join(' · ')}`);
       const src = [['Instagram direkt', pr.src_ig], ['Telegram lichka', pr.src_tg]].filter(([, v]) => v > 0);

@@ -29,7 +29,7 @@ export async function renderProject(id) {
   const p = s.byProject[0];
   // Arxivdagi loyiha statistikada yo'q — spinner o'rniga tushuntirish
   if (!p) {
-    box.innerHTML = `<div class="card empty">${proj.active ? "Bu loyiha bo'yicha ma'lumot topilmadi." : "Loyiha arxivda — statistikasi ko'rsatilmaydi."} <a href="#/sozlamalar?tab=projects">Sozlamalar → Loyihalar</a></div>`;
+    box.innerHTML = `<div class="card empty">${proj.active ? "Bu loyiha bo'yicha ma'lumot topilmadi." : "Loyiha arxivda — bu davrda raqamlari yo'q. Raqami bor kunlarni tanlasangiz, ular ko'rinadi."} <a href="#/sozlamalar?tab=projects">Sozlamalar → Loyihalar</a></div>`;
     return;
   }
   const [cls, label] = statusOf(p);

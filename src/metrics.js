@@ -19,22 +19,58 @@ export function daysBetween(from, to) {
   return Math.round((new Date(`${to}T00:00:00Z`) - new Date(`${from}T00:00:00Z`)) / 864e5) + 1;
 }
 
+// Kiritilgan son. Nuqta yoki verguldan keyin aynan 3 ta raqam — minglik ajratgich: «450.000», «450,000», «4.050.000» — 450000, 4050000.
+// Aks holda kasr: «58.58», «12,5». Ikkalasi bo'lsa oxirgisi kasr: «4.050.000,50», «4,050,000.50». Yaroqsiz — NaN
+export function parseNum(v) {
+  if (v === '' || v == null) return null;
+  if (typeof v === 'number') return v;
+  let s = String(v).replace(/\s/g, '');
+  if (/^[1-9]\d{0,2}([.,])\d{3}(\1\d{3})*$/.test(s)) s = s.replace(/[.,]/g, '');
+  else if (/^[1-9]\d{0,2}(\.\d{3})+,\d+$/.test(s)) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^[1-9]\d{0,2}(,\d{3})+\.\d+$/.test(s)) s = s.replace(/,/g, '');
+  else s = s.replace(',', '.');
+  return s ? Number(s) : NaN;
+}
+
 // Dollar kursi: «12 800», «12800», «12,800», «12.800» — hammasi 12800; «12 650,5» — 12650.5.
 // So'm kursi uchun mantiqsiz qiymat (masalan 12.8) — null
 export function parseRate(v) {
-  let s = String(v ?? '').replace(/[\s ]/g, '');
-  s = /^\d{1,3}([.,]\d{3})+$/.test(s) ? s.replace(/[.,]/g, '') : s.replace(',', '.');
-  const x = Number(s);
-  return s && Number.isFinite(x) && x >= 1000 && x <= 1e6 ? x : null;
+  const x = parseNum(v);
+  return Number.isFinite(x) && x >= 1000 && x <= 1e6 ? x : null;
 }
 
-export function usdRate() {
+// Kunlik kurs kiritilishidan oldingi kunlar uchun: eski umumiy kurs (endi Sozlamalarda yo'q), bo'lmasa .env, bo'lmasa 12800
+export function legacyRate() {
   return parseRate(getSetting('usd_rate')) ?? parseRate(process.env.USD_RATE) ?? 12800;
 }
 
-export function loadRows(from, to, projectId = null) {
+// Dollar kursi har kun uchun alohida — PM hisobotda (1-qadam) kiritadi; bir kunning kursi boshqa kunlarga ta'sir qilmaydi.
+// Kursi kiritilmagan kun — undan oldingi oxirgi kiritilgan kurs; birinchi kiritilgan kundan oldingilar — eski umumiy kurs.
+// rateOf(date) — shu kun hisobida ishlatiladigan kurs; rateOf.entered(date) — shu kun uchun kiritilgan kurs yoki null
+export function dayRates() {
+  const list = getDb().prepare('SELECT date, usd_rate FROM day_rates ORDER BY date').all();
+  const legacy = legacyRate();
+  const exact = new Map(list.map((r) => [r.date, r.usd_rate]));
+  const rateOf = (date) => {
+    if (exact.has(date)) return exact.get(date);
+    let lo = 0, hi = list.length - 1, hit = null;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (list[mid].date <= date) { hit = list[mid]; lo = mid + 1; } else hi = mid - 1;
+    }
+    return hit ? hit.usd_rate : legacy;
+  };
+  rateOf.entered = (date) => exact.get(date) ?? null;
+  return rateOf;
+}
+
+// Arxivdagi loyiha o'tgan kunlardagi raqamlari bilan hisobda qoladi (jami, dinamika, hisobotlar).
+// activeOnly — faqat faol loyihalar (kiritish sahifasi: arxivdagi loyihaga raqam kiritilmaydi)
+export function loadRows(from, to, projectId = null, { activeOnly = false } = {}) {
   const db = getDb();
-  const projects = db.prepare('SELECT * FROM projects WHERE active = 1 ORDER BY COALESCE(sort_order, id), id').all()
+  const projects = (activeOnly
+    ? db.prepare('SELECT * FROM projects WHERE active = 1 ORDER BY COALESCE(sort_order, id), id').all()
+    : db.prepare('SELECT * FROM projects WHERE active = 1 OR id IN (SELECT project_id FROM daily WHERE date BETWEEN ? AND ?) ORDER BY active DESC, COALESCE(sort_order, id), id').all(from, to))
     .filter((p) => !projectId || p.id === Number(projectId));
   const ids = projects.map((p) => p.id);
   if (!ids.length) return { projects, rows: [] };
@@ -60,9 +96,13 @@ export function reasonList(kind, counts = {}) {
     .sort((a, b) => b.count - a.count);
 }
 
-export function sumRows(rows) {
+// Bir qatorning umumiy reklama xarajati ($): target + blogerlar + Telegram kanallar
+const rowSpend = (r) => (Number(r.spend) || 0) + (Number(r.spend_blogger) || 0) + (Number(r.spend_posts) || 0);
+
+// rateOf — kunlik dollar kursi (dayRates): reklama so'mga har kunning o'z kursi bilan o'tkaziladi
+export function sumRows(rows, rateOf = dayRates()) {
   // reported — nechta kunda maydon kiritilgan (0 va «kiritilmagan» farqlanadi)
-  const t = { days: new Set(), reported: {} };
+  const t = { days: new Set(), reported: {}, spend_uzs: 0 };
   for (const f of SUM_FIELDS) { t[f] = 0; t.reported[f] = 0; }
   for (const r of rows) {
     t.days.add(r.date);
@@ -70,6 +110,7 @@ export function sumRows(rows) {
       t[f] += Number(r[f]) || 0;
       if (r[f] != null) t.reported[f] += 1;
     }
+    t.spend_uzs += rowSpend(r) * rateOf(r.date);
   }
   t.days = t.days.size;
   // Reklama xarajati — umumiy: target + blogerlar + Telegram kanallar. Target alohida (voronka, CTR, 1 klik shundan)
@@ -80,8 +121,9 @@ export function sumRows(rows) {
   return derive(t);
 }
 
-export function derive(t, rate = usdRate()) {
-  const spendUzs = t.spend * rate;
+// spend_uzs — sumRows kunma-kun hisoblagan (har kun o'z kursi bilan)
+export function derive(t) {
+  const spendUzs = t.spend_uzs ?? t.spend * legacyRate();
   return {
     ...t,
     spend_uzs: spendUzs,
@@ -106,8 +148,8 @@ export function derive(t, rate = usdRate()) {
 }
 
 // Jami: raqamlar yig'indisi + har bir loyihaning xarajatlari (tannarx va doimiy — loyihaga qarab)
-function totalsOf(list, rowsAll) {
-  const t = sumRows(rowsAll);
+function totalsOf(list, rowsAll, rateOf = dayRates()) {
+  const t = sumRows(rowsAll, rateOf);
   const f = { var_cost: 0, fixed_cost: 0 };
   for (const p of list) { f.var_cost += p.var_cost; f.fixed_cost += p.fixed_cost; }
   const gross = t.revenue - t.spend_uzs;
@@ -120,21 +162,22 @@ export function loadChannels(from, to) {
   return getDb().prepare('SELECT * FROM channel_daily WHERE date BETWEEN ? AND ?').all(from, to);
 }
 
-function channelStats(rows, kind, rate = usdRate()) {
+function channelStats(rows, kind, rateOf = dayRates()) {
   const by = {};
   for (const r of rows) {
-    const c = (by[r.channel] ||= { channel: r.channel, label: CHANNELS[r.channel] || r.channel, reported: {} });
+    const c = (by[r.channel] ||= { channel: r.channel, label: CHANNELS[r.channel] || r.channel, reported: {}, spend_uzs: 0 });
     for (const f of Object.keys(CHANNEL_FIELDS)) {
       c[f] = (c[f] || 0) + (Number(r[f]) || 0);
       if (r[f] != null) c.reported[f] = (c.reported[f] || 0) + 1;
     }
+    c.spend_uzs += (Number(r.spend) || 0) * rateOf(r.date);
   }
   const list = Object.values(by);
   const totalSpend = list.reduce((a, c) => a + c.spend, 0);
   for (const c of list) {
     Object.assign(c, {
       cpl: div(c.spend, c.leads), cac: div(c.spend, c.sales), qualified_share: c.reported.qualified ? div(c.qualified, c.leads) : null,
-      conv: kind === 'auto' ? div(c.sales, c.clicks) : div(c.sales, c.leads), roas: div(c.revenue, c.spend * rate),
+      conv: kind === 'auto' ? div(c.sales, c.clicks) : div(c.sales, c.leads), roas: div(c.revenue, c.spend_uzs),
       spend_share: div(c.spend, totalSpend),
     });
   }
@@ -282,8 +325,8 @@ function benchmarks(from, projects, plan, projectId) {
   return out;
 }
 
-function projectStats(p, rows, days) {
-  const t = sumRows(rows);
+function projectStats(p, rows, days, rateOf = dayRates()) {
+  const t = sumRows(rows, rateOf);
   return { ...t, ...finance(t, p, days), ...conversion(t, p.kind) };
 }
 
@@ -291,16 +334,19 @@ export function summary({ from, to, projectId = null }) {
   const len = daysBetween(from, to);
   const prevTo = addDays(from, -1);
   const prevFrom = addDays(prevTo, -(len - 1));
+  const rateOf = dayRates();
   const { projects, rows } = loadRows(from, to, projectId);
-  const { rows: prevRows } = loadRows(prevFrom, prevTo, projectId);
+  const { projects: prevProjects, rows: prevRows } = loadRows(prevFrom, prevTo, projectId);
   const reasons = loadReasons(from, to);
 
   const byProject = projects.map((p) => {
-    const cur = projectStats(p, rows.filter((r) => r.project_id === p.id), len);
-    const old = projectStats(p, prevRows.filter((r) => r.project_id === p.id), len);
+    const cur = projectStats(p, rows.filter((r) => r.project_id === p.id), len, rateOf);
+    const old = projectStats(p, prevRows.filter((r) => r.project_id === p.id), len, rateOf);
     const rs = reasons[p.id] || { bad: {}, lost: {} };
     return {
       id: p.id, name: p.name, color: p.color, kind: p.kind || 'leads', var_cost_pct: p.var_cost_pct, fixed_monthly: p.fixed_monthly,
+      // Arxivdagi loyiha — shu davrda raqami bor, shuning uchun jamida; doskada ustuni ko'rsatilmaydi
+      archived: !p.active,
       ...cur,
       prev: { unit_cost: old.unit_cost, conv: old.conv, qualified_share: old.qualified_share, net_profit: old.net_profit, revenue: old.revenue, spend: old.spend },
       growth: { leads: pctChange(cur.leads, old.leads), sales: pctChange(cur.sales, old.sales), revenue: pctChange(cur.revenue, old.revenue) },
@@ -308,27 +354,25 @@ export function summary({ from, to, projectId = null }) {
     };
   });
 
-  const totals = totalsOf(byProject, rows);
-  const prevList = projects.map((p) => projectStats(p, prevRows.filter((r) => r.project_id === p.id), len));
-  const prev = totalsOf(prevList, prevRows);
+  const totals = totalsOf(byProject, rows, rateOf);
+  const prevList = prevProjects.map((p) => projectStats(p, prevRows.filter((r) => r.project_id === p.id), len, rateOf));
+  const prev = totalsOf(prevList, prevRows, rateOf);
   const delta = {};
   for (const k of Object.keys(totals)) if (typeof totals[k] === 'number') delta[k] = pctChange(totals[k], prev[k]);
 
   // Kunma-kun: pul oqimi (tushum, barcha xarajat, sof foyda) — jami va loyihalar bo'yicha
-  const dayRate = usdRate();
   const { rows: rows30 } = loadRows(addDays(to, -29), to, projectId);
   const dayStats = (d, list, src = rows) => {
     let revenue = 0, costs = 0, has = false;
-    const out = { date: d, spend: 0, clicks: 0, starts: 0, leads: 0, qualified: 0, sales: 0 };
+    const out = { date: d, spend: 0, spend_uzs: 0, clicks: 0, starts: 0, leads: 0, qualified: 0, sales: 0 };
     for (const p of list) {
       const r = src.find((x) => x.project_id === p.id && x.date === d);
       if (r && (r.spend != null || r.spend_blogger != null || r.spend_posts != null) && r.revenue != null) has = true;
-      const s = projectStats(p, r ? [r] : [], 1);
+      const s = projectStats(p, r ? [r] : [], 1, rateOf);
       revenue += s.revenue; costs += s.costs;
-      for (const k of ['spend', 'clicks', 'starts', 'leads', 'qualified', 'sales']) out[k] += s[k];
+      for (const k of ['spend', 'spend_uzs', 'clicks', 'starts', 'leads', 'qualified', 'sales']) out[k] += s[k];
     }
-    const spendUzs = out.spend * dayRate;
-    return { ...out, revenue, costs, net: revenue - costs, cpl: div(out.spend, out.leads), spend_uzs: spendUzs, romi: div(revenue - costs, spendUzs), has };
+    return { ...out, revenue, costs, net: revenue - costs, cpl: div(out.spend, out.leads), romi: div(revenue - costs, out.spend_uzs), has };
   };
   const series = [];
   for (let d = from; d <= to; d = addDays(d, 1)) series.push(dayStats(d, projects));
@@ -365,13 +409,12 @@ export function summary({ from, to, projectId = null }) {
 
   // LTV (90 kun): 1 yangi mijozdan jami qancha pul (qayta sotuvlar bilan) va uni olib kelish narxiga nisbati
   const { rows: ltvRows } = loadRows(addDays(to, -89), to, projectId);
-  const rate = usdRate();
   for (const p of byProject) {
-    const t = sumRows(ltvRows.filter((r) => r.project_id === p.id));
+    const t = sumRows(ltvRows.filter((r) => r.project_id === p.id), rateOf);
     // Yangi mijozlar = jami sotuv − qayta sotuv; LTV — ularning har biridan 90 kunda tushgan jami pul
     const fresh = Math.max(t.sales - (t.repeat_sales || 0), 0);
     const ltv = div(t.revenue, fresh);
-    const cacUzs = div(t.spend * rate, fresh);
+    const cacUzs = div(t.spend_uzs, fresh);
     const ltvProfit = ltv != null ? ltv * (1 - (Number(p.var_cost_pct) || 0) / 100) : null;
     p.ltv = { days: 90, ltv, ltv_profit: ltvProfit, cac_uzs: cacUzs, ltv_cac: ltvProfit != null && cacUzs ? ltvProfit / cacUzs : null,
       repeat_share: t.repeat_revenue ? div(t.repeat_revenue, t.revenue) : 0, repeat_sales: t.repeat_sales, sales: t.sales, new_sales: fresh, reported: t.reported.repeat_sales > 0 || t.reported.repeat_revenue > 0 };
@@ -380,7 +423,7 @@ export function summary({ from, to, projectId = null }) {
   // Kanallar bo'yicha
   const ch = loadChannels(from, to);
   for (const p of byProject) {
-    p.channels = channelStats(ch.filter((r) => r.project_id === p.id), p.kind);
+    p.channels = channelStats(ch.filter((r) => r.project_id === p.id), p.kind, rateOf);
   }
 
   const plan = planProgress(to.slice(0, 7), projectId, to);
@@ -500,10 +543,11 @@ export function priceAdvice(p) {
 
 // ---------- Oylar bo'yicha dinamika ----------
 // asOf — oxirgi hisobot kuni (kecha): bugungi raqamlar hali kiritilmagan, joriy oyni kunlik sur'atda pasaytirmasin
-const MONTH_KEYS = ['impressions', 'clicks', 'ctr', 'starts', 'spend', 'spend_uzs', 'revenue', 'gross_profit', 'net_profit', 'net_margin', 'leads', 'qualified_share', 'sales', 'conv', 'cpl', 'cac', 'avg_check', 'roas', 'repeat_share'];
+const MONTH_KEYS = ['impressions', 'clicks', 'ctr', 'starts', 'spend', 'spend_uzs', 'revenue', 'gross_profit', 'net_profit', 'net_margin', 'target_leads', 'leads', 'qualified_share', 'sales', 'conv', 'cpl', 'cac', 'avg_check', 'roas', 'repeat_share'];
 // unit: month — oylar, week — haftalar (dushanbadan), day — kunlar; months — nechta davr
 export function monthly({ months = 6, projectId = null, asOf = addDays(today(), -1), unit = 'month' } = {}) {
   const out = [];
+  const rateOf = dayRates();
   const bucket = (i) => {
     if (unit === 'day') { const d = addDays(asOf, -i); return { m: d, from: d, end: d }; }
     if (unit === 'week') {
@@ -520,8 +564,8 @@ export function monthly({ months = 6, projectId = null, asOf = addDays(today(), 
     const to = asOf < end ? asOf : end;
     const len = daysBetween(from, to);
     const { projects, rows } = loadRows(from, to, projectId);
-    const list = projects.map((p) => ({ id: p.id, name: p.name, color: p.color, kind: p.kind, ...projectStats(p, rows.filter((r) => r.project_id === p.id), len) }));
-    const t = totalsOf(list, rows);
+    const list = projects.map((p) => ({ id: p.id, name: p.name, color: p.color, kind: p.kind, ...projectStats(p, rows.filter((r) => r.project_id === p.id), len, rateOf) }));
+    const t = totalsOf(list, rows, rateOf);
     // Konversiya — faqat sotuv bo'limi orqali ishlaydigan loyihalardan (avtovoronka xaridlari lidsiz)
     const lp = list.filter((p) => p.kind !== 'auto');
     t.conv = lp.length ? div(lp.reduce((a, p) => a + (p.sales || 0), 0), lp.reduce((a, p) => a + (p.leads || 0), 0))
@@ -678,7 +722,7 @@ export function weekStatus({ from, to }) {
 
 // Byudjetni qayta taqsimlash: hozirgi ulush × samaradorlik (ROAS nisbati, 0.5–1.6 oralig'ida)
 export function allocation(byProject, avg) {
-  const withSpend = byProject.filter((p) => p.spend > 0);
+  const withSpend = byProject.filter((p) => p.spend > 0 && !p.archived); // arxivdagi loyihaga byudjet taklif qilinmaydi
   const total = withSpend.reduce((a, p) => a + p.spend, 0);
   if (!total) return [];
   const weight = (p) => (p.roas == null || !avg.roas ? p.spend * 0.8 : p.spend * Math.min(Math.max(p.roas / avg.roas, 0.5), 1.6));
@@ -760,8 +804,9 @@ export function dailyAdvice(date, day, week) {
 
 // Excel to'g'ri ochishi uchun BOM bilan CSV.
 // = + - @ bilan boshlangan matnni Excel formula deb bajaradi — oldiga ' qo'yiladi
-export function toCsv(projects, rows) {
-  const cols = ['date', 'project', ...SUM_FIELDS, ...Object.keys(TEXT_FIELDS)];
+// usd_rate — shu kun hisobida ishlatilgan dollar kursi
+export function toCsv(projects, rows, rateOf = dayRates()) {
+  const cols = ['date', 'project', ...SUM_FIELDS, 'usd_rate', ...Object.keys(TEXT_FIELDS)];
   const esc = (v) => {
     if (v == null) return '';
     const s = typeof v === 'string' && /^[=+\-@\t\r]/.test(v) ? `'${v}` : String(v);
@@ -770,7 +815,7 @@ export function toCsv(projects, rows) {
   const lines = [cols.join(',')];
   for (const r of [...rows].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.project_id - b.project_id))) {
     const pr = projects.find((p) => p.id === r.project_id);
-    lines.push(cols.map((c) => esc(c === 'project' ? pr?.name : r[c])).join(','));
+    lines.push(cols.map((c) => esc(c === 'project' ? pr?.name : c === 'usd_rate' ? rateOf(r.date) : r[c])).join(','));
   }
   return `﻿${lines.join('\n')}\n`;
 }

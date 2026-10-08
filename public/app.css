@@ -426,6 +426,26 @@ input[type="file"]::file-selector-button { font: inherit; font-weight: 700; font
 .ask { background: var(--surface-2); border: 1px solid var(--border); border-radius: 16px; padding: 12px 14px; display: grid; gap: 6px; font-size: 13.5px; }
 .ask ol { margin: 0; padding-left: 20px; color: var(--text-2); display: grid; gap: 2px; }
 .ask .btn { justify-self: start; }
+/* 1-qadam: shu kunning dollar kursi */
+.rate-in { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 6px 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-2); }
+.rate-in label { display: grid; gap: 1px; }
+.rate-in .cell-in { width: 150px; font-size: 16px; font-weight: 700; }
+.rate-in .cell-in::placeholder { font-size: 14px; font-weight: 400; }
+.rate-in.need { background: var(--warn-bg); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+.rate-in .need-tag { color: var(--warn); }
+@media (max-width: 640px) { .rate-in { grid-template-columns: minmax(0, 1fr) auto; } .rate-in > span { grid-column: 1 / -1; } }
+.lead-pair { margin: 2px 0 0; }
+/* Kiritishlar tarixi (har bir o'zgarish) */
+.history { margin-top: 14px; }
+.history > summary { cursor: pointer; list-style: none; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.history > summary::before { content: '›'; display: inline-block; transition: transform .15s; color: var(--text-3); }
+.history[open] > summary::before { transform: rotate(90deg); }
+.history .hist-body { margin-top: 10px; }
+table.hist { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.hist th { text-align: left; font-size: 11.5px; color: var(--text-3); font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+table.hist td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.hist .n { text-align: right; font-variant-numeric: tabular-nums; }
+table.hist .nowrap { white-space: nowrap; color: var(--text-2); }
 .grid-entry.wide .cell-in { width: 108px; }
 .grid-entry td.calc { color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .text-entry .cell-in.txt { width: 100%; min-width: 180px; text-align: left; font-size: 14px; }
@@ -559,6 +579,8 @@ details.sub-card[open] > summary { margin-bottom: 10px; }
 .totals span { display: grid; gap: 0; padding: 6px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); min-width: 92px; }
 .totals small { font-size: 11px; color: var(--text-3); font-weight: 600; }
 .totals b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.totals .arch-note { background: var(--surface-2); border-style: dashed; }
+.totals .arch-note b { font-size: 13px; color: var(--text-2); }
 .board { display: grid; grid-template-columns: var(--cols, repeat(4, minmax(260px, 1fr))); gap: 14px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x mandatory; }
 .col { --tint: color-mix(in srgb, var(--pc) 34%, #2b2f36); background: var(--tint); border-radius: 26px; padding: 14px; display: flex; flex-direction: column; gap: 10px;
   min-height: calc(100vh - 190px); cursor: pointer; scroll-snap-align: start; transition: transform .15s, box-shadow .15s; outline: none; }

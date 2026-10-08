@@ -63,6 +63,7 @@ test("PM tahlili: lid narxi oshgani, sifatsiz lidlar va past sotuv aniqlanadi; d
 
   // Javob faqat yuborilgan hisobotga yoziladi
   assert.equal(addDirectorReply(d, 'Yangi video qiling'), null);
+  await pm.json('/api/rate', { method: 'PUT', body: { date: d, usd_rate: '12 800' } });
   await pm.json('/api/report/submit', { method: 'POST', body: { date: d, project_notes: { [p.id]: { status: 'creative', comment: 'Kreativni almashtiramiz' } } } });
   assert.match((await pm.json(`/api/report/preview?date=${d}`)).text, /💡 Kreativni almashtiramiz/);
   assert.equal(latestSentDate(), d);

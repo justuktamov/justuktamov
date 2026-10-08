@@ -20,7 +20,10 @@ export const FIELDS = {
   clicks: 'Kliklar',
   new_creatives: 'Yangi kreativlar',
   starts: 'Bot start',
-  leads: 'Lidlar',
+  // Lidlar ikki manbadan, alohida saqlanadi: targetolog (reklama kabineti, 1-qadam) va sotuv bo'limi (ROP, 2-qadam).
+  // Hisob-kitoblar (lid narxi, konversiya, sifat) — sotuv bo'limi lidlaridan
+  target_leads: 'Lidlar (target)',
+  leads: "Lidlar (sotuv bo'limi)",
   src_ig: 'Instagram direktdan lid',
   src_tg: 'Telegram admin lichkasidan lid',
   qualified: 'Sifatli lidlar',
@@ -207,6 +210,26 @@ function migrate(db) {
       key TEXT PRIMARY KEY,
       value TEXT
     );
+    -- Dollar kursi har kun uchun alohida: PM hisobotda kiritadi, shu kunning reklamasi so'mga shu kurs bilan o'tadi
+    CREATE TABLE IF NOT EXISTS day_rates (
+      date TEXT PRIMARY KEY,
+      usd_rate REAL NOT NULL,
+      updated_at TEXT
+    );
+    -- Har bir kiritish tarixi (faqat qo'shiladi, o'chirilmaydi): kim, qachon, qaysi kun, nimani nimadan nimaga o'zgartirdi.
+    -- kind: daily | reason | channel | rate | report;  date — hisobot kuni;  at — Toshkent vaqti
+    CREATE TABLE IF NOT EXISTS entry_log (
+      id INTEGER PRIMARY KEY,
+      at TEXT NOT NULL,
+      user_id INTEGER,
+      date TEXT NOT NULL,
+      project_id INTEGER,
+      kind TEXT NOT NULL,
+      field TEXT NOT NULL,
+      old_value TEXT,
+      new_value TEXT
+    );
+    CREATE INDEX IF NOT EXISTS entry_log_date ON entry_log (date, id);
   `);
   // Eski bazaga yangi ustunlar
   const cols = db.prepare('PRAGMA table_info(daily)').all().map((c) => c.name);
@@ -226,6 +249,14 @@ function migrate(db) {
   } catch { /* jadval hali yo'q */ }
   const rcols = db.prepare('PRAGMA table_info(daily_reports)').all().map((c) => c.name);
   if (rcols.length && !rcols.includes('ai_analysis')) db.exec('ALTER TABLE daily_reports ADD COLUMN ai_analysis TEXT');
+}
+
+// Kiritish tarixiga yozuv. Faqat haqiqatan o'zgargan qiymat yoziladi
+export function logEntry({ userId = null, date, projectId = null, kind, field, oldValue = null, newValue = null }) {
+  const s = (v) => (v == null || v === '' ? null : String(v));
+  if (s(oldValue) === s(newValue)) return;
+  getDb().prepare('INSERT INTO entry_log (at, user_id, date, project_id, kind, field, old_value, new_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(nowLocal(), userId, date, projectId, kind, field, s(oldValue), s(newValue));
 }
 
 export function getSetting(key, fallback = null) {

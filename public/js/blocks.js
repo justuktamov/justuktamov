@@ -45,9 +45,11 @@ export function moneyBlock(p) {
 }
 
 export function funnelBlock(p) {
+  // Targetolog aytgan lid (reklama kabineti) va sotuv bo'limi qabul qilgan lid — alohida bosqichlar
+  const tl = p.reported.target_leads ? [['Lid (targetolog)', p.target_leads]] : [];
   const steps = p.kind === 'auto'
-    ? [['Klik', p.clicks], ...(p.reported.starts ? [['Bot start', p.starts]] : []), ['Xarid', p.sales]]
-    : [['Klik', p.clicks], ['Lid', p.leads], ...(p.reported.qualified ? [['Sifatli lid', p.qualified]] : []), ['Sotuv', p.sales]];
+    ? [['Klik', p.clicks], ...tl, ...(p.reported.starts ? [['Bot start', p.starts]] : []), ['Xarid', p.sales]]
+    : [['Klik', p.clicks], ...tl, [tl.length ? "Lid (sotuv bo'limi)" : 'Lid', p.leads], ...(p.reported.qualified ? [['Sifatli lid', p.qualified]] : []), ['Sotuv', p.sales]];
   const max = Math.max(...steps.map((x) => x[1]), 1);
   return `<div class="sub-card"><h3>Voronka</h3>
     <div class="fn">${steps.map(([l, v], i) => `<div class="fn-row"><span>${l}</span><i style="width:${Math.max(v / max * 100, v ? 1.5 : 0)}%"></i><b>${fmtN(v)}</b>

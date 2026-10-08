@@ -20,7 +20,10 @@ export async function renderBoard() {
   const box = $('#board');
   if (!box || isStale(rid)) return;
   archFolder();
-  if (!s.byProject.length) {
+  // Arxivdagi loyiha shu davrda raqami bo'lsa jamida hisoblanadi, lekin ustuni ko'rsatilmaydi
+  const cols = s.byProject.filter((p) => !p.archived);
+  const archived = s.byProject.filter((p) => p.archived);
+  if (!cols.length && !archived.length) {
     box.innerHTML = state.projects.some((p) => !p.active)
       ? `<div class="card empty">Hamma loyihalar arxivda — tepadagi «Arxiv» papkasidan qaytaring.</div>`
       : `<div class="card empty">Hali loyiha yo'q. <a href="#/kiritish">Kechagi hisobot</a> bo'limida loyihalarni qo'shing.</div>`;
@@ -31,18 +34,23 @@ export async function renderBoard() {
     <span><small>Tushum</small><b>${fmtSom(t.revenue)}</b></span>
     <span><small>Sof foyda</small><b class="${t.net_profit < 0 ? 'neg' : 'pos'}">${signed(t.net_profit)}</b></span>
     <span><small>Reklama</small><b>${fmtUsd(t.spend, 0)}</b></span>
-    <span><small>Marja</small><b>${fmtP(t.net_margin, 0)}</b></span>`;
+    <span><small>Marja</small><b>${fmtP(t.net_margin, 0)}</b></span>
+    ${archived.length ? `<span class="arch-note" title="Arxivdagi loyihalarning shu davrdagi raqamlari ham jamida"><small>Jamida arxivdan</small><b>${archived.map((p) => esc(p.name)).join(', ')}</b></span>` : ''}`;
+  if (!cols.length) {
+    box.innerHTML = `<div class="card empty">Hamma loyihalar arxivda — tepadagi «Arxiv» papkasidan qaytaring.</div>`;
+    return;
+  }
   // Shu oy uchun rejasi yo'q loyihalar — eslatma
-  const missing = s.byProject.filter((p) => !s.plan.items.some((i) => i.project_id === p.id));
+  const missing = cols.filter((p) => !s.plan.items.some((i) => i.project_id === p.id));
   const banner = missing.length && s.plan.month === state.me.reportDay.slice(0, 7)
     ? `<div class="plan-banner"><span>📅</span><div><b>${monthName(s.plan.month)} uchun reja kiritilmagan:</b> ${missing.map((p) => esc(p.name)).join(', ')}.
         <span class="muted">Reja bo'lsa, dastur orqada qolishni va uning sababini oldindan aytadi.</span></div><a class="btn small primary" href="#/sozlamalar?tab=plans">Reja kiritish</a></div>` : '';
   const closed = getCollapsed();
   const layout = () => {
-    const n = s.byProject.length;
+    const n = cols.length;
     return `--cols:repeat(${n}, minmax(260px, 1fr));--cols-m:repeat(${n}, 84vw)`;
   };
-  box.innerHTML = `${banner}<div class="board" style="${layout()}">${s.byProject.map((p) => column(p, s.plan, closed.has(p.id))).join('')}</div>`;
+  box.innerHTML = `${banner}<div class="board" style="${layout()}">${cols.map((p) => column(p, s.plan, closed.has(p.id))).join('')}</div>`;
   const board = box.querySelector('.board');
   // Yig'ish / ochish — faqat nomi qoladi; tanlov shu brauzerda eslab qolinadi
   const toggle = (col) => {
@@ -214,7 +222,7 @@ function column(p, plan, collapsed = false) {
     p.reported.impressions ? ["Ko'rishlar", p.impressions, null] : null,
     ['Klik', p.clicks, p.reported.impressions ? ['CTR', p.ctr, fc.ctr] : null, p.cpc != null ? `1 klik ${fmtUsd(p.cpc)} · target ${fmtUsd(p.target_spend, 0)}` : null],
     auto ? (p.reported.starts ? ['Bot start', p.starts, ['', p.click_to_start, fc.click_to_start], unitCost('1 start', p.starts)] : null)
-      : ['Lid', p.leads, ['', p.click_to_lead, fc.click_to_lead], unitCost('1 lid', p.leads)],
+      : ['Lid', p.leads, ['', p.click_to_lead, fc.click_to_lead], [p.reported.target_leads ? `targetolog: ${fmtN(p.target_leads)} · sotuv bo'limi: ${fmtN(p.leads)}` : null, unitCost('1 lid', p.leads)].filter(Boolean).join('<br>') || null],
     [auto ? 'Xarid' : 'Sotuv', p.sales, ['', p.conv, fc.conv], unitCost('1 mijoz', p.sales)],
   ].filter(Boolean);
   const worst = p.funnel_check?.worst;

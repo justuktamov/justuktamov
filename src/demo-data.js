@@ -111,6 +111,8 @@ export function generateDemo(end, days = 150) {
         spend: noData ? null : target, spend_blogger: noData || !blogger ? null : blogger, spend_posts: noData || !posts ? null : posts, impressions: noData ? null : Math.round(clicks * jitter(55) * (i === 3 && k < 7 ? 1.9 : 1)), clicks: noData ? null : clicks,
         new_creatives: noData ? null : i === 1 && k < 9 ? 0 : (k + i) % 3 === 0 ? 1 : 0,
         starts: auto ? leads : null,
+        // Targetolog aytgan lidlar (reklama kabineti) — sotuv bo'limi qabul qilganidan biroz ko'p (oxirgi 30 kun)
+        target_leads: noData || k >= 30 ? null : Math.round(leads * (1.08 + ((k + i) % 5) * 0.02)),
         leads: auto || noData ? null : leads, qualified: auto || noData ? null : qualified, potential: auto || noData ? null : potential, unqualified: auto || noData ? null : unqualified,
         sales: noSales ? null : sales, revenue: noSales ? null : revenue,
         creative_best: k > 2 || noData ? null : CREATIVES[i][0], creative_worst: k > 2 || noData ? null : CREATIVES[i][1],
@@ -169,6 +171,10 @@ export function generateDemo(end, days = 150) {
     }
   });
 
+  // Dollar kursi — har kun PM kiritgan (oxirgi 30 kun); kechagi kunniki hali kiritilmagan
+  const rates = [];
+  for (let k = 29; k >= 1; k--) rates.push({ date: addDays(end, -k), usd_rate: 12600 + ((k * 7 + 3) % 11) * 10 });
+
   // O'tgan 3 kunlik hisobotlar — direktor javob bergan; bugungisini PM o'zi tayyorlaydi
   const reports = [];
   for (let k = 3; k >= 1; k--) {
@@ -185,5 +191,5 @@ export function generateDemo(end, days = 150) {
       director_comment: k === 1 ? "STARPAY byudjetini 20% oshiringlar. DIZIPRO bo'yicha ertaga ROP bilan uchrashamiz." : 'Qabul qilindi.',
     });
   }
-  return { projects, daily, plans, reports, reasons, channels };
+  return { projects, daily, plans, reports, reasons, channels, rates };
 }

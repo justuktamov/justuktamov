@@ -1,11 +1,18 @@
 // Brauzer demosi uchun node:sqlite o'rnini bosuvchi: metrics.js va reports.js ishlatadigan
 // so'rovlarni xotiradagi massivlar ustida bajaradi.
-export const store = { projects: [], daily: [], plans: [], reports: [], reasons: [], channels: [], settings: {} };
+export const store = { projects: [], daily: [], plans: [], reports: [], reasons: [], channels: [], rates: [], settings: {} };
 
 const inRange = (d, from, to) => d >= from && d <= to;
 const byDateDesc = (a, b) => (a.date < b.date ? 1 : -1);
 
+const byOrder = (a, b) => (b.active - a.active) || (a.sort_order ?? a.id) - (b.sort_order ?? b.id) || a.id - b.id;
+
 const QUERIES = [
+  // Arxivdagi loyiha ham — shu davrda raqami bo'lsa
+  [/^SELECT \* FROM projects WHERE active = 1 OR id IN \(SELECT project_id FROM daily WHERE date BETWEEN \? AND \?\) ORDER BY active DESC, COALESCE\(sort_order, id\), id$/, {
+    all: (from, to) => store.projects.filter((p) => p.active || store.daily.some((r) => r.project_id === p.id && inRange(r.date, from, to))).sort(byOrder),
+  }],
+  [/^SELECT date, usd_rate FROM day_rates ORDER BY date$/, { all: () => [...(store.rates || [])].sort((a, b) => (a.date < b.date ? -1 : 1)).map((r) => ({ ...r })) }],
   [/^SELECT \* FROM projects WHERE active = 1 ORDER BY COALESCE\(sort_order, id\), id$/, { all: () => store.projects.filter((p) => p.active).sort((a, b) => (a.sort_order ?? a.id) - (b.sort_order ?? b.id) || a.id - b.id) }],
   [/^SELECT \* FROM daily WHERE date BETWEEN \? AND \? AND project_id IN/, {
     all: (from, to, ...ids) => store.daily.filter((r) => inRange(r.date, from, to) && ids.includes(r.project_id)).map((r) => ({ ...r })),

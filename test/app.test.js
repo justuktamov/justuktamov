@@ -92,14 +92,13 @@ test('loyiha, kunlik raqamlar, statistika, reja va CSV', async () => {
   assert.equal((await pm.json(`/api/daily?date=${d}`)).projects.length, 0, 'arxivdagi loyiha kunlik ro\'yxatda yo\'q');
 });
 
-test('sozlamalar: vaqt va kurs tekshiriladi', async () => {
+test("sozlamalar: vaqt tekshiriladi; dollar kursi sozlamalarda yo'q (har kun hisobotda kiritiladi)", async () => {
   const pm = await session();
-  let r = await pm('/api/settings', { method: 'PUT', body: { report_time: '25' } });
-  assert.equal(r.status, 400);
-  r = await pm('/api/settings', { method: 'PUT', body: { usd_rate: '0' } });
+  const r = await pm('/api/settings', { method: 'PUT', body: { report_time: '25' } });
   assert.equal(r.status, 400);
   await pm.json('/api/settings', { method: 'PUT', body: { report_chat_id: '-100123', reminder_time: '18:30', usd_rate: '12900' } });
   const st = await pm.json('/api/settings');
   assert.equal(st.reminder_time, '18:30');
+  assert.equal('usd_rate' in st, false);
   assert.equal((await pm.json('/api/me')).telegram.reportChat, true);
 });

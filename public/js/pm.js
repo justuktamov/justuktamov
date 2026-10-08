@@ -1,16 +1,16 @@
 // Proekt menejerning kunlik ishi — 4 qadam: target raqamlari → sotuv raqamlari → tekshirish → direktorga yuborish
 import {
-  $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtUzs, fmtSom, fmtP, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, shortDate, copyText, dateButton, openCalendar,
+  $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtUzs, fmtSom, fmtP, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, shortDate, copyText, dateButton, openCalendar, parseNum,
 } from './core.js';
 
 const STATUS_PILL = { unprofitable: 'crit', sales_issue: 'crit', creative: 'warn', needs_leads: 'info', scale: 'lime', good: 'good', nodata: '' };
 
 const STEPS = [
   { key: 'target', title: 'Target', head: "Targetologdan so'rang",
-    hint: "Har bir loyiha bo'yicha raqamlarni yozing. Ko'rish va klik — faqat target (reklama kabinet). Bloger va Telegram kanallarga to'lov bo'lmagan kun bo'sh qoldiriladi.",
+    hint: "Avval shu kunning dollar kursini, keyin har bir loyiha bo'yicha raqamlarni yozing. Lid — targetolog reklama kabinetidan aytgani (sotuv bo'limi lidlari 2-qadamda alohida). Ko'rish va klik — faqat target. Bloger va Telegram kanallarga to'lov bo'lmagan kun bo'sh qoldiriladi.",
     ask: ['Har bir loyihaga nechta lid tushdi (avtovoronkada — botga nechta start)?', 'Qaysi loyihaga targetga qancha pul sarflandi ($)?', 'Blogerlarga va Telegram kanallarga reklama uchun qancha to\'landi ($)?', "Nechta ko'rish va nechta klik bo'ldi?", 'Kecha nechta yangi kreativ chiqdi?',
       'Qaysi kreativ yaxshi ishladi, qaysi biri ishlamadi?', "Reklamada muammo bo'ldimi (akkaunt, moderatsiya, to'lov)?"],
-    fields: [['leads', 'Lid'], ['spend', 'Target, $'], ['spend_blogger', 'Blogerga, $'], ['spend_posts', 'TG kanallarga, $'], ['impressions', "Ko'rish"], ['clicks', 'Klik'], ['new_creatives', 'Yangi kreativ']],
+    fields: [['target_leads', 'Lid'], ['spend', 'Target, $'], ['spend_blogger', 'Blogerga, $'], ['spend_posts', 'TG kanallarga, $'], ['impressions', "Ko'rish"], ['clicks', 'Klik'], ['new_creatives', 'Yangi kreativ']],
     required: ['spend', 'clicks'],
     texts: [['creative_best', 'Yaxshi ishlagan kreativ', 'nomi yoki havola'], ['creative_worst', 'Ishlamayotgan kreativ', 'nomi yoki havola'], ['note_target', 'Muammo', "akkaunt, moderatsiya, to'lov…"]] },
   { key: 'sales', title: 'Sotuv', head: "Sotuv va tushgan pul",
@@ -45,7 +45,7 @@ const filled = (row, fields) => fields.every((f) => row[f] != null);
 const dot = (c) => `<span class="dot" style="--dc:${esc(c || '#4c86ff')}"></span>`;
 
 function stepDone(key, daily, report) {
-  if (key === 'target') return daily.projects.length > 0 && daily.projects.every((p) => filled(p.row, STEPS[0].required));
+  if (key === 'target') return daily.rate?.value != null && daily.projects.length > 0 && daily.projects.every((p) => filled(p.row, STEPS[0].required));
   if (key === 'sales') return daily.projects.length > 0 && daily.projects.every((p) => filled(p.row, p.kind === 'auto' ? STEPS[1].autoRequired : STEPS[1].required));
   // PM tahlil qadamini saqlagan bo'lsa hisobotda muallif bor (direktor javobidan yaratilgan qatorda — yo'q)
   if (key === 'check') return Boolean(report?.author_id);
@@ -61,10 +61,25 @@ const askList = (s, projects) => [...s.ask, ...(projects.some((p) => p.kind === 
 // Sana manzilda: #/kiritish?date=YYYY-MM-DD (arxivdan yoki ←/→ bilan); sanasiz — doim kechagi kun
 export const reportHash = (d) => (d === state.me.reportDay ? '#/kiritish' : `#/kiritish?date=${d}`);
 
-export async function renderToday() {
+// rolled — ilova ochiq turganda kun almashgan bo'lsa, avvalgi «kechagi kun» (app.js router beradi)
+export async function renderToday({ rolled = null } = {}) {
+  // Oldingi chizilgan qadamning saqlash nazorati endi kerak emas (chaqiruvchi uni allaqachon tekshirgan)
+  state.leaveGuard = null;
+  state.isDirty = null;
   const qd = new URLSearchParams(location.hash.split('?')[1] || '').get('date');
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(qd || '') && qd <= state.me.reportDay ? qd : state.me.reportDay;
-  const go = (d) => { state.pmStep = null; if (location.hash !== reportHash(d)) location.hash = reportHash(d); else renderToday(); };
+  let date = /^\d{4}-\d{2}-\d{2}$/.test(qd || '') && qd <= state.me.reportDay ? qd : state.me.reportDay;
+  // Kun almashdi, PM esa hali yuborilmagan hisobot ustida edi — o'sha kunda qoladi (yangi kunga jimgina o'tib ketmaydi)
+  if (!qd && rolled && rolled < state.me.reportDay && state.reportOpen?.date === rolled && !state.reportOpen.sent) {
+    date = rolled;
+    history.replaceState(null, '', reportHash(rolled));
+    state.shownHash = location.hash;
+    toast(`Kun almashdi. ${dayLabel(rolled)} hisoboti hali yuborilmagan — shu yerda davom eting. Yangi kun hisoboti: → tugmasi`);
+  }
+  const go = async (d) => {
+    if (state.leaveGuard && !(await state.leaveGuard())) return;
+    state.pmStep = null;
+    if (location.hash !== reportHash(d)) location.hash = reportHash(d); else renderToday();
+  };
   const first = String(state.me.user.name || '').split(' ')[0];
   shell(`<div class="page-head"><div><h1>${date === state.me.reportDay ? `Salom, <span class="grad">${esc(first)}</span>` : `<span class="grad">${dayLabel(date)}</span>`}</h1>
       <div class="sub">${date === state.me.reportDay ? `Kechagi (${dayLabel(date)}) hisobotni 4 qadamda tayyorlaymiz` : 'Shu kun hisoboti'}</div></div>${dateNav(date, go)}</div>
@@ -81,6 +96,7 @@ export async function renderToday() {
   const report = bundle.report;
   const done = Object.fromEntries(STEPS.map((s) => [s.key, stepDone(s.key, daily, report)]));
   const sent = done.send;
+  state.reportOpen = { date, sent };
   // Tanlangan qadam faqat shu sana uchun eslab qolinadi
   let step = (state.pmStep?.date === date && state.pmStep.step) || (sent ? 'done' : STEPS.find((s) => !done[s.key])?.key || 'send');
 
@@ -93,11 +109,22 @@ export async function renderToday() {
   const reply = shownReply
     ? `<div class="reply-banner"><span class="eyebrow">Direktor yechimi · ${shortDate(shownReply.date)}${shownReply.auto ? ' · avtomatik hisobotga' : ''}</span><p>${esc(shownReply.text).replace(/\n/g, '<br>')}</p></div>` : '';
 
-  const toStep = (k) => { state.pmStep = { date, step: k }; renderToday(); };
+  // Qadam almashtirishdan oldin — kiritilgan, lekin saqlanmagan qiymatlar saqlanadi (yo'qolmaydi)
+  const toStep = async (k) => {
+    if (!(await leaveOk())) return;
+    state.pmStep = { date, step: k };
+    renderToday();
+  };
+  let stChanged = false; // 3-qadamda holat tugmasi bosilgan, hali saqlanmagan
+  let persistSend = null; // 4-qadam: xulosani saqlash
   const body = { target: () => entryStep(0), sales: () => entryStep(1), check: checkStep, send: sendStep, done: doneStep }[step]();
   box.innerHTML = stepper + reply + body;
+  box.append(historyBlock(date));
   box.querySelector('.stepper').onclick = (e) => { const b = e.target.closest('[data-step]'); if (b) toStep(b.dataset.step); };
   bindStep();
+  // Boshqa sahifaga o'tish, sana almashishi yoki kun almashishi — router shu orqali avval saqlaydi
+  state.leaveGuard = leaveOk;
+  state.isDirty = isDirty;
 
   // ---------- 1-2: targetolog va ROP raqamlari ----------
   function entryStep(i) {
@@ -112,6 +139,7 @@ export async function renderToday() {
         <div class="ask"><b>So'raladigan savollar</b><ol>${askList(s, daily.projects).map((q) => `<li>${esc(q)}</li>`).join('')}</ol>
           <button class="btn small" data-copy-ask>${ICONS.copy} Nusxalash — Telegramda yuborish uchun</button></div>
       </div>
+      ${i === 0 ? rateBlock() : ''}
       ${leadsP.length ? `${sales && autoP.length ? "<h3 class=\"tbl-title\">Sotuv bo'limi orqali</h3>" : ''}${numTable(leadsP, s.fields, s.required, sales ? 'cpl' : null)}` : ''}
       ${autoP.length ? `<h3 class="tbl-title">Avtovoronka <span class="muted small">— botdan va to'lov tizimidan</span></h3>${numTable(autoP, s.autoFields, s.autoRequired, 'cps')}` : ''}
       ${sales && leadsP.length ? sourcesBlock(leadsP) : ''}
@@ -127,11 +155,21 @@ export async function renderToday() {
     </section>`;
   }
 
+  // Shu kunning dollar kursi — har hisobotda PM o'zi yozadi; faqat shu kun hisobiga ta'sir qiladi
+  function rateBlock() {
+    const r = daily.rate || {};
+    return `<div class="rate-in ${r.value == null ? 'need' : ''}">
+      <label for="dRate"><b>Dollar kursi</b><span class="muted small">${esc(dayLabel(date))} uchun, so'm</span></label>
+      <input id="dRate" class="cell-in" inputmode="decimal" value="${r.value ?? ''}" placeholder="masalan, ${fmtN(r.prev || 12650)}" aria-label="Dollar kursi, so'm">
+      <span class="muted small">${r.value == null ? '<b class="need-tag">Kiritilmagan</b> — kurssiz hisobot yuborilmaydi. ' : ''}Shu kunning reklama xarajati so'mga shu kurs bilan o'tadi, boshqa kunlarga ta'sir qilmaydi.</span>
+    </div>`;
+  }
+
   // calc: jonli hisob — 1 lid narxi (cpl) yoki 1 start narxi (cps)
   function numTable(projects, fields, required, calc) {
     return `<div class="table-wrap"><table class="grid-entry ${fields.length > 4 ? 'wide' : ''} ${fields.length > 7 ? 'xwide' : ''}" style="--cols:${fields.length % 3 ? 2 : 3}" ${calc ? `data-calc="${calc}"` : ''}><thead><tr><th>Loyiha</th>${fields.map(([, l]) => `<th class="n">${l}</th>`).join('')}${calc ? `<th class="n">${calc === 'cpl' ? '1 lid' : '1 start'}</th>` : ''}<th></th></tr></thead>
       <tbody>${projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
-        ${fields.map(([f0, l]) => { const f = f0 === 'leads' && p.kind === 'auto' && fields[0][0] === 'leads' ? 'starts' : f0; return `<td class="n" data-label="${f === 'starts' && f0 === 'leads' ? 'Bot start' : l}"><input class="cell-in" inputmode="decimal" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${f === 'starts' && f0 === 'leads' ? 'Bot start' : l}" ${f === 'starts' && f0 === 'leads' ? 'title="Avtovoronka: botga start"' : ''}></td>`; }).join('')}
+        ${fields.map(([f, l]) => `<td class="n" data-label="${f === 'target_leads' ? 'Lid (target)' : l}"><input class="cell-in" inputmode="decimal" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${f === 'target_leads' ? 'Lid (targetolog)' : l}" ${f === 'target_leads' ? `title="Targetolog aytgan lid${p.kind === 'auto' ? ' (avtovoronkada — reklama kabinetidagi start)' : ''}; sotuv bo'limi lidlari — 2-qadamda"` : ''}></td>`).join('')}
         ${calc ? `<td class="n calc" data-label="${calc === 'cpl' ? '1 lid narxi' : '1 start narxi'}" data-cpl>${cplText(p.row.spend, calc === 'cpl' ? p.row.leads : p.row.starts)}</td>` : ''}
         <td data-state>${filled(p.row, required) ? '<span class="pill good">✓</span>' : ''}</td></tr>`).join('')}</tbody></table></div>`;
   }
@@ -213,6 +251,7 @@ export async function renderToday() {
             ${revIn ? `<div><small>${p.net_profit < 0 ? 'Zarar' : 'Sof foyda'}</small><b class="${p.net_profit < 0 ? 'neg' : 'pos'}">${fmtSom(p.net_profit)}</b></div>` : '<div><small>Sof foyda</small><b class="muted" title="Tushum kiritilmagan">—</b></div>'}
             <div title="${esc(p.conv_label)}"><small>Konversiya</small><b>${p.reported.sales ? fmtP(p.conv) : '—'}</b></div>
           </div>
+          ${p.reported.target_leads ? `<p class="small muted lead-pair">Lid: target <b>${fmtN(p.target_leads)}</b> · ${p.kind === 'auto' ? `bot start <b>${fmtN(p.starts)}</b>` : `sotuv bo'limi <b>${fmtN(p.leads)}</b>`}</p>` : ''}
           ${issues.length ? `<ul class="problems">${issues.slice(0, 3).map((x) => `<li><span class="who ${x.who}">${WHO_SHORT[x.who] || ''}</span><span>${esc(x.text)}</span></li>`).join('')}</ul>`
             : '<p class="ok-line">✓ Muammo topilmadi</p>'}`}
           <label class="field"><span>${empty ? 'Izoh (ixtiyoriy)' : 'Direktorga taklif'}${fromAi ? '<span class="ai-tag">🤖 AI yozdi — tekshiring</span>' : ''}</span><textarea data-comment rows="2" class="${fromAi ? 'ai-filled' : ''}" placeholder="${empty ? 'Masalan: targetolog raqam bermadi' : ''}" aria-label="${esc(p.name)} — taklif">${esc(empty && !notes[p.id]?.comment ? '' : proposal)}</textarea></label>
@@ -258,25 +297,28 @@ export async function renderToday() {
         <div class="stack">
           <label class="field"><span>Kun xulosasi (ixtiyoriy)${aiTag(!report?.summary && sum)}</span><textarea id="rSummary" rows="3" class="${!report?.summary && sum ? 'ai-filled' : ''}" ${!report?.summary && sum ? 'data-ai-filled' : ''} placeholder="Masalan: DIZIPRO da lid ko'p, sotuv kam — ROP bilan gaplashdim">${esc(sum)}</textarea></label>
           <label class="field"><span>Ertaga nima qilamiz (ixtiyoriy)${aiTag(!report?.tomorrow && tom)}</span><textarea id="rTomorrow" rows="3" class="${!report?.tomorrow && tom ? 'ai-filled' : ''}" ${!report?.tomorrow && tom ? 'data-ai-filled' : ''} placeholder="Masalan: VIZART uchun 2 ta yangi video qo'yamiz">${esc(tom)}</textarea></label>
+          ${daily.rate?.value == null ? `<div class="insight warning"><span class="ic">Kurs</span><span>Shu kun uchun dollar kursi kiritilmagan — <button type="button" class="link-btn" data-step-go="target">1-qadamda kiriting</button>. Kurssiz hisobot yuborilmaydi.</span></div>` : ''}
           ${bundle.ai?.stale ? `<div class="insight warning"><span class="ic">AI</span><span>Raqamlar AI tahlildan keyin o'zgardi. <button type="button" class="link-btn" data-step-go="check">3-qadamda qayta tahlil qiling</button>.</span></div>` : ''}
           ${!tg.enabled || !tg.reportChat ? `<div class="insight warning"><span class="ic">Eslatma</span><span>Telegram ${tg.enabled ? 'chat ID si' : 'bot'} sozlanmagan — hisobot faqat tizimda saqlanadi. <a href="#/sozlamalar?tab=telegram">Sozlash</a></span></div>` : ''}
         </div>
         <div class="stack"><span class="eyebrow">Direktor ko'radigan xabar</span><pre class="tg" id="preview">Yuklanmoqda…</pre></div>
       </div>
       ${report?.submitted_at ? `<div class="insight info"><span class="ic">Qayta</span><span>Bu hisobot ${esc(String(report.submitted_at).slice(0, 16).replace('T', ' '))} da yuborilgan${report.status === 'reviewed' ? ', direktor javob bergan' : ''}. Raqamlarni tuzatgan bo'lsangiz — qayta yuboring: direktorga <b>«✏️ Tuzatilgan hisobot»</b> bo'lib boradi, eski javobi saqlanadi.</span></div>` : ''}
-      <div class="step-foot"><button class="btn ghost" data-back>← Orqaga</button><span class="spacer"></span><button class="btn primary big" data-send>${ICONS.send} ${report?.submitted_at ? 'Tuzatilgan hisobotni qayta yuborish' : 'Direktorga yuborish'}</button></div>
+      <div class="step-foot"><button class="btn ghost" data-back>← Orqaga</button><span class="spacer"></span><button class="btn primary big" data-send ${daily.rate?.value == null ? 'disabled title="Avval 1-qadamda dollar kursini kiriting"' : ''}>${ICONS.send} ${report?.submitted_at ? 'Tuzatilgan hisobotni qayta yuborish' : 'Direktorga yuborish'}</button></div>
     </section>`;
   }
 
   // ---------- Tayyor ----------
   function doneStep() {
     const t = bundle.day.totals;
+    // Targetolog lidlari — sotuv bo'limi lidlari bilan bir xil loyihalardan (avtovoronkasiz)
+    const tl = bundle.day.byProject.filter((p) => p.kind !== 'auto' && p.reported.target_leads);
     return `<section class="card step done-card">
       <div class="done-icon">${ICONS.check}</div>
       <h2>${date === state.me.reportDay ? 'Kechagi hisobot yuborildi' : 'Hisobot yuborilgan'}</h2>
-      <p class="muted">${String(report.submitted_at || '').slice(11, 16)} da yuborildi${report.status === 'reviewed' ? ' · direktor javob berdi' : ' · direktor javobini kutyapmiz'}</p>
+      <p class="muted">${String(report.submitted_at || '').slice(11, 16)} da yuborildi${report.status === 'reviewed' ? ' · direktor javob berdi' : ' · direktor javobini kutyapmiz'} · kurs ${fmtN(bundle.rate?.used)}</p>
       ${report.director_comment ? `<div class="reply-banner" style="text-align:left"><span class="eyebrow">Direktor yechimi</span><p>${esc(report.director_comment).replace(/\n/g, '<br>')}</p></div>` : ''}
-      <div class="nums big-nums"><span><b>${fmtUsd(t.spend, 0)}</b>xarajat</span><span><b>${fmtSom(t.net_profit)}</b>sof foyda</span><span><b>${fmtN(t.leads)}</b>lid</span><span><b>${fmtN(t.sales)}</b>sotuv</span><span><b>${fmtUzs(t.revenue)}</b>tushum</span></div>
+      <div class="nums big-nums"><span><b>${fmtUsd(t.spend, 0)}</b>xarajat</span><span><b>${fmtSom(t.net_profit)}</b>sof foyda</span>${tl.length ? `<span><b>${fmtN(tl.reduce((a, p) => a + (p.target_leads || 0), 0))} / ${fmtN(t.leads)}</b>lid: target / sotuv bo'limi</span>` : `<span><b>${fmtN(t.leads)}</b>lid</span>`}<span><b>${fmtN(t.sales)}</b>sotuv</span><span><b>${fmtUzs(t.revenue)}</b>tushum</span></div>
       <div class="row" style="justify-content:center"><button class="btn" data-step-go="send">Xabarni ko'rish</button><button class="btn ghost" data-step-go="target">Raqamlarni tuzatish</button><button class="btn primary" data-step-go="send">${ICONS.send} Qayta yuborish</button></div>
       <p class="small muted">Raqamlarni tuzatib, hisobotni istalgan payt qayta yuborishingiz mumkin — eski kunlarniki ham («Hisobotlar» bo'limidan oching).</p>
       <p class="small muted">Ertaga shu yerda bugungi kun hisobotini tayyorlaysiz.</p>
@@ -303,7 +345,7 @@ export async function renderToday() {
       const tr = e.target.closest('tr[data-id]');
       if (!tr) return;
       const p = daily.projects.find((x) => String(x.id) === tr.dataset.id);
-      const v = (f) => { const el = $(`input[name="${f}"]`, tr); return !el || el.value === '' ? null : Number(String(el.value).replace(/\s/g, '').replace(',', '.')); };
+      const v = (f) => { const el = $(`input[name="${f}"]`, tr); return !el || el.value.trim() === '' ? null : parseNum(el.value); };
       if (tbl.dataset.calc === 'cps') { $('[data-cpl]', tr).textContent = cplText(p.row.spend, v('starts')); return; }
       {
         const parts = ['qualified', 'potential', 'unqualified'].map(v);
@@ -338,6 +380,7 @@ export async function renderToday() {
       const b = e.target.closest('[data-st]');
       if (!b) return;
       const card = b.closest('.check');
+      stChanged = true;
       $$('[data-st]', card).forEach((x) => x.classList.toggle('on', x === b));
       const pill = $('[data-pill]', card);
       pill.className = `pill ${STATUS_PILL[b.dataset.st]}`;
@@ -345,6 +388,7 @@ export async function renderToday() {
     });
     const idx = STEPS.findIndex((s) => s.key === step);
     const next = () => toStep(STEPS[idx + 1]?.key || 'send');
+    // «O'tkazib yuborish» ham, qadamlar paneli ham — avval kiritilganlarni saqlaydi (toStep → leaveOk)
     const skip = box.querySelector('[data-skip]');
     if (skip) skip.onclick = next;
     const back = box.querySelector('[data-back]');
@@ -353,56 +397,23 @@ export async function renderToday() {
     if (save) save.onclick = async () => {
       save.disabled = true;
       try {
-        if (step === 'target' || step === 'sales') {
-          // Bir loyihaning raqam va izoh maydonlari — bitta so'rovda
-          const byProject = {};
-          for (const el of box.querySelectorAll('tr[data-id] input[name]')) {
-            const p = daily.projects.find((x) => String(x.id) === el.closest('tr').dataset.id);
-            if (el.value.trim() !== String(p.row[el.name] ?? '')) (byProject[p.id] ||= {})[el.name] = el.value.trim();
-          }
-          if (step === 'sales') {
-            for (const p of daily.projects.filter((x) => x.kind !== 'auto')) {
-              const tr = box.querySelector(`tr[data-id="${p.id}"]`);
-              const val = (f) => $(`input[name="${f}"]`, tr).value.trim();
-              const parts = ['qualified', 'potential', 'unqualified'].map(val).filter(Boolean);
-              if (!val('leads') && parts.length) (byProject[p.id] ||= {}).leads = String(parts.reduce((a, x) => a + Number(x.replace(/\s/g, '').replace(',', '.')), 0));
-            }
-          }
-          // Sabablar: o'zgargan qiymatlar
-          const reasonsBy = {};
-          for (const el of box.querySelectorAll('[data-rid] input[data-reason]')) {
-            const p = daily.projects.find((x) => String(x.id) === el.closest('[data-rid]').dataset.rid);
-            const old = String(p.reasons?.[el.dataset.kind]?.[el.dataset.reason] ?? '');
-            if (el.value.trim() !== old) ((reasonsBy[p.id] ||= {})[el.dataset.kind] ||= {})[el.dataset.reason] = el.value.trim();
-          }
-          // Kanallar: o'zgargan kataklar
-          const chBy = {};
-          for (const el of box.querySelectorAll('[data-chp] input[data-f]')) {
-            const pid = el.closest('[data-chp]').dataset.chp;
-            const ch = el.closest('[data-ch]').dataset.ch;
-            const p = daily.projects.find((x) => String(x.id) === pid);
-            if (el.value.trim() !== String(p.channelRows?.[ch]?.[el.dataset.f] ?? '')) ((chBy[pid] ||= {})[ch] ||= {})[el.dataset.f] = el.value.trim();
-          }
-          let changed = 0;
-          for (const id of new Set([...Object.keys(byProject), ...Object.keys(reasonsBy), ...Object.keys(chBy)])) {
-            changed += (await api('/api/daily', { method: 'PUT', body: { project_id: Number(id), date, values: byProject[id] || {}, reasons: reasonsBy[id], channels: chBy[id] } })).changed;
-            if (reasonsBy[id]) changed += 1;
-          }
-          if (changed) toast('Saqlandi ✓');
-        } else if (step === 'check') {
-          await api('/api/report', { method: 'PUT', body: { date, ...collectDraft() } });
-        }
+        await saveStep();
         next();
       } catch (err) { toast(err.message, true); save.disabled = false; }
     };
     if (step === 'send') {
       const refresh = () => api(`/api/report/preview?date=${date}`).then((r) => { const el = $('#preview'); if (el) el.innerHTML = r.text; }).catch(() => {});
       // Xulosa yozilgach ko'rinish yangilansin
-      const persist = async () => { await api('/api/report', { method: 'PUT', body: { date, ...collectDraft() } }).catch(() => {}); refresh(); };
+      persistSend = async () => {
+        await api('/api/report', { method: 'PUT', body: { date, ...collectDraft() } });
+        for (const el of [$('#rSummary'), $('#rTomorrow')]) if (el) el.defaultValue = el.value;
+        refresh();
+      };
+      const persistQuiet = () => persistSend().catch(() => {});
       // AI yozgan xulosa qo'yilgan bo'lsa — saqlanadi, shunda o'ngdagi xabarda ham ko'rinadi
-      if (box.querySelector('[data-ai-filled]')) persist(); else refresh();
-      $('#rSummary').addEventListener('change', persist);
-      $('#rTomorrow').addEventListener('change', persist);
+      if (box.querySelector('[data-ai-filled]')) persistQuiet(); else refresh();
+      $('#rSummary').addEventListener('change', persistQuiet);
+      $('#rTomorrow').addEventListener('change', persistQuiet);
       box.querySelector('[data-send]').onclick = async (e) => {
         const btn = e.currentTarget;
         btn.disabled = true;
@@ -416,6 +427,84 @@ export async function renderToday() {
         } catch (err) { toast(err.message, true); btn.disabled = false; }
       };
     }
+  }
+
+  // Joriy qadamda kiritilgan, lekin hali saqlanmagan narsa bormi
+  function isDirty() {
+    return box.isConnected && ($$('input, textarea', box).some((el) => el.value !== el.defaultValue) || stChanged);
+  }
+  function markClean() {
+    $$('input, textarea', box).forEach((el) => { el.defaultValue = el.value; });
+    stChanged = false;
+  }
+  // Qadam, sana yoki sahifa almashishidan oldin: saqlanmagan qiymatlar saqlanadi.
+  // Saqlab bo'lmasa (masalan, son noto'g'ri) — PM qoladi yoki o'zi tanlab, saqlamasdan chiqadi
+  async function leaveOk() {
+    if (!isDirty()) return true;
+    try {
+      await saveStep();
+      return true;
+    } catch (err) {
+      if (window.confirm(`Kiritilganlar saqlanmadi: ${err.message}\n\nSaqlamasdan chiqilsinmi?`)) {
+        state.leaveGuard = null;
+        state.isDirty = null;
+        return true;
+      }
+      return false;
+    }
+  }
+
+  // Joriy qadamni saqlaydi: 1–2 — raqamlar, sabablar, kanallar va dollar kursi; 3 — holat va takliflar; 4 — xulosa
+  async function saveStep() {
+    if (step === 'target' || step === 'sales') {
+      // Bir loyihaning raqam va izoh maydonlari — bitta so'rovda
+      const byProject = {};
+      for (const el of box.querySelectorAll('tr[data-id] input[name]')) {
+        const p = daily.projects.find((x) => String(x.id) === el.closest('tr').dataset.id);
+        if (el.value.trim() !== String(p.row[el.name] ?? '')) (byProject[p.id] ||= {})[el.name] = el.value.trim();
+      }
+      if (step === 'sales') {
+        for (const p of daily.projects.filter((x) => x.kind !== 'auto')) {
+          const tr = box.querySelector(`tr[data-id="${p.id}"]`);
+          const val = (f) => $(`input[name="${f}"]`, tr).value.trim();
+          const parts = ['qualified', 'potential', 'unqualified'].map(val).filter(Boolean);
+          if (!val('leads') && parts.length) (byProject[p.id] ||= {}).leads = String(parts.reduce((a, x) => a + (parseNum(x) || 0), 0));
+        }
+      }
+      // Sabablar: o'zgargan qiymatlar
+      const reasonsBy = {};
+      for (const el of box.querySelectorAll('[data-rid] input[data-reason]')) {
+        const p = daily.projects.find((x) => String(x.id) === el.closest('[data-rid]').dataset.rid);
+        const old = String(p.reasons?.[el.dataset.kind]?.[el.dataset.reason] ?? '');
+        if (el.value.trim() !== old) ((reasonsBy[p.id] ||= {})[el.dataset.kind] ||= {})[el.dataset.reason] = el.value.trim();
+      }
+      // Kanallar: o'zgargan kataklar
+      const chBy = {};
+      for (const el of box.querySelectorAll('[data-chp] input[data-f]')) {
+        const pid = el.closest('[data-chp]').dataset.chp;
+        const ch = el.closest('[data-ch]').dataset.ch;
+        const p = daily.projects.find((x) => String(x.id) === pid);
+        if (el.value.trim() !== String(p.channelRows?.[ch]?.[el.dataset.f] ?? '')) ((chBy[pid] ||= {})[ch] ||= {})[el.dataset.f] = el.value.trim();
+      }
+      let changed = 0;
+      // Dollar kursi (1-qadam) — faqat shu kun uchun
+      const rateEl = box.querySelector('#dRate');
+      if (rateEl && rateEl.value.trim() !== String(daily.rate?.value ?? '')) {
+        const r = await api('/api/rate', { method: 'PUT', body: { date, usd_rate: rateEl.value.trim() } });
+        daily.rate = { ...daily.rate, value: r.usd_rate };
+        changed += 1;
+      }
+      for (const id of new Set([...Object.keys(byProject), ...Object.keys(reasonsBy), ...Object.keys(chBy)])) {
+        changed += (await api('/api/daily', { method: 'PUT', body: { project_id: Number(id), date, values: byProject[id] || {}, reasons: reasonsBy[id], channels: chBy[id] } })).changed;
+        if (reasonsBy[id]) changed += 1;
+      }
+      if (changed) toast('Saqlandi ✓');
+    } else if (step === 'check') {
+      await api('/api/report', { method: 'PUT', body: { date, ...collectDraft() } });
+    } else if (step === 'send' && persistSend) {
+      await persistSend();
+    }
+    markClean();
   }
 
   // Holat va takliflar + xulosa — bir joydan.
@@ -438,6 +527,27 @@ export async function renderToday() {
       tomorrow: $('#rTomorrow')?.value ?? report?.tomorrow ?? '',
     };
   }
+}
+
+// Shu kun bo'yicha har bir kiritish tarixi: qachon, kim, qaysi loyiha, nima — eski va yangi qiymat (ochilganda yuklanadi)
+function historyBlock(date) {
+  const el = document.createElement('details');
+  el.className = 'card history';
+  el.innerHTML = `<summary><b>O'zgarishlar tarixi</b> <span class="muted small">— shu kun bo'yicha har bir kiritish saqlanadi: kim, qachon, nimani o'zgartirdi</span></summary><div class="hist-body"></div>`;
+  const show = (v) => (v == null ? '<span class="muted">—</span>' : /^-?\d+(\.\d+)?$/.test(v) ? fmtN(Number(v), v.includes('.') ? 2 : 0) : esc(v.length > 80 ? `${v.slice(0, 80)}…` : v));
+  el.addEventListener('toggle', async () => {
+    if (!el.open) return;
+    const body = $('.hist-body', el);
+    body.innerHTML = spinnerBlock();
+    try {
+      const rows = await api(`/api/history?date=${date}`);
+      body.innerHTML = rows.length ? `<div class="table-wrap"><table class="hist"><thead><tr><th>Qachon</th><th>Kim</th><th>Loyiha</th><th>Nima</th><th class="n">Edi</th><th class="n">Bo'ldi</th></tr></thead>
+        <tbody>${rows.map((r) => `<tr><td class="nowrap">${shortDate(r.at.slice(0, 10))} ${esc(r.at.slice(11, 16))}</td><td>${esc(r.user || '—')}</td><td>${esc(r.project || '')}</td><td>${esc(r.label)}</td>
+          <td class="n" title="${esc(r.old || '')}">${show(r.old)}</td><td class="n" title="${esc(r.new || '')}"><b>${show(r.new)}</b></td></tr>`).join('')}</tbody></table></div>`
+        : '<p class="muted small">Bu kun uchun hali hech narsa kiritilmagan (tarix shu yangilanishdan boshlab yoziladi).</p>';
+    } catch (err) { body.innerHTML = `<p class="muted small">${esc(err.message)}</p>`; }
+  });
+  return el;
 }
 
 // Tizim taklifi matni (3-qadamdagi maydon shu bilan to'ldiriladi)
