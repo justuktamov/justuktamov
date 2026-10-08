@@ -1,7 +1,7 @@
 // HTTP server: API + statik fayllar + rejalashtiruvchi (eslatma, avto-hisobot)
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { basename, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getDb, getSetting, setSetting, today, nowLocal, logEntry, splitIds, normalizeIds, projectReasons, normalizeReasonKeys, DIZIPRO_REASONS, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from './db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText, getReport, saveAiAnalysis } from './reports.js';
@@ -9,8 +9,8 @@ import { aiStatus, analyze, AiError } from './ai/index.js';
 import { buildAiInput, hashInput } from './ai/prompt.js';
 import { login, logout, userFromToken, changePassword, ensureUser, publicUser } from './auth.js';
 import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, planProgress, monthly, estimateLag, parseRate, parseNum, dayRates } from './metrics.js';
-import { startPolling, telegramStatus, sendMessage } from './telegram.js';
-import { makeBackup, backupStatus } from './backup.js';
+import { startPolling, telegramStatus, sendMessage, sendDocument } from './telegram.js';
+import { makeBackup, backupStatus, shareableCopy } from './backup.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PUBLIC = join(ROOT, 'public');
@@ -478,8 +478,9 @@ route('GET', '/api/reports', async (req, res, _p, q) => {
 });
 
 // ---- Sozlamalar ----
-// Dollar kursi bu yerda yo'q: har kun uchun hisobotda kiritiladi (PUT /api/rate)
-const SETTING_KEYS = ['report_chat_id', 'report_time', 'reminder_time'];
+// Dollar kursi bu yerda yo'q: har kun uchun hisobotda kiritiladi (PUT /api/rate).
+// backup_chat_id — kunlik zaxira nusxa fayli Telegramda kimlarga yuboriladi
+const SETTING_KEYS = ['report_chat_id', 'backup_chat_id', 'report_time', 'reminder_time'];
 route('GET', '/api/settings', async (req, res) => {
   requireUser(req);
   send(res, 200, { ...Object.fromEntries(SETTING_KEYS.map((k) => [k, getSetting(k)])), telegram: telegramStatus(), ai: aiStatus(), backup: backupStatus() });
@@ -487,13 +488,42 @@ route('GET', '/api/settings', async (req, res) => {
 route('PUT', '/api/settings', async (req, res) => {
   requireUser(req);
   const b = await readBody(req);
-  if (b.report_chat_id !== undefined) {
-    try { b.report_chat_id = normalizeIds(b.report_chat_id) ?? ''; } catch (e) { throw new HttpError(400, e.message); }
+  for (const k of ['report_chat_id', 'backup_chat_id']) {
+    if (b[k] === undefined) continue;
+    try { b[k] = normalizeIds(b[k]) ?? ''; } catch (e) { throw new HttpError(400, e.message); }
   }
   for (const k of ['report_time', 'reminder_time']) if (b[k] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(b[k]))) throw new HttpError(400, "Vaqt noto'g'ri (SS:DD)");
   for (const k of SETTING_KEYS) if (k in b) setSetting(k, b[k] === '' || b[k] == null ? null : String(b[k]).trim());
   send(res, 200, { ok: true });
 });
+
+// Zaxira nusxani hozir olib, Telegramda yuborish (Sozlamalar → «Hozir yuborish» — tekshirish uchun)
+route('POST', '/api/backup/send', async (req, res) => {
+  requireUser(req);
+  if (!telegramStatus().enabled) throw new HttpError(503, 'Telegram bot ulanmagan — fayl yuborib bo\'lmaydi');
+  if (!splitIds(getSetting('backup_chat_id')).length) throw new HttpError(400, 'Avval zaxira nusxa boradigan Telegram ID ni kiriting va saqlang');
+  try {
+    send(res, 200, await sendBackup(makeBackup()));
+  } catch (e) {
+    throw new HttpError(502, e.message);
+  }
+});
+
+// Zaxira nusxa fayli Sozlamalarda tanlangan Telegram ID larga (sessiyalarsiz, gzip). Hech kimga yetmasa — xato
+// (rejalashtiruvchi 10 daqiqadan keyin qayta uradi); bir qismiga yetsa — qolganlari failed ro'yxatida
+export async function sendBackup(backup) {
+  const chats = splitIds(getSetting('backup_chat_id'));
+  if (!chats.length || !telegramStatus().enabled) return { sent: 0, total: chats.length, failed: [] };
+  const data = shareableCopy(backup.file);
+  const day = basename(backup.file).match(/\d{4}-\d{2}-\d{2}/)?.[0] || today();
+  const caption = `💾 <b>Zaxira nusxa</b> — ${day}\nLoyihalar analitikasi bazasi, ${Math.max(1, Math.round(data.length / 1024))} KB (kirish sessiyalarisiz). Tiklash: deploy/COOLIFY.md`;
+  const failed = [];
+  for (const c of chats) {
+    try { await sendDocument(c, { data, filename: `${basename(backup.file)}.gz`, caption }); } catch (e) { failed.push({ id: c, error: e.message }); }
+  }
+  if (failed.length === chats.length) throw new Error(`Zaxira nusxa yuborilmadi: ${failed.map((f) => `${f.id} — ${f.error}`).join('; ')}`);
+  return { sent: chats.length - failed.length, total: chats.length, failed };
+}
 
 async function serveStatic(req, res, pathname) {
   let file = STATIC[pathname];
@@ -598,8 +628,13 @@ function startScheduler() {
     const d = addDays(today(), -1); // hisobot kechagi kun uchun
     const sent = () => ['submitted', 'reviewed'].includes(getDb().prepare('SELECT status FROM daily_reports WHERE date = ?').get(d)?.status);
     const jobs = [
-      // Har kuni bazaning zaxira nusxasi (/data/backups, 30 kun saqlanadi). Kalit — bugungi sana
-      ['last_backup', '03:00', () => { const r = makeBackup(); console.log(`Zaxira nusxa: ${r.file} (${Math.round(r.size / 1024)} KB)`); }, today()],
+      // Har kuni bazaning zaxira nusxasi (/data/backups, 30 kun saqlanadi) va Telegramda tanlangan odamlarga. Kalit — bugungi sana
+      ['last_backup', '03:00', async () => {
+        const r = makeBackup();
+        console.log(`Zaxira nusxa: ${r.file} (${Math.round(r.size / 1024)} KB)`);
+        const s = await sendBackup(r);
+        if (s.total) console.log(`Zaxira nusxa Telegramda: ${s.sent}/${s.total}${s.failed.length ? ` — yetmadi: ${s.failed.map((f) => f.id).join(', ')}` : ''}`);
+      }, today()],
       ['last_reminder', getSetting('reminder_time', '11:00'), async () => {
         if (sent()) return;
         const pms = getDb().prepare('SELECT telegram_id FROM users WHERE active = 1 AND telegram_id IS NOT NULL').all();

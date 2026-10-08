@@ -252,7 +252,7 @@ async function tabTelegram(body) {
         <p class="small" style="margin:0;color:var(--text-2)">«Kechagi hisobot» → 3-qadamda AI har loyiha bo'yicha tahlil va taklif yozadi; siz o'qib, tuzatib, saqlaysiz.
           Provayder serverdagi <span class="code">.env</span> faylida tanlanadi: <span class="code">AI_PROVIDER</span> (openrouter, deepseek, anthropic yoki openai), <span class="code">AI_API_KEY</span>, <span class="code">AI_MODEL</span> — o'zgartirgach serverni qayta ishga tushiring. Kalit ilovada ko'rsatilmaydi.</p>
       </div>
-      ${backupCard(settings.backup)}
+      ${backupCard(settings)}
     </div>`;
   // ID ro'yxati: «+ ID qo'shish» yangi qator qo'shadi, «×» o'chiradi (oxirgi qator tozalanadi)
   body.querySelectorAll('.id-list').forEach((box) => box.addEventListener('click', (e) => {
@@ -269,6 +269,33 @@ async function tabTelegram(body) {
       if (rows.length > 1) del.closest('.id-row').remove(); else rows[0].querySelector('input').value = '';
     }
   }));
+  // Zaxira nusxa qabul qiluvchilari: saqlash va «Hozir yuborish» (avval o'zgargan ID lar saqlanadi)
+  const bkForm = $('#bkForm');
+  if (bkForm) {
+    const bkIds = () => $$('#sBackup input', body).map((i) => i.value.trim()).filter(Boolean).join(',');
+    const saveIds = async () => {
+      if (bkIds() !== (settings.backup_chat_id || '')) {
+        await api('/api/settings', { method: 'PUT', body: { backup_chat_id: bkIds() } });
+        settings.backup_chat_id = bkIds();
+        return true;
+      }
+      return false;
+    };
+    bkForm.onsubmit = async (e) => {
+      e.preventDefault();
+      try { await saveIds(); toast('Saqlandi'); } catch (err) { toast(err.message, true); }
+    };
+    $('#bkSend').onclick = async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        await saveIds();
+        const r = await api('/api/backup/send', { method: 'POST', body: {} });
+        toast(r.failed.length ? `Yuborildi: ${r.sent}/${r.total}. Yetmadi: ${r.failed.map((f) => `${f.id} (${f.error.replace(/^Telegram sendDocument: /, '')})`).join(', ')} — bu odam botga /start yozmagan bo'lishi mumkin` : `Yuborildi ✓ ${r.sent} ta odamga`, r.failed.length > 0);
+        renderSettings();
+      } catch (err) { toast(err.message, true); btn.disabled = false; }
+    };
+  }
   $('#setForm').onsubmit = async (e) => {
     e.preventDefault();
     try {
@@ -284,14 +311,21 @@ async function tabTelegram(body) {
 }
 
 // Kunlik zaxira nusxa: ilova har kuni 03:00 da (Toshkent) bazadan nusxa oladi — shu yerda oxirgisi ko'rinadi
-function backupCard(b) {
-  if (window.DEMO || !b) return `<div class="card stack"><h2>Zaxira nusxa</h2><div class="insight info"><span class="ic">Demo</span><span>Demoda zaxira yo'q — haqiqiy serverda ilova har kuni o'zi nusxa oladi</span></div></div>`;
+function backupCard(settings) {
+  const b = settings.backup;
+  if (window.DEMO || !b) return `<div class="card stack"><h2>Zaxira nusxa</h2><div class="insight info"><span class="ic">Demo</span><span>Demoda zaxira yo'q — haqiqiy serverda ilova har kuni o'zi nusxa oladi va Telegramda yuboradi</span></div></div>`;
   const fresh = b.last && b.last >= addDays(state.me.today, -1);
   const when = b.at ? new Date(b.at).toLocaleString('ru-RU', { timeZone: 'Asia/Tashkent', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
   return `<div class="card stack"><h2>Zaxira nusxa</h2>
     ${b.last ? `<div class="insight ${fresh ? 'good' : 'warning'}"><span class="ic">${fresh ? 'Bor' : 'Eski'}</span><span>Oxirgi nusxa: <b>${esc(when)}</b> · ${fmtN((b.size || 0) / 1048576, 1)} MB · saqlanayotgan nusxalar: ${b.count} ta (${esc(b.oldest)} dan)</span></div>`
       : `<div class="insight warning"><span class="ic">Yo'q</span><span>Hali zaxira nusxa olinmagan — ilova birinchisini bugun 03:00 dan keyin oladi</span></div>`}
     <p class="small" style="margin:0;color:var(--text-2)">Ilova har kuni 03:00 da (Toshkent vaqti) butun bazadan nusxa oladi: serverdagi <span class="code">/data/backups</span> papkasiga, 30 kun saqlanadi. Har bir kiritish va o'zgarish ham alohida tarixda saqlanadi («Kechagi hisobot» → «O'zgarishlar tarixi»).</p>
+    <form id="bkForm" class="stack">
+      ${idList('sBackup', 'Nusxa Telegramda kimga yuborilsin', "har kuni 03:00 da bot faylni shu ID larga ovozsiz yuboradi; har bir odam avval botga /start yozgan bo'lishi kerak", settings.backup_chat_id)}
+      ${settings.telegram?.enabled ? '' : `<div class="insight warning"><span class="ic">Bot</span><span>Telegram bot ulanmagan — fayl yuborilmaydi, nusxa faqat serverda saqlanadi</span></div>`}
+      <p class="small muted" style="margin:0">Faylda loyihalar, barcha raqamlar va tarix bor (kirish sessiyalari olib tashlanadi) — faqat ishonchli odamlarga yuboring.</p>
+      <div class="row"><button class="btn primary">Saqlash</button><button type="button" class="btn" id="bkSend" ${settings.telegram?.enabled ? '' : 'disabled'}>Hozir yuborish</button></div>
+    </form>
   </div>`;
 }
 

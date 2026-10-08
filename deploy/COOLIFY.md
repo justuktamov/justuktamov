@@ -100,7 +100,13 @@ The app makes the backup itself every day at 03:00 Tashkent time. If the server 
 
 The Coolify scheduled task `backup` (`node --disable-warning=ExperimentalWarning src/backup.js`, `0 22 * * *`) is now an optional second run — both write the same daily file safely.
 
-These copies are on the same server — regularly copy `/data/backups` somewhere else as well.
+**Off-server copy via Telegram:** Settings → Telegram → «Zaxira nusxa» → enter the Telegram IDs that should receive the file (each person must first write `/start` to the bot). Every day at 03:00 the bot sends `analytika-YYYY-MM-DD.db.gz` to them silently. «Hozir yuborish» sends one immediately to check. The file contains all data and history; login sessions are removed, so the file cannot be used to sign in.
+
+**Restore from a backup:**
+1. Take the file: `/data/backups/analytika-YYYY-MM-DD.db`, or the Telegram file `analytika-YYYY-MM-DD.db.gz` unpacked (`gunzip analytika-YYYY-MM-DD.db.gz`, or 7-Zip on Windows).
+2. Coolify → application → **Stop**.
+3. Put the file into the `crm-data` volume as `/data/analytika.db` (replace the old one; remove `analytika.db-wal` and `analytika.db-shm` next to it if present).
+4. **Start**. Everyone logs in again (sessions are not in the copy).
 
 Every entry is also kept in the database's `entry_log` table (who, when, which day, which field, old → new value), visible in the app under «Kechagi hisobot» → «O'zgarishlar tarixi».
 

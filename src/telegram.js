@@ -30,6 +30,20 @@ export async function sendMessage(chatId, text) {
   }
 }
 
+// Fayl yuborish (zaxira nusxa): ovozsiz, sarlavha bilan. Bot faqat unga /start yozgan odamga yubora oladi
+export async function sendDocument(chatId, { data, filename, caption = '' }) {
+  if (!TOKEN || !chatId) return;
+  const form = new FormData();
+  form.append('chat_id', String(chatId));
+  form.append('document', new Blob([data]), filename);
+  if (caption) { form.append('caption', caption.slice(0, 1024)); form.append('parse_mode', 'HTML'); }
+  form.append('disable_notification', 'true');
+  const res = await fetch(`${API}/sendDocument`, { method: 'POST', body: form });
+  const json = await res.json();
+  if (!json.ok) throw new Error(`Telegram sendDocument: ${json.description}`);
+  return json.result;
+}
+
 const escHtml = (x) => String(x ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
 const headRe = new RegExp(`${REPORT_HEAD} (\\d{4}-\\d{2}-\\d{2})`);
 
