@@ -1149,3 +1149,13 @@ input, select, textarea { color-scheme: light; }
 .pp-foot .pp-go { flex: 1 1 100%; background: var(--blue); color: #fff; }
 .pp-foot .pp-go:hover:not([disabled]) { background: var(--blue); filter: brightness(1.08); }
 .cal-day.sel:hover:not([disabled]) { background: var(--blue); color: #fff; filter: brightness(1.08); }
+/* Doska: loyihani belgilash (galochka) — tepadagi jami faqat belgilanganlar bo'yicha */
+.col-pick { flex: none; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border-radius: 7px; border: 2px solid var(--border-strong); background: #fff; color: transparent; cursor: pointer; transition: background .15s, border-color .15s; }
+.col-pick:hover { border-color: var(--pc); }
+.col-pick[aria-checked="true"] { background: var(--pc); border-color: var(--pc); color: #fff; }
+.col-pick:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.col.picked { box-shadow: 0 0 0 2.5px var(--pc), var(--shadow, 0 8px 24px rgba(16, 24, 40, .08)); }
+.totals.picked > span { border-color: #b9cdfa; background: #f3f7ff; }
+.tot-sel { display: inline-flex; align-items: center; gap: 6px; align-self: center; padding: 8px 12px; border-radius: 999px; border: 1px solid #b9cdfa; background: #e8f0ff; color: #1d3f9a; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.tot-sel i { width: 9px; height: 9px; border-radius: 50%; margin-right: -2px; }
+.tot-sel em { font-style: normal; font-size: 16px; line-height: 1; margin-left: 2px; }

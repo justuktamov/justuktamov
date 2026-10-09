@@ -1,5 +1,9 @@
 // Ilova qobig'ini keshlaydi: internet yomon bo'lsa ham tez ochiladi. API so'rovlari doim tarmoqdan.
+<<<<<<< Updated upstream
 const CACHE = 'analytika-v57';
+=======
+const CACHE = 'analytika-v56';
+>>>>>>> Stashed changes
 const SHELL = ['/', '/app.css', '/app.js', '/vendor/chart.js', '/manifest.webmanifest', '/icons/icon-192.png',
   '/js/core.js', '/js/pm.js', '/js/board.js', '/js/project.js', '/js/blocks.js', '/js/settings.js', '/js/dynamics.js'];
 

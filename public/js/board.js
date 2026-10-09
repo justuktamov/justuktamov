@@ -29,17 +29,34 @@ export async function renderBoard() {
       : `<div class="card empty">Hali loyiha yo'q. <a href="#/kiritish">Kechagi hisobot</a> bo'limida loyihalarni qo'shing.</div>`;
     return;
   }
-  const t = s.totals;
-  $('#totals').innerHTML = `
+  // Tepadagi jami: galochka qo'yilgan loyihalar bo'yicha (hech biri belgilanmasa — hammasi)
+  const picked = getPicked();
+  const drawTotals = () => {
+    const sel = s.byProject.filter((p) => picked.has(p.id));
+    const t = sel.length ? sel.reduce((a, p) => ({ revenue: a.revenue + (p.revenue || 0), net_profit: a.net_profit + (p.net_profit || 0), spend: a.spend + (p.spend || 0) }), { revenue: 0, net_profit: 0, spend: 0 }) : s.totals;
+    const margin = sel.length ? (t.revenue ? t.net_profit / t.revenue : null) : t.net_margin;
+    $('#totals').innerHTML = `${sel.length ? `<button type="button" class="tot-sel" data-unpick title="Belgilarni olib tashlash — hamma loyihalar">${sel.map((p) => `<i style="background:${esc(p.color || '#4c86ff')}"></i>`).join('')}${sel.length === 1 ? esc(sel[0].name) : `${sel.length} ta loyiha`} <em aria-hidden="true">×</em></button>` : ''}
     <span><small>Tushum</small><b>${fmtSom(t.revenue)}</b></span>
     <span><small>Sof foyda</small><b class="${t.net_profit < 0 ? 'neg' : 'pos'}">${signed(t.net_profit)}</b></span>
     <span><small>Reklama</small><b>${fmtUsd(t.spend, 0)}</b></span>
+<<<<<<< Updated upstream
     <span><small>Marja</small><b>${fmtP(t.net_margin, 0)}</b></span>
     ${archived.length ? `<span class="arch-note" title="Arxivdagi loyihalarning shu davrdagi raqamlari ham jamida"><small>Jamida arxivdan</small><b>${archived.map((p) => esc(p.name)).join(', ')}</b></span>` : ''}`;
   if (!cols.length) {
     box.innerHTML = `<div class="card empty">Hamma loyihalar arxivda — tepadagi «Arxiv» papkasidan qaytaring.</div>`;
     return;
   }
+=======
+    <span><small>Marja</small><b>${fmtP(margin, 0)}</b></span>`;
+    $('#totals').classList.toggle('picked', sel.length > 0);
+  };
+  drawTotals();
+  $('#totals').onclick = (e) => {
+    if (!e.target.closest('[data-unpick]')) return;
+    picked.clear(); setPicked(picked); drawTotals();
+    document.querySelectorAll('.col[data-open]').forEach((c) => { c.classList.remove('picked'); c.querySelector('[data-pick]')?.setAttribute('aria-checked', 'false'); });
+  };
+>>>>>>> Stashed changes
   // Shu oy uchun rejasi yo'q loyihalar — eslatma
   const missing = cols.filter((p) => !s.plan.items.some((i) => i.project_id === p.id));
   const banner = missing.length && s.plan.month === state.me.reportDay.slice(0, 7)
@@ -50,7 +67,11 @@ export async function renderBoard() {
     const n = cols.length;
     return `--cols:repeat(${n}, minmax(260px, 1fr));--cols-m:repeat(${n}, 84vw)`;
   };
+<<<<<<< Updated upstream
   box.innerHTML = `${banner}<div class="board" style="${layout()}">${cols.map((p) => column(p, s.plan, closed.has(p.id))).join('')}</div>`;
+=======
+  box.innerHTML = `${banner}<div class="board" style="${layout()}">${s.byProject.map((p) => column(p, s.plan, closed.has(p.id), picked.has(p.id))).join('')}</div>`;
+>>>>>>> Stashed changes
   const board = box.querySelector('.board');
   // Yig'ish / ochish — faqat nomi qoladi; tanlov shu brauzerda eslab qolinadi
   const toggle = (col) => {
@@ -98,6 +119,17 @@ export async function renderBoard() {
   board.addEventListener('pointercancel', endDrag);
   board.addEventListener('click', (e) => {
     if (e.target.closest('[data-grip]')) return;
+    const pk = e.target.closest('[data-pick]');
+    if (pk) {
+      const col = pk.closest('.col');
+      const id = Number(col.dataset.open);
+      if (picked.has(id)) picked.delete(id); else picked.add(id);
+      setPicked(picked);
+      col.classList.toggle('picked', picked.has(id));
+      pk.setAttribute('aria-checked', String(picked.has(id)));
+      drawTotals();
+      return;
+    }
     const hide = e.target.closest('[data-hide]');
     if (hide) {
       const col = hide.closest('.col');
@@ -115,7 +147,7 @@ export async function renderBoard() {
     if (col) location.hash = `#/loyiha/${col.dataset.open}`;
   });
   board.addEventListener('keydown', (e) => {
-    if (e.target.closest('[data-collapse]')) return;
+    if (e.target.closest('[data-collapse]') || e.target.closest('[data-pick]')) return;
     const g = e.target.closest('[data-grip]');
     if (g) {
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -136,6 +168,7 @@ export async function renderBoard() {
   });
 }
 
+const CHECK = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
 const GRIP = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
 const EYE = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
@@ -168,6 +201,13 @@ function archFolder() {
   pop.onclick = (e) => { const b = e.target.closest('[data-show]'); if (b) setActive(b.dataset.show, true, b.dataset.name); };
 }
 const COLLAPSE_KEY = 'board-collapsed';
+const PICK_KEY = 'board-picked';
+function getPicked() {
+  try { return new Set(JSON.parse(localStorage.getItem(PICK_KEY) || '[]').map(Number)); } catch { return new Set(); }
+}
+function setPicked(set) {
+  try { localStorage.setItem(PICK_KEY, JSON.stringify([...set])); } catch { /* xotira yo'q */ }
+}
 function getCollapsed() {
   try { return new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]').map(Number)); } catch { return new Set(); }
 }
@@ -204,7 +244,7 @@ function planTile(p, plan) {
     ${a ? `<p class="plan-warn ${a.level}">${esc(a.text)}</p>` : plan.elapsed >= 5 ? '<p class="plan-ok">✓ Reja bo\'yicha</p>' : '<p class="why">Oy boshi — xulosa 5-kundan</p>'}</div>`;
 }
 
-function column(p, plan, collapsed = false) {
+function column(p, plan, collapsed = false, picked = false) {
   const [cls, label] = statusOf(p);
   const auto = p.kind === 'auto';
   const issue = p.insights.find((i) => i.level === 'critical') || p.insights.find((i) => i.level === 'warning');
@@ -228,8 +268,8 @@ function column(p, plan, collapsed = false) {
   const worst = p.funnel_check?.worst;
   const q = [['q-good', p.qualified], ['q-mid', p.potential], ['q-bad', p.unqualified]];
   const badTop = p.reasons.bad[0];
-  return `<section class="col ${collapsed ? 'collapsed' : ''}" style="--pc:${esc(p.color || '#4c86ff')}" data-open="${p.id}" tabindex="0" role="button" aria-label="${esc(p.name)} — batafsil">
-    <header class="col-head"><button type="button" class="col-grip" data-grip title="Sudrab joyini almashtiring (← → tugmalari ham ishlaydi)" aria-label="${esc(p.name)} — joyini almashtirish">${GRIP}</button><button type="button" class="col-toggle" data-collapse aria-expanded="${!collapsed}" title="${collapsed ? 'Ochish' : "Yig'ish"}" aria-label="${esc(p.name)} — yig'ish yoki ochish">${COLLAPSE_IC}</button>
+  return `<section class="col ${collapsed ? 'collapsed' : ''} ${picked ? 'picked' : ''}" style="--pc:${esc(p.color || '#4c86ff')}" data-open="${p.id}" tabindex="0" role="button" aria-label="${esc(p.name)} — batafsil">
+    <header class="col-head"><button type="button" class="col-pick" data-pick role="checkbox" aria-checked="${picked}" title="Belgilash — tepadagi jami faqat belgilanganlar bo'yicha" aria-label="${esc(p.name)} — tepadagi jamiga qo'shish">${CHECK}</button><button type="button" class="col-grip" data-grip title="Sudrab joyini almashtiring (← → tugmalari ham ishlaydi)" aria-label="${esc(p.name)} — joyini almashtirish">${GRIP}</button><button type="button" class="col-toggle" data-collapse aria-expanded="${!collapsed}" title="${collapsed ? 'Ochish' : "Yig'ish"}" aria-label="${esc(p.name)} — yig'ish yoki ochish">${COLLAPSE_IC}</button>
       <span class="col-dot"></span><div class="col-name"><h2>${esc(p.name)}</h2><small>${auto ? 'avtovoronka' : "sotuv bo'limi"}</small></div><span class="pill ${cls}">${label}</span><button type="button" class="col-hide" data-hide title="Arxivlash — doskadan yashirish" aria-label="${esc(p.name)} — arxivlash">${EYE_OFF}</button></header>
     <div class="tile money">
       <div class="m-hero ad" data-exp role="button" tabindex="0" aria-expanded="false" title="Bosing — qayerga qancha ketgani"><span class="m-ic">${M_IC.ad}</span><div><small>Reklama · umumiy</small><b>${fmtUsd(p.spend, 0)}</b><span class="m-sub">${fmtUzs(p.spend_uzs)} so'm</span></div><span class="m-chev">${CHEV}</span>
