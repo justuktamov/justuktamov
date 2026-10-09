@@ -32,22 +32,15 @@ export async function renderBoard() {
   // Tepadagi jami: galochka qo'yilgan loyihalar bo'yicha (hech biri belgilanmasa — hammasi)
   const picked = getPicked();
   const drawTotals = () => {
-    const sel = s.byProject.filter((p) => picked.has(p.id));
+    const sel = cols.filter((p) => picked.has(p.id));
     const t = sel.length ? sel.reduce((a, p) => ({ revenue: a.revenue + (p.revenue || 0), net_profit: a.net_profit + (p.net_profit || 0), spend: a.spend + (p.spend || 0) }), { revenue: 0, net_profit: 0, spend: 0 }) : s.totals;
     const margin = sel.length ? (t.revenue ? t.net_profit / t.revenue : null) : t.net_margin;
     $('#totals').innerHTML = `${sel.length ? `<button type="button" class="tot-sel" data-unpick title="Belgilarni olib tashlash — hamma loyihalar">${sel.map((p) => `<i style="background:${esc(p.color || '#4c86ff')}"></i>`).join('')}${sel.length === 1 ? esc(sel[0].name) : `${sel.length} ta loyiha`} <em aria-hidden="true">×</em></button>` : ''}
     <span><small>Tushum</small><b>${fmtSom(t.revenue)}</b></span>
     <span><small>Sof foyda</small><b class="${t.net_profit < 0 ? 'neg' : 'pos'}">${signed(t.net_profit)}</b></span>
     <span><small>Reklama</small><b>${fmtUsd(t.spend, 0)}</b></span>
-<<<<<<< Updated upstream
-    <span><small>Marja</small><b>${fmtP(t.net_margin, 0)}</b></span>
-    ${archived.length ? `<span class="arch-note" title="Arxivdagi loyihalarning shu davrdagi raqamlari ham jamida"><small>Jamida arxivdan</small><b>${archived.map((p) => esc(p.name)).join(', ')}</b></span>` : ''}`;
-  if (!cols.length) {
-    box.innerHTML = `<div class="card empty">Hamma loyihalar arxivda — tepadagi «Arxiv» papkasidan qaytaring.</div>`;
-    return;
-  }
-=======
-    <span><small>Marja</small><b>${fmtP(margin, 0)}</b></span>`;
+    <span><small>Marja</small><b>${fmtP(margin, 0)}</b></span>
+    ${archived.length && !sel.length ? `<span class="arch-note" title="Arxivdagi loyihalarning shu davrdagi raqamlari ham jamida"><small>Jamida arxivdan</small><b>${archived.map((p) => esc(p.name)).join(', ')}</b></span>` : ''}`;
     $('#totals').classList.toggle('picked', sel.length > 0);
   };
   drawTotals();
@@ -56,7 +49,10 @@ export async function renderBoard() {
     picked.clear(); setPicked(picked); drawTotals();
     document.querySelectorAll('.col[data-open]').forEach((c) => { c.classList.remove('picked'); c.querySelector('[data-pick]')?.setAttribute('aria-checked', 'false'); });
   };
->>>>>>> Stashed changes
+  if (!cols.length) {
+    box.innerHTML = `<div class="card empty">Hamma loyihalar arxivda — tepadagi «Arxiv» papkasidan qaytaring.</div>`;
+    return;
+  }
   // Shu oy uchun rejasi yo'q loyihalar — eslatma
   const missing = cols.filter((p) => !s.plan.items.some((i) => i.project_id === p.id));
   const banner = missing.length && s.plan.month === state.me.reportDay.slice(0, 7)
@@ -67,11 +63,7 @@ export async function renderBoard() {
     const n = cols.length;
     return `--cols:repeat(${n}, minmax(260px, 1fr));--cols-m:repeat(${n}, 84vw)`;
   };
-<<<<<<< Updated upstream
-  box.innerHTML = `${banner}<div class="board" style="${layout()}">${cols.map((p) => column(p, s.plan, closed.has(p.id))).join('')}</div>`;
-=======
-  box.innerHTML = `${banner}<div class="board" style="${layout()}">${s.byProject.map((p) => column(p, s.plan, closed.has(p.id), picked.has(p.id))).join('')}</div>`;
->>>>>>> Stashed changes
+  box.innerHTML = `${banner}<div class="board" style="${layout()}">${cols.map((p) => column(p, s.plan, closed.has(p.id), picked.has(p.id))).join('')}</div>`;
   const board = box.querySelector('.board');
   // Yig'ish / ochish — faqat nomi qoladi; tanlov shu brauzerda eslab qolinadi
   const toggle = (col) => {
