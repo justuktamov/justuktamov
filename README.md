@@ -204,3 +204,7 @@ demo/              brauzer demosini yig'ish
 deploy/            systemd, nginx, zaxira nusxa
 test/              testlar — npm test
 ```
+
+## After Effects MCP
+
+The `after-effects-mcp/` folder holds an MCP server that lets Claude control Adobe After Effects. Setup: [after-effects-mcp/SETUP.md](after-effects-mcp/SETUP.md).
