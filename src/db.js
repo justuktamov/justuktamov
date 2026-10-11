@@ -11,7 +11,7 @@ export const PROJECT_KINDS = {
   auto: 'Avtovoronka (bot)',
 };
 
-// PM har kuni kiritadigan raqamlar: targetologdan, sotuv bo'limi rahbaridan (ROP) yoki botdan
+// Har kuni kiritiladigan raqamlar: targetolog (target qismi), sotuv bo'limi rahbari — ROP (sotuv qismi); PM tekshiradi
 export const FIELDS = {
   spend: 'Target xarajati ($)',
   spend_blogger: 'Blogerlarga ($)',
@@ -23,7 +23,11 @@ export const FIELDS = {
   // Lidlar ikki manbadan, alohida saqlanadi: targetolog (reklama kabineti, 1-qadam) va sotuv bo'limi (ROP, 2-qadam).
   // Hisob-kitoblar (lid narxi, konversiya, sifat) — sotuv bo'limi lidlaridan
   target_leads: 'Lidlar (target)',
+  // Target lidlari qayerdan tushdi: sayt (web forma) va Telegram bot
+  tl_web: 'Lid: saytdan (web)',
+  tl_bot: 'Lid: Telegram botdan',
   leads: "Lidlar (sotuv bo'limi)",
+  calls: "Qo'ng'iroqlar (ROP)",
   src_ig: 'Instagram direktdan lid',
   src_tg: 'Telegram admin lichkasidan lid',
   qualified: 'Sifatli lidlar',
@@ -230,6 +234,14 @@ function migrate(db) {
       new_value TEXT
     );
     CREATE INDEX IF NOT EXISTS entry_log_date ON entry_log (date, id);
+    -- Xodimlar (targetolog, ROP) o'z qismini yuborgani: kun × xodim
+    CREATE TABLE IF NOT EXISTS staff_reports (
+      date TEXT NOT NULL,
+      user_id INTEGER NOT NULL,
+      part TEXT NOT NULL,
+      submitted_at TEXT NOT NULL,
+      PRIMARY KEY (date, user_id)
+    );
   `);
   // Eski bazaga yangi ustunlar
   const cols = db.prepare('PRAGMA table_info(daily)').all().map((c) => c.name);
@@ -247,6 +259,9 @@ function migrate(db) {
       if (hit.changes) db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('reasons_dizipro_v1', '1')").run();
     }
   } catch { /* jadval hali yo'q */ }
+  // Xodimga biriktirilgan loyihalar («1,3»; bo'sh — hammasi)
+  const ucols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  if (ucols.length && !ucols.includes('projects')) db.exec('ALTER TABLE users ADD COLUMN projects TEXT');
   const rcols = db.prepare('PRAGMA table_info(daily_reports)').all().map((c) => c.name);
   if (rcols.length && !rcols.includes('ai_analysis')) db.exec('ALTER TABLE daily_reports ADD COLUMN ai_analysis TEXT');
 }

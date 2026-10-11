@@ -18,10 +18,10 @@ export function verifyPassword(password, stored) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-export function createUser({ name, login, password, telegram_id = null }) {
+export function createUser({ name, login, password, telegram_id = null, role = 'pm', projects = null }) {
   const info = getDb()
-    .prepare("INSERT INTO users (name, login, password_hash, role, telegram_id) VALUES (?, ?, ?, 'pm', ?)")
-    .run(name, login.trim().toLowerCase(), hashPassword(password), telegram_id);
+    .prepare('INSERT INTO users (name, login, password_hash, role, telegram_id, projects) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(name, login.trim().toLowerCase(), hashPassword(password), role, telegram_id, projects);
   return Number(info.lastInsertRowid);
 }
 
@@ -44,6 +44,12 @@ export function createSession(userId) {
 }
 
 // Parol almashsa — shu qurilmadan boshqa barcha sessiyalar yopiladi (eski parol bilan kirganlar chiqib ketadi)
+// PM xodimning parolini yangilaydi: xodimning barcha sessiyalari yopiladi
+export function setPassword(userId, newPassword) {
+  getDb().prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(String(newPassword)), userId);
+  getDb().prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+}
+
 export function changePassword(userId, oldPassword, newPassword, keepToken = null) {
   const u = getDb().prepare('SELECT * FROM users WHERE id = ?').get(userId);
   if (!u || !verifyPassword(String(oldPassword ?? ''), u.password_hash)) return false;
@@ -66,7 +72,7 @@ export function userFromToken(token) {
 }
 
 export function publicUser(u) {
-  return { id: u.id, name: u.name, login: u.login, telegram_id: u.telegram_id };
+  return { id: u.id, name: u.name, login: u.login, telegram_id: u.telegram_id, role: u.role || 'pm', projects: u.projects || null };
 }
 
 // Birinchi ishga tushirish: proekt menejer uchun login yaratiladi

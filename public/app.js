@@ -1,5 +1,6 @@
 // Loyihalar analitikasi — proekt menejer uchun (framework'siz, hash-router)
-import { state, setRouter, boot, toast, applyTheme, syncDay } from './js/core.js';
+import { state, setRouter, boot, toast, applyTheme, syncDay, isStaffUser } from './js/core.js';
+import { renderPart } from './js/part.js';
 import { renderToday, renderArchive } from './js/pm.js';
 import { renderBoard } from './js/board.js';
 import { renderProject } from './js/project.js';
@@ -25,6 +26,13 @@ async function router() {
     const wasReport = String(state.shownHash || '').startsWith('#/kiritish');
     state.shownHash = location.hash;
     let m;
+    // Targetolog va ROP: o'z kiritish sahifasi va profil; boshqa manzillar — kiritish sahifasiga
+    if (isStaffUser()) {
+      if (route === '#/sozlamalar') await renderSettings();
+      else if (route !== '#/kiritish') location.replace('#/kiritish');
+      else await renderPart({ rolled: wasReport ? rolled : null });
+      return;
+    }
     if ((m = route.match(/^#\/loyiha\/(\d+)$/))) await renderProject(m[1]);
     else if (route === '#/kiritish') await renderToday({ rolled: wasReport ? rolled : null });
     else if (route === '#/hisobotlar') await renderArchive();

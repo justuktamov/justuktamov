@@ -529,11 +529,20 @@ export function setRouter(fn) { routerFn = fn; }
 export function rerender() { if (state.me) routerFn(); }
 
 function demoMenu() {
+  // Demoda rolni almashtirib ko'rish: har kim kirganda nimani ko'radi
+  const role = state.me?.user?.role || 'pm';
   return `<span class="menu-btn" style="cursor:default"><span class="tag-demo">Demo</span>namuna ma'lumot</span>
+    <span class="seg seg-sm demo-as" role="group" aria-label="Kim sifatida ko'rish">${[['pm', 'PM'], ['target', 'Targetolog'], ['rop', 'ROP']].map(([k, l]) => `<button type="button" data-demo-as="${k}" class="${role === k ? 'on' : ''}">${l}</button>`).join('')}</span>
     <button class="btn small ghost" data-demo-reset title="Namuna ma'lumotni qaytarish">↺</button>`;
 }
 
+// Targetolog va ROP: faqat o'z kiritish sahifasi va profil
+export const isStaffUser = () => ['target', 'rop'].includes(state.me?.user?.role);
+
 function navItems() {
+  if (isStaffUser()) {
+    return { items: [['#/kiritish', 'Kechagi hisobot', ICONS.edit, state.me.partSent ? null : '!']], bottom: [['#/sozlamalar', 'Profil', ICONS.set]] };
+  }
   const sent = ['submitted', 'reviewed'].includes(state.me.reportStatus);
   const items = [
     ['#/', 'Loyihalar', ICONS.chart],
@@ -570,7 +579,7 @@ export function shell(content) {
         <nav class="nav" aria-label="Asosiy">${items.map(link).join('')}</nav>
         <div class="side-foot">
           <nav class="nav">${bottom.map(link).join('')}</nav>
-          <a class="side-user" href="#/sozlamalar?tab=profil" style="text-decoration:none"><span class="avatar">${esc(initials(u.name))}</span><span>${esc(u.name)}<small>Proekt menejer</small></span></a>
+          <a class="side-user" href="#/sozlamalar?tab=profil" style="text-decoration:none"><span class="avatar">${esc(initials(u.name))}</span><span>${esc(u.name)}<small>${esc(state.me.roles?.[u.role] || 'Proekt menejer')}</small></span></a>
 
         </div>
       </aside>
@@ -592,6 +601,7 @@ export function shell(content) {
     renderLogin();
   };
   document.querySelectorAll('[data-demo-reset]').forEach((b) => { b.onclick = () => window.__demoReset?.(); });
+  document.querySelectorAll('[data-demo-as]').forEach((b) => { b.onclick = () => { if (!b.classList.contains('on')) window.__demoAs?.(b.dataset.demoAs); }; });
 }
 
 // ---------- Kirish ----------

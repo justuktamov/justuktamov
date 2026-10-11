@@ -127,6 +127,11 @@ export function leadTotals(byProject) {
   };
 }
 
+// Shu kun o'z qismini yuborgan xodimlar (targetolog, ROP)
+export function staffSubmitted(date) {
+  return getDb().prepare('SELECT u.name, s.part AS role, s.submitted_at FROM staff_reports s JOIN users u ON u.id = s.user_id WHERE s.date = ? ORDER BY s.part DESC, s.submitted_at').all(date);
+}
+
 // Telegram uchun (HTML parse_mode)
 const n = (x) => Math.round(x || 0).toLocaleString('ru-RU').replace(/,/g, ' ');
 const p = (x) => (x == null ? '—' : `${(x * 100).toFixed(1)}%`);
@@ -142,8 +147,9 @@ export function reportText(date) {
   const r = b.report || {};
   const t = b.day.totals;
   const tl = leadTotals(b.day.byProject);
+  const staff = staffSubmitted(date);
   const lines = [
-    `<b>📋 ${REPORT_HEAD} ${date}</b>${r.author_name ? `\nTayyorladi: ${esc(r.author_name)}` : ''}`,
+    `<b>📋 ${REPORT_HEAD} ${date}</b>${r.author_name ? `\nTayyorladi: ${esc(r.author_name)}` : ''}${staff.length ? `\nKiritdi: ${staff.map((x) => `${x.role === 'target' ? '🎯' : '📞'} ${esc(x.name)} ${String(x.submitted_at).slice(11, 16)}`).join(' · ')}` : ''}`,
     '',
     `💸 Reklama: <b>$${t.spend.toFixed(0)}</b> (${sum(t.spend_uzs)} so'm, kurs ${n(b.rate.used)}${b.rate.value == null ? ' — kiritilmagan' : ''})${t.spend_blogger || t.spend_posts ? ` — target $${t.target_spend.toFixed(0)}${t.spend_blogger ? `, bloger $${t.spend_blogger.toFixed(0)}` : ''}${t.spend_posts ? `, TG kanallar $${t.spend_posts.toFixed(0)}` : ''}` : ''} · klik <b>${n(t.clicks)}</b> · ${tl.has ? `lid: target <b>${n(tl.target)}</b>, sotuv bo'limi <b>${n(tl.sales)}</b>` : `lid <b>${n(t.leads)}</b>`}`,
     `💰 Tushum: <b>${sum(t.revenue)} so'm</b> · sotuv <b>${n(t.sales)}</b>`,
@@ -159,12 +165,13 @@ export function reportText(date) {
     lines.push('', `${ICON[status]} <b>${esc(pr.name)}</b> — ${esc(PROJECT_STATUS[status])}`);
     lines.push(`   $${pr.spend.toFixed(0)} · ${n(pr.clicks)} klik · ${pr.unit_label} ${usd(pr.unit_cost)}`);
     // Lidlar — ikki manba alohida: targetolog (reklama kabineti) va sotuv bo'limi
-    const tl = pr.reported.target_leads ? `target lid ${n(pr.target_leads)} · ` : '';
+    const web = [pr.reported.tl_web ? `web ${n(pr.tl_web)}` : '', pr.reported.tl_bot ? `bot ${n(pr.tl_bot)}` : ''].filter(Boolean).join(', ');
+    const tl = pr.reported.target_leads ? `target lid ${n(pr.target_leads)}${web ? ` (${web})` : ''} · ` : '';
     if (pr.kind === 'auto') lines.push(`   ${tl}${pr.reported.starts ? `${n(pr.starts)} bot start · ` : ''}${n(pr.sales)} xarid (${p(pr.conv)} ${pr.conv_label})`);
     else {
       lines.push(`   ${tl ? `${tl}sotuv bo'limi lid ${n(pr.leads)}` : `${n(pr.leads)} lid`}${q.length ? ` (${q.join(' · ')})` : ''} · ${n(pr.sales)} sotuv`);
       const st = [["ko'tarmadi", 'st_nopickup'], ['qayta aloqa', 'st_callback'], ["o'ylab ko'radi", 'st_thinking'], ["video ko'rishi kerak", 'st_video'], ['bekor qilindi', 'st_cancelled']].filter(([, f]) => pr.reported[f]);
-      if (st.length) lines.push(`   📋 ${st.map(([l, f]) => `${l} ${n(pr[f])}`).join(' · ')}`);
+      if (st.length || pr.reported.calls) lines.push(`   📋 ${[pr.reported.calls ? `qo'ng'iroq ${n(pr.calls)}` : '', ...st.map(([l, f]) => `${l} ${n(pr[f])}`)].filter(Boolean).join(' · ')}`);
       const src = [['Instagram direkt', pr.src_ig], ['Telegram lichka', pr.src_tg]].filter(([, v]) => v > 0);
       if (src.length) lines.push(`   📥 Lichkadan: ${src.map(([l, v]) => `${l} ${n(v)}`).join(' · ')}`);
     }

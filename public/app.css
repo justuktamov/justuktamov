@@ -1171,3 +1171,15 @@ input, select, textarea { color-scheme: light; }
 .main.cal-docked { padding-right: 340px; }
 .cal-x { position: absolute; top: -10px; right: -10px; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border); background: #fff; color: var(--text-2); font: inherit; font-size: 17px; line-height: 1; cursor: pointer; box-shadow: 0 2px 8px rgba(16, 24, 40, .12); }
 .cal-x:hover { color: var(--text); background: var(--surface-2); }
+/* Rollar: targetolog / ROP holati PM sahifasida, xodimning «yuborildi» belgisi, xodimlar kartalari */
+.staff-box { display: grid; gap: 8px; align-content: start; padding: 14px 16px; border-radius: 18px; background: var(--surface-2); border: 1px solid var(--border); min-width: 0; }
+.staff-box > p { margin: 0; }
+.staff-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; padding: 8px 10px; border-radius: 12px; background: #fff; border: 1px solid var(--border); }
+.staff-row.ok { border-color: #bfe5cc; }
+.part-sent { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; padding: 12px 16px; border-radius: 18px; background: #e9f8ef; border: 1px solid #bfe5cc; }
+.part-sent > div { display: grid; gap: 2px; }
+.part-sent .done-dot { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #1f9d55; color: #fff; flex: none; }
+.part-sent .done-dot svg { width: 18px; height: 18px; }
+.user-card.off { opacity: .6; }
+.user-card .chips { margin-top: 6px; }
+.demo-as button { padding: 5px 10px; }

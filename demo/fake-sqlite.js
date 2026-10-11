@@ -1,6 +1,6 @@
 // Brauzer demosi uchun node:sqlite o'rnini bosuvchi: metrics.js va reports.js ishlatadigan
 // so'rovlarni xotiradagi massivlar ustida bajaradi.
-export const store = { projects: [], daily: [], plans: [], reports: [], reasons: [], channels: [], rates: [], settings: {} };
+export const store = { projects: [], daily: [], plans: [], reports: [], reasons: [], channels: [], rates: [], settings: {}, users: [], staffReports: [] };
 
 const inRange = (d, from, to) => d >= from && d <= to;
 const byDateDesc = (a, b) => (a.date < b.date ? 1 : -1);
@@ -33,7 +33,11 @@ const QUERIES = [
     },
   }],
   [/^UPDATE daily_reports SET status = 'submitted'/, { run: (at, uid, date) => { Object.assign(store.reports.find((x) => x.date === date), { status: 'submitted', submitted_at: at, author_id: uid }); return {}; } }],
-  [/^SELECT id, name FROM users$/, { all: () => [{ id: 1, name: 'Dilshod' }] }],
+  [/^SELECT id, name FROM users$/, { all: () => (store.users || []).map((u) => ({ id: u.id, name: u.name })) }],
+  [/^SELECT u\.name, s\.part AS role, s\.submitted_at FROM staff_reports s JOIN users u/, {
+    all: (d) => (store.staffReports || []).filter((r) => r.date === d).map((r) => ({ name: store.users.find((u) => u.id === r.user_id)?.name || '', role: r.part, submitted_at: r.submitted_at }))
+      .sort((a, b) => (a.role === b.role ? (a.submitted_at < b.submitted_at ? -1 : 1) : a.role < b.role ? 1 : -1)),
+  }],
   [/^SELECT value FROM settings WHERE key = \?$/, { get: (k) => (k in store.settings ? { value: store.settings[k] } : undefined) }],
 ];
 

@@ -125,6 +125,13 @@ export function generateDemo(end, days = 150) {
         Object.assign(daily.at(-1), { st_nopickup: Math.round(pool * jitter(0.2, 0.4)), st_callback: Math.round(pool * jitter(0.3, 0.3)), st_thinking: Math.round(pool * jitter(0.25, 0.3)), st_video: Math.round(pool * jitter(0.15, 0.4)), st_cancelled: Math.round(pool * jitter(0.1, 0.4)) });
       }
       if (!auto && !noData && k < 30) Object.assign(daily.at(-1), { src_ig: Math.round(leads * jitter(SRC_MIX[i][0], 0.3)), src_tg: Math.round(leads * jitter(SRC_MIX[i][1], 0.3)) });
+      // Target lidlari manbasi (sayt / Telegram bot) va ROP qo'ng'iroqlari — oxirgi 14 kun (rollar shundan beri)
+      const tl = daily.at(-1).target_leads;
+      if (tl != null && k < 14) {
+        const web = auto ? 0 : Math.round(tl * jitter([0, 0.55, 0.35, 0.6][i] ?? 0.4, 0.2));
+        Object.assign(daily.at(-1), { tl_web: web, tl_bot: tl - web });
+      }
+      if (!auto && !noData && k < 14) daily.at(-1).calls = Math.round(leads * jitter(2.3, 0.25));
       // Kanallar bo'yicha bo'linish (oxirgi 30 kun — PM shundan beri kiritadi)
       if (!noData && k < 30) {
         const cfg = CH[i];

@@ -1,13 +1,17 @@
 // Sozlamalar: loyihalar, oylik reja, Telegram (hisobot qayerga boradi), profil
 import {
-  $, $$, esc, api, state, shell, toast, ICONS, monthLabel, refreshMe, spinnerBlock, selectHtml, colorHtml, TIMES, fmtN, addDays,
+  $, $$, esc, api, state, shell, toast, ICONS, monthLabel, refreshMe, spinnerBlock, selectHtml, colorHtml, TIMES, fmtN, addDays, isStaffUser,
 } from './core.js';
 
 let settingsTab = 'projects';
 let planMonth = null;
-const TABS = [['projects', 'Loyihalar'], ['plans', 'Oylik reja'], ['telegram', 'Telegram'], ['profil', 'Profil']];
+const ALL_TABS = [['projects', 'Loyihalar'], ['plans', 'Oylik reja'], ['staff', 'Xodimlar'], ['telegram', 'Telegram'], ['profil', 'Profil']];
+let TABS = ALL_TABS;
 
 export async function renderSettings() {
+  // Targetolog va ROP — faqat profil (ism, parol, Telegram ID)
+  TABS = isStaffUser() ? [['profil', 'Profil']] : ALL_TABS;
+  if (!TABS.some(([k]) => k === settingsTab)) settingsTab = TABS[0][0];
   const qTab = new URLSearchParams(location.hash.split('?')[1] || '').get('tab');
   if (qTab && TABS.some(([k]) => k === qTab)) settingsTab = qTab;
   shell(`<div class="page-head"><h1><span class="grad">Sozlamalar</span></h1></div>
@@ -19,7 +23,7 @@ export async function renderSettings() {
   };
   const body = $('#sBody');
   try {
-    await ({ projects: tabProjects, plans: tabPlans, telegram: tabTelegram, profil: tabProfile })[settingsTab](body);
+    await ({ projects: tabProjects, plans: tabPlans, staff: tabStaff, telegram: tabTelegram, profil: tabProfile })[settingsTab](body);
   } catch (e) { body.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
 
@@ -232,6 +236,7 @@ async function tabTelegram(body) {
         ${idList('sMyTg', 'Sizning Telegram ID laringiz', 'eslatma va direktor javobi keladigan ID lar (masalan, ish va shaxsiy akkaunt)', me.telegram_id)}
         <div class="fields">
           <label class="field">Eslatma<span class="hint">hisobot yuborilmagan bo'lsa</span>${selectHtml(timeOpts(settings.reminder_time ?? '11:00'), settings.reminder_time ?? '11:00', 'name="reminder_time" id="sRem"', 'Eslatma vaqti')}</label>
+          <label class="field">Xodimlarga eslatma<span class="hint">targetolog / ROP yubormagan bo'lsa</span>${selectHtml(timeOpts(settings.staff_reminder_time ?? '10:00'), settings.staff_reminder_time ?? '10:00', 'name="staff_reminder_time" id="sStaffRem"', 'Xodimlarga eslatma vaqti')}</label>
           <label class="field">Avto-hisobot<span class="hint">siz yubormasangiz</span>${selectHtml(timeOpts(settings.report_time ?? '13:00'), settings.report_time ?? '13:00', 'name="report_time" id="sTime"', 'Avto-hisobot vaqti')}</label>
         </div>
         <p class="small muted" style="margin:0">Dollar kursi bu yerda emas — har kun hisobotda kiritiladi («Kechagi hisobot» → 1-qadam) va faqat o'sha kun hisobiga ta'sir qiladi.</p>
@@ -329,13 +334,76 @@ function backupCard(settings) {
   </div>`;
 }
 
+// ---------- Xodimlar: targetolog va ROP uchun login, rol va loyihalar ----------
+const ROLE_HINT = {
+  target: 'Target raqamlari: xarajat, ko\'rish, klik, lidlar (sayt / bot), kreativlar, dollar kursi',
+  rop: "Sotuv raqamlari: lidlar sifati va holati, qo'ng'iroqlar, sabablar, sotuv, tushum (avtovoronkada — start, xarid)",
+  pm: "Hammasi: tekshiradi, tahlil yozadi, direktorga yuboradi, xodimlarni boshqaradi",
+};
+async function tabStaff(body) {
+  const users = await api('/api/users');
+  await reloadProjects();
+  const roles = state.me.roles || {};
+  const projChips = (sel = []) => `<div class="chips" data-projs>${state.projects.filter((p) => p.active).map((p) => `<button type="button" class="chip ${sel.includes(p.id) ? 'on' : ''}" data-pid="${p.id}" aria-pressed="${sel.includes(p.id)}"><span class="dot" style="--dc:${esc(p.color || '#4c86ff')}"></span>${esc(p.name)}</button>`).join('')}</div>`;
+  const card = (u) => `<section class="card user-card ${u.active ? '' : 'off'}" data-uid="${u.id ?? ''}">
+      <div class="card-head"><h3>${u.id ? esc(u.name) : "Yangi xodim"}</h3>${u.id ? (u.active ? `<span class="pill ${u.role === 'pm' ? 'lime' : 'info'}">${esc(roles[u.role] || u.role)}</span>` : '<span class="pill">O\'chirilgan</span>') : ''}</div>
+      <div class="plan-inputs">
+        <label class="field">Ism<input data-f="name" value="${esc(u.name || '')}" maxlength="60" placeholder="Masalan, Aziz"></label>
+        <label class="field">Login<input data-f="login" value="${esc(u.login || '')}" maxlength="32" placeholder="aziz" autocomplete="off"></label>
+        <div class="field">Rol${selectHtml(Object.entries(roles), u.role || 'target', 'data-f="role"', 'Rol')}</div>
+      </div>
+      <p class="hint small" data-role-hint>${esc(ROLE_HINT[u.role || 'target'])}</p>
+      <div class="plan-inputs">
+        <label class="field">${u.id ? 'Yangi parol <span class="hint">almashtirish uchun</span>' : 'Parol'}<input data-f="password" type="text" autocomplete="new-password" minlength="6" placeholder="${u.id ? 'o\'zgarmaydi' : 'kamida 6 belgi'}"></label>
+        <label class="field">Telegram ID <span class="hint">eslatma uchun</span><input data-f="telegram_id" inputmode="numeric" value="${esc(u.telegram_id || '')}" placeholder="123456789"></label>
+      </div>
+      <div class="field" data-proj-field ${u.role === 'pm' ? 'hidden' : ''}>Loyihalari <span class="hint">hech biri tanlanmasa — hamma loyihalar</span>${projChips(u.projects || [])}</div>
+      <div class="row" style="justify-content:flex-end">${u.id && u.id !== state.me.user.id ? `<button class="btn small ghost" data-a="toggle">${u.active ? "O'chirish" : 'Qayta yoqish'}</button>` : ''}<button class="btn small primary" data-a="save">${u.id ? 'Saqlash' : "Qo'shish"}</button></div>
+    </section>`;
+  body.innerHTML = `<div class="card plan-intro"><div class="card-head"><h2>Xodimlar</h2></div>
+      <p class="small" style="margin:0;color:var(--text-2);max-width:95ch">Har kim o'z hisobotini o'zi kiritadi: <b>targetolog</b> — target raqamlarini, <b>ROP</b> — sotuv raqamlarini. Ular kirganda faqat o'z kiritish sahifasini ko'radi va «Yuborish» ni bosadi — sizga Telegramda xabar keladi.
+        Siz «Kechagi hisobot» da kim yuborgani va yubormaganini ko'rasiz, tekshirasiz, tahlil yozib direktorga yuborasiz. Har xodimga loyihalarni biriktiring (masalan, har loyihaning o'z targetologi bo'lsa).</p></div>
+    <div class="plan-cards">${users.map(card).join('')}${card({ active: 1 })}</div>`;
+  body.addEventListener('click', async (e) => {
+    const chip = e.target.closest('[data-pid]');
+    if (chip) { chip.classList.toggle('on'); chip.setAttribute('aria-pressed', chip.classList.contains('on')); return; }
+    const btn = e.target.closest('[data-a]');
+    if (!btn) return;
+    const c = btn.closest('[data-uid]');
+    const id = c.dataset.uid;
+    const v = (f) => $(`[data-f="${f}"]`, c).value.trim();
+    btn.disabled = true;
+    try {
+      if (btn.dataset.a === 'toggle') {
+        const u = users.find((x) => String(x.id) === id);
+        await api(`/api/users/${id}`, { method: 'PUT', body: { active: !u.active } });
+        toast(u.active ? `${u.name} o'chirildi — endi kira olmaydi` : `${u.name} qayta yoqildi`);
+      } else {
+        const b = { name: v('name'), login: v('login'), role: v('role'), telegram_id: v('telegram_id'), projects: $$('[data-pid].on', c).map((x) => Number(x.dataset.pid)) };
+        if (v('password')) b.password = v('password');
+        await api(id ? `/api/users/${id}` : '/api/users', { method: id ? 'PUT' : 'POST', body: b });
+        toast(id ? 'Saqlandi' : `Qo'shildi. Login: ${b.login} — parolni xodimga bering`);
+      }
+      renderSettings();
+    } catch (err) { toast(err.message, true); btn.disabled = false; }
+  });
+  body.addEventListener('change', (e) => {
+    const sel = e.target.closest('[data-f="role"]');
+    if (!sel) return;
+    const c = sel.closest('[data-uid]');
+    $('[data-role-hint]', c).textContent = ROLE_HINT[sel.value] || '';
+    $('[data-proj-field]', c).hidden = sel.value === 'pm';
+  });
+}
+
 // ---------- Profil ----------
 async function tabProfile(body) {
   const u = state.me.user;
   body.innerHTML = `<div class="grid g2">
     <form class="card stack" id="nameForm"><h2>Profil</h2>
       <label class="field">Ismingiz<input name="name" id="pName" value="${esc(u.name)}" required maxlength="60"></label>
-      <div class="muted small">Login: <b>${esc(u.login)}</b></div>
+      <div class="muted small">Login: <b>${esc(u.login)}</b> · ${esc(state.me.roles?.[u.role] || '')}</div>
+      ${isStaffUser() ? idList('pTg', 'Telegram ID', "botga /id yozing — chiqqan raqamni shu yerga kiriting; eslatmalar shu yerga keladi", u.telegram_id) : ''}
       <div><button class="btn primary">Saqlash</button></div></form>
     <form class="card stack" id="pwForm"><h2>Parolni almashtirish</h2>
       <label class="field">Joriy parol<input type="password" name="old" id="pwOld" autocomplete="current-password" required></label>
@@ -344,7 +412,8 @@ async function tabProfile(body) {
   </div>`;
   $('#nameForm').onsubmit = async (e) => {
     e.preventDefault();
-    try { await api('/api/me', { method: 'PUT', body: { name: $('#pName').value } }); await refreshMe(); toast('Saqlandi'); renderSettings(); } catch (err) { toast(err.message, true); }
+    const tg = $('#pTg') ? { telegram_id: $$('#pTg input', body).map((i) => i.value.trim()).filter(Boolean).join(',') } : {};
+    try { await api('/api/me', { method: 'PUT', body: { name: $('#pName').value, ...tg } }); await refreshMe(); toast('Saqlandi'); renderSettings(); } catch (err) { toast(err.message, true); }
   };
   $('#pwForm').onsubmit = async (e) => {
     e.preventDefault();

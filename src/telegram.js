@@ -67,10 +67,10 @@ async function handleDirectorReply(m) {
   const r = date && addDirectorReply(date, who + m.text, null, { allowUnsent: Boolean(headDate) });
   if (!r) return sendMessage(m.chat.id, 'Javob saqlanmadi: yuborilgan hisobot topilmadi.');
   await call('sendMessage', { chat_id: m.chat.id, text: '✅ Saqlandi va PM ga yetkazildi', reply_to_message_id: m.message_id }).catch(() => {});
-  // Hisobot muallifi bo'lmasa (avtomatik hisobot) — barcha faol PM larga
+  // Hisobot muallifi bo'lmasa (avtomatik hisobot) — barcha faol PM larga (targetolog va ROP ga emas)
   const pms = r.author_id
     ? splitIds(getDb().prepare('SELECT telegram_id FROM users WHERE id = ?').get(r.author_id)?.telegram_id)
-    : getDb().prepare('SELECT telegram_id FROM users WHERE active = 1 AND telegram_id IS NOT NULL').all().flatMap((x) => splitIds(x.telegram_id));
+    : getDb().prepare("SELECT telegram_id FROM users WHERE active = 1 AND role = 'pm' AND telegram_id IS NOT NULL").all().flatMap((x) => splitIds(x.telegram_id));
   for (const pm of new Set(pms.filter(Boolean))) {
     if (String(pm) !== String(m.chat.id)) await sendMessage(pm, `💬 <b>Direktor javobi</b> (${date} hisobot):\n${escHtml(m.text)}`);
   }

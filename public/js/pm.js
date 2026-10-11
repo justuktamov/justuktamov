@@ -5,20 +5,20 @@ import {
 
 const STATUS_PILL = { unprofitable: 'crit', sales_issue: 'crit', creative: 'warn', needs_leads: 'info', scale: 'lime', good: 'good', nodata: '' };
 
-const STEPS = [
+export const STEPS = [
   { key: 'target', title: 'Target', head: "Targetologdan so'rang",
     hint: "Avval shu kunning dollar kursini, keyin har bir loyiha bo'yicha raqamlarni yozing. Lid — targetolog reklama kabinetidan aytgani (sotuv bo'limi lidlari 2-qadamda alohida). Ko'rish va klik — faqat target. Bloger va Telegram kanallarga to'lov bo'lmagan kun bo'sh qoldiriladi.",
-    ask: ['Har bir loyihaga nechta lid tushdi (avtovoronkada — botga nechta start)?', 'Qaysi loyihaga targetga qancha pul sarflandi ($)?', 'Blogerlarga va Telegram kanallarga reklama uchun qancha to\'landi ($)?', "Nechta ko'rish va nechta klik bo'ldi?", 'Kecha nechta yangi kreativ chiqdi?',
+    ask: ['Har bir loyihaga nechta lid tushdi (avtovoronkada — botga nechta start)? Shundan nechtasi saytdan (web), nechtasi Telegram botdan?', 'Qaysi loyihaga targetga qancha pul sarflandi ($)?', 'Blogerlarga va Telegram kanallarga reklama uchun qancha to\'landi ($)?', "Nechta ko'rish va nechta klik bo'ldi?", 'Kecha nechta yangi kreativ chiqdi?',
       'Qaysi kreativ yaxshi ishladi, qaysi biri ishlamadi?', "Reklamada muammo bo'ldimi (akkaunt, moderatsiya, to'lov)?"],
-    fields: [['target_leads', 'Lid'], ['spend', 'Target, $'], ['spend_blogger', 'Blogerga, $'], ['spend_posts', 'TG kanallarga, $'], ['impressions', "Ko'rish"], ['clicks', 'Klik'], ['new_creatives', 'Yangi kreativ']],
+    fields: [['target_leads', 'Lid'], ['tl_web', 'Saytdan (web)'], ['tl_bot', 'Telegram botdan'], ['spend', 'Target, $'], ['spend_blogger', 'Blogerga, $'], ['spend_posts', 'TG kanallarga, $'], ['impressions', "Ko'rish"], ['clicks', 'Klik'], ['new_creatives', 'Yangi kreativ']],
     required: ['spend', 'clicks'],
     texts: [['creative_best', 'Yaxshi ishlagan kreativ', 'nomi yoki havola'], ['creative_worst', 'Ishlamayotgan kreativ', 'nomi yoki havola'], ['note_target', 'Muammo', "akkaunt, moderatsiya, to'lov…"]] },
   { key: 'sales', title: 'Sotuv', head: "Sotuv va tushgan pul",
     hint: "Sifatli — sotib olishga tayyor. Potensial — qiziqdi, keyinroq olishi mumkin. Sifatsiz — maqsadli emas yoki javob bermadi. Avtovoronka raqamlari botdan / to'lov tizimidan olinadi.",
-    ask: ['Har bir loyihaga nechta lid tushdi?', 'Nechtasi sifatli, nechtasi sifatsiz, nechtasi potensial?', "Nechtasi ko'tarmadi, nechtasi bilan qayta aloqa, nechtasi o'ylab ko'radi, nechtasi video ko'rishi kerak, nechtasi bekor qildi?", 'Instagram direktdan va Telegram admin lichkasidan nechta lid keldi?', "Nechta sotuv bo'ldi va qancha pul tushdi?",
+    ask: ['Har bir loyihaga nechta lid tushdi? Nechta qo\'ng\'iroq qilindi?', 'Nechtasi sifatli, nechtasi sifatsiz, nechtasi potensial?', "Nechtasi ko'tarmadi, nechtasi bilan qayta aloqa, nechtasi o'ylab ko'radi, nechtasi video ko'rishi kerak, nechtasi bekor qildi?", 'Instagram direktdan va Telegram admin lichkasidan nechta lid keldi?', "Nechta sotuv bo'ldi va qancha pul tushdi?",
       'Sifatsizlar nega sifatsiz, sotib olmaganlar nega olmadi (har sababdan nechta)?'],
     askAuto: ['Avtovoronka: botga nechta odam kirdi (start), nechtasi sotib oldi, qancha pul tushdi?'],
-    fields: [['leads', 'Umumiy lid'], ['qualified', 'Sifatli'], ['unqualified', 'Sifatsiz'], ['potential', 'Potensial'], ['st_nopickup', "Ko'tarmadi"], ['st_callback', 'Qayta aloqa'], ['st_thinking', "O'ylab ko'radi"], ['st_video', "Video ko'rishi kerak"], ['st_cancelled', 'Bekor qilindi'], ['sales', 'Sotuv'], ['revenue', "Tushgan pul, so'm"]],
+    fields: [['leads', 'Umumiy lid'], ['calls', "Qo'ng'iroq"], ['qualified', 'Sifatli'], ['unqualified', 'Sifatsiz'], ['potential', 'Potensial'], ['st_nopickup', "Ko'tarmadi"], ['st_callback', 'Qayta aloqa'], ['st_thinking', "O'ylab ko'radi"], ['st_video', "Video ko'rishi kerak"], ['st_cancelled', 'Bekor qilindi'], ['sales', 'Sotuv'], ['revenue', "Tushgan pul, so'm"]],
     required: ['leads', 'sales', 'revenue'],
     autoFields: [['starts', 'Bot start'], ['sales', 'Xarid'], ['revenue', "Tushgan pul, so'm"]],
     autoRequired: ['sales', 'revenue'],
@@ -28,6 +28,22 @@ const STEPS = [
   { key: 'send', title: 'Yuborish', head: 'Direktorga yuboring',
     hint: 'Direktor Telegramda aynan shu xabarni oladi va javob (reply) qilib yechim yozadi — javob sizga keladi.' },
 ];
+
+const STAFF_HEAD = {
+  target: ['Targetolog raqamlari — tekshiring', "Target raqamlarini va shu kunning dollar kursini targetolog o'zi kiritadi. Siz tekshirasiz: xato bo'lsa — shu yerda tuzating (o'zgarish tarixda qoladi). U yubormagan bo'lsa — «Eslatish» bilan Telegramda eslating yoki raqamlarni o'zingiz kiriting."],
+  sales: ['ROP raqamlari — tekshiring', "Lidlar, holatlar, sabablar, sotuv va tushumni ROP o'zi kiritadi. Siz tekshirasiz: jami lid va qismlari mosmi, tushum to'g'rimi. Kanallar bo'yicha raqamlar — siz kiritasiz."],
+};
+// Xodimlar (targetolog, ROP) — o'z qismini yuborganmi; PM eslatma yubora oladi
+const PART_ICON = { target: '🎯', rop: '📞' };
+function staffBox(staff, part, projects) {
+  const list = (staff || []).filter((x) => x.role === part);
+  if (!list.length) return '';
+  const names = (ids) => (ids.length ? projects.filter((p) => ids.includes(p.id)).map((p) => p.name).join(', ') : 'hamma loyihalar');
+  return `<div class="staff-box"><b>${part === 'target' ? 'Targetolog kiritadi' : 'ROP kiritadi'}</b>
+    ${list.map((x) => `<div class="staff-row ${x.submitted_at ? 'ok' : ''}"><span>${PART_ICON[part]} <b>${esc(x.name)}</b> <span class="muted small">— ${esc(names(x.projects))}</span></span>
+      ${x.submitted_at ? `<span class="pill good">✓ ${esc(String(x.submitted_at).slice(11, 16))} da yubordi</span>` : `<span class="pill warn">Hali yubormadi</span>${x.telegram ? `<button type="button" class="btn small" data-remind="${x.id}">Eslatish</button>` : '<span class="muted small" title="Telegram ID kiritilmagan">eslatma — Telegram ID yo\'q</span>'}`}</div>`).join('')}
+    <p class="muted small">Ular kiritgan raqamlar quyida. Xato bo'lsa — shu yerda tuzating yoki xodimga ayting.</p></div>`;
+}
 
 export function dateNav(date, onChange) {
   const isToday = date === state.me.reportDay;
@@ -133,11 +149,13 @@ export async function renderToday({ rolled = null } = {}) {
     const leadsP = daily.projects.filter((p) => !sales || p.kind !== 'auto');
     const autoP = sales ? daily.projects.filter((p) => p.kind === 'auto') : [];
     const textP = sales ? leadsP : daily.projects;
+    // Bu qismni xodim (targetolog / ROP) kiritadi — PM tekshiradi va kerak bo'lsa tuzatadi
+    const byStaff = (daily.staff || []).some((x) => x.role === (sales ? 'rop' : 'target'));
     return `<section class="card step">
       <div class="step-top">
-        <div class="step-head"><span class="eyebrow">${i + 1}-qadam</span><h2>${s.head}</h2><p>${s.hint}</p></div>
-        <div class="ask"><b>So'raladigan savollar</b><ol>${askList(s, daily.projects).map((q) => `<li>${esc(q)}</li>`).join('')}</ol>
-          <button class="btn small" data-copy-ask>${ICONS.copy} Nusxalash — Telegramda yuborish uchun</button></div>
+        <div class="step-head"><span class="eyebrow">${i + 1}-qadam</span><h2>${byStaff ? STAFF_HEAD[s.key][0] : s.head}</h2><p>${byStaff ? STAFF_HEAD[s.key][1] : s.hint}</p></div>
+        ${staffBox(daily.staff, i === 0 ? 'target' : 'rop', daily.projects) || `<div class="ask"><b>So'raladigan savollar</b><ol>${askList(s, daily.projects).map((q) => `<li>${esc(q)}</li>`).join('')}</ol>
+          <button class="btn small" data-copy-ask>${ICONS.copy} Nusxalash — Telegramda yuborish uchun</button></div>`}
       </div>
       ${i === 0 ? rateBlock() : ''}
       ${leadsP.length ? `${sales && autoP.length ? "<h3 class=\"tbl-title\">Sotuv bo'limi orqali</h3>" : ''}${numTable(leadsP, s.fields, s.required, sales ? 'cpl' : null)}` : ''}
@@ -357,6 +375,12 @@ export async function renderToday({ rolled = null } = {}) {
       }
     }));
     box.querySelectorAll('[data-step-go]').forEach((b) => { b.onclick = () => toStep(b.dataset.stepGo); });
+    box.querySelectorAll('[data-remind]').forEach((b) => {
+      b.onclick = async () => {
+        b.disabled = true;
+        try { await api('/api/part/remind', { method: 'POST', body: { user_id: Number(b.dataset.remind), date } }); toast('Eslatma Telegramda yuborildi ✓'); } catch (err) { toast(err.message, true); b.disabled = false; }
+      };
+    });
     // AI tahlil: natija maydonlarga qo'yiladi, PM o'qib, tuzatib, «Saqlash» bosadi
     const aiBtn = box.querySelector('[data-ai]');
     if (aiBtn) aiBtn.onclick = async () => {
@@ -530,7 +554,7 @@ export async function renderToday({ rolled = null } = {}) {
 }
 
 // Shu kun bo'yicha har bir kiritish tarixi: qachon, kim, qaysi loyiha, nima — eski va yangi qiymat (ochilganda yuklanadi)
-function historyBlock(date) {
+export function historyBlock(date) {
   const el = document.createElement('details');
   el.className = 'card history';
   el.innerHTML = `<summary><b>O'zgarishlar tarixi</b> <span class="muted small">— shu kun bo'yicha har bir kiritish saqlanadi: kim, qachon, nimani o'zgartirdi</span></summary><div class="hist-body"></div>`;
@@ -554,7 +578,7 @@ function historyBlock(date) {
 const autoProposal = (adv) => (adv?.proposals || []).map((x) => `• ${x}`).join('\n');
 const sameText = (a, b) => String(a ?? '').replace(/\s+/g, ' ').trim() === String(b ?? '').replace(/\s+/g, ' ').trim();
 
-function cplText(spend, leads) {
+export function cplText(spend, leads) {
   return spend != null && leads > 0 ? fmtUsd(spend / leads) : '—';
 }
 
