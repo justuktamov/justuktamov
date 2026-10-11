@@ -1159,3 +1159,10 @@ input, select, textarea { color-scheme: light; }
 .tot-sel { display: inline-flex; align-items: center; gap: 6px; align-self: center; padding: 8px 12px; border-radius: 999px; border: 1px solid #b9cdfa; background: #e8f0ff; color: #1d3f9a; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
 .tot-sel i { width: 9px; height: 9px; border-radius: 50%; margin-right: -2px; }
 .tot-sel em { font-style: normal; font-size: 16px; line-height: 1; margin-left: 2px; }
+/* Oraliq kalendari: kun bosilsa darhol ko'rinadi; «Oraliq tanlash» — alohida rejim */
+.rc-foot { flex-wrap: wrap; }
+.rc-foot .rc-mode { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #e8f0ff; color: #1d3f9a; }
+.rc-foot .rc-mode svg { width: 15px; height: 15px; }
+.cal-range.rc-range { box-shadow: 0 0 0 2px #b9cdfa, 0 12px 32px rgba(16, 24, 40, .14); }
+.rc-foot .pp-go { flex: 2 1 0; background: var(--blue); color: #fff; }
+.rc-foot .pp-go[disabled] { background: var(--surface-2); color: var(--text-3); }

@@ -302,16 +302,18 @@ export function openPeriodPicker(anchor, { value = null, max, onPick }) {
   calClose = close;
 }
 
-// Oraliq: bitta kalendarda 1-bosish — boshlanish, 2-bosish — tugash; orasidagi kunlar belgilanadi
-export function openRangeCalendar(anchor, { from, to, max = null, onPick }) {
+// Kalendar: kun bosilsa — o'sha kun darhol ko'rsatiladi (kalendar ochiq qoladi, onDay);
+// «Oraliq tanlash» bosilsa — boshlanish va tugash kunini belgilab, «Ko'rish» bilan qo'llanadi (onPick)
+export function openRangeCalendar(anchor, { from, to, max = null, view: view0 = null, onPick, onDay = null }) {
   calClose?.();
   menuClose?.();
-  let view = (to || from).slice(0, 7);
-  let a = from, b = to, hover = null; // b === null — tugash kutilmoqda
+  let view = view0 || (to || from).slice(0, 7);
+  let mode = onDay ? 'day' : 'range';
+  let a = from, b = to, hover = null; // oraliq rejimida: b === null — tugash kutilmoqda
   const pop = document.createElement('div');
   pop.className = 'cal cal-range';
   pop.setAttribute('role', 'dialog');
-  pop.setAttribute('aria-label', 'Oraliq tanlash');
+  pop.setAttribute('aria-label', 'Kun yoki oraliq tanlash');
   const ok = (d) => !max || d <= max;
   const draw = () => {
     const [y, m] = view.split('-').map(Number);
@@ -323,23 +325,31 @@ export function openRangeCalendar(anchor, { from, to, max = null, onPick }) {
     const prevM = addDays(first, -1).slice(0, 7);
     const nextM = addDays(`${view}-28`, 7).slice(0, 7);
     const end = b ?? hover;
-    const lo = end && end < a ? end : a, hi = end && end < a ? a : end;
+    const lo = a && end && end < a ? end : a, hi = a && end && end < a ? a : end;
     const cls = (d) => {
       if (!lo) return '';
-      if (d === lo && d === hi) return 'r-one';
+      if (d === lo && (d === hi || !hi)) return 'r-one';
       if (d === lo) return 'r-start';
       if (hi && d === hi) return 'r-end';
       return hi && d > lo && d < hi ? 'r-in' : '';
     };
-    const days2 = (n) => Math.round((Date.parse(hi) - Date.parse(lo)) / 864e5) + 1;
+    const nDays = lo && hi ? Math.round((Date.parse(hi) - Date.parse(lo)) / 864e5) + 1 : 0;
+    const hint = mode === 'day'
+      ? `${lo ? `<b>${lo === hi ? shortDate(lo) : `${shortDate(lo)} – ${shortDate(hi)}`}</b> · ` : ''}kunni bosing — o'sha kun ko'rinadi`
+      : !a ? '<b>Boshlanish</b> kunini bosing' : b == null ? `<b>${shortDate(a)}</b> dan · <b>tugash</b> kunini bosing` : `<b>${shortDate(lo)} – ${shortDate(hi)}</b> · ${nDays} kun · «Ko'rish»ni bosing`;
+    const foot = mode === 'day'
+      ? `<div class="cal-foot rc-foot"><button type="button" class="rc-mode" data-mode="range">${ICONS.cal} Oraliq tanlash</button></div>
+        ${max ? `<div class="cal-foot"><button type="button" data-preset="7">7 kun</button><button type="button" data-preset="30">30 kun</button><button type="button" data-preset="month">Shu oy</button></div>` : ''}`
+      : `<div class="cal-foot rc-foot"><button type="button" class="pp-go" data-go ${a && b ? '' : 'disabled'}>Ko'rish${nDays && b ? ` · ${nDays} kun` : ''}</button>${onDay ? '<button type="button" data-mode="day">Bekor</button>' : ''}</div>`;
+    pop.classList.toggle('rc-range', mode === 'range');
     pop.innerHTML = `<div class="cal-head">
         <button type="button" class="cal-nav" data-m="${prevM}" aria-label="Oldingi oy">‹</button>
         <b>${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${y}</b>
         <button type="button" class="cal-nav" data-m="${nextM}" aria-label="Keyingi oy" ${max && `${nextM}-01` > max ? 'disabled' : ''}>›</button></div>
-      <p class="cal-hint">${b == null ? '<b>Tugash</b> kunini bosing' : `<b>${shortDate(lo)} – ${shortDate(hi)}</b> · ${days2()} kun · yangi oraliq uchun boshlanish kunini bosing`}</p>
+      <p class="cal-hint">${hint}</p>
       <div class="cal-grid">${WEEK.map((w) => `<span class="cal-wd">${w}</span>`).join('')}
         ${days.slice(0, lastRow).map((d) => `<button type="button" data-d="${d}" class="cal-day ${d.slice(0, 7) !== view ? 'out' : ''} ${cls(d)}" ${ok(d) ? '' : 'disabled'}>${Number(d.slice(8))}</button>`).join('')}</div>
-      ${max ? `<div class="cal-foot"><button type="button" data-preset="7">7 kun</button><button type="button" data-preset="30">30 kun</button><button type="button" data-preset="month">Shu oy</button></div>` : ''}`;
+      ${foot}`;
   };
   draw();
   document.body.append(pop);
@@ -352,6 +362,10 @@ export function openRangeCalendar(anchor, { from, to, max = null, onPick }) {
     e.stopPropagation();
     const nav = e.target.closest('[data-m]');
     if (nav && !nav.disabled) { view = nav.dataset.m; draw(); return; }
+    const md = e.target.closest('[data-mode]');
+    if (md) { mode = md.dataset.mode; if (mode === 'range') { a = null; b = null; } else { a = from; b = to; } hover = null; draw(); return; }
+    const go = e.target.closest('[data-go]');
+    if (go) { if (!go.disabled) done(a, b); return; }
     const pr = e.target.closest('[data-preset]');
     if (pr) {
       if (pr.dataset.preset === 'month') done(`${max.slice(0, 8)}01`, max);
@@ -360,12 +374,17 @@ export function openRangeCalendar(anchor, { from, to, max = null, onPick }) {
     }
     const day = e.target.closest('[data-d]');
     if (!day || day.disabled) return;
-    if (b == null) done(a, day.dataset.d);
-    else { a = day.dataset.d; b = null; hover = null; draw(); pop.querySelector(`[data-d="${a}"]`)?.focus(); }
+    const d = day.dataset.d;
+    if (mode === 'day') { onDay(d, view); return; } // sahifa yangilanadi, kalendar qayta ochiladi
+    if (!a || b != null) { a = d; b = null; } else b = d;
+    if (a && b && b < a) [a, b] = [b, a];
+    hover = null;
+    draw();
+    pop.querySelector(`[data-d="${d}"]`)?.focus();
   });
   pop.addEventListener('mouseover', (e) => {
     const day = e.target.closest('[data-d]');
-    if (b == null && day && !day.disabled && day.dataset.d !== hover) { hover = day.dataset.d; draw(); }
+    if (mode === 'range' && a && b == null && day && !day.disabled && day.dataset.d !== hover) { hover = day.dataset.d; draw(); }
   });
   const outside = (e) => { if (!pop.contains(e.target) && !anchor.contains(e.target)) close(); };
   const esc = (e) => { if (e.key === 'Escape') { close(); anchor.focus(); } };
@@ -464,7 +483,7 @@ export function filtersHtml() {
   const { from, to } = computePeriod();
   return `<div class="filters">
     <div class="seg" id="periodSeg" role="group" aria-label="Davr">${opts.map(([v, l]) => `<button data-v="${v}" class="${state.period === v ? 'on' : ''}">${l}</button>`).join('')}</div>
-    ${state.period === 'custom' ? `<button type="button" class="date-btn range-btn" id="fRange" aria-haspopup="dialog" aria-label="Oraliq: ${prettyDate(from)} — ${prettyDate(to)}">${ICONS.cal}<span>${shortDate(from)} — ${shortDate(to)}</span></button>` : ''}
+    ${state.period === 'custom' ? `<button type="button" class="date-btn range-btn" id="fRange" aria-haspopup="dialog" aria-label="Oraliq: ${prettyDate(from)} — ${prettyDate(to)}">${ICONS.cal}<span>${from === to ? shortDate(from) : `${shortDate(from)} — ${shortDate(to)}`}</span></button>` : ''}
   </div>`;
 }
 export function bindFilters(rerenderPage) {
@@ -478,11 +497,19 @@ export function bindFilters(rerenderPage) {
     // «Oraliq» bosilganda kalendar darhol ochiladi
     if (first) setTimeout(() => $('#fRange')?.click(), 60);
   };
-  const rb = $('#fRange');
-  if (rb) {
+  // Kun bosilsa — o'sha kun darhol ko'rsatiladi va kalendar ochiq qoladi; oraliq — «Oraliq tanlash» → «Ko'rish»
+  const openCal = (view = null) => {
+    const el = $('#fRange');
+    if (!el) return;
     const { from, to } = computePeriod();
-    rb.onclick = () => openRangeCalendar(rb, { from, to, max: state.me.reportDay, onPick: (a, b) => { state.from = a; state.to = b; rerenderPage(); } });
-  }
+    openRangeCalendar(el, {
+      from, to, view, max: state.me.reportDay,
+      onPick: (a, b) => { state.from = a; state.to = b; rerenderPage(); },
+      onDay: (d, v) => { state.from = d; state.to = d; rerenderPage(); openCal(v); },
+    });
+  };
+  const rb = $('#fRange');
+  if (rb) rb.onclick = () => openCal();
 }
 
 // ---------- Karkas ----------
