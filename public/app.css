@@ -1166,3 +1166,8 @@ input, select, textarea { color-scheme: light; }
 .cal-range.rc-range { box-shadow: 0 0 0 2px #b9cdfa, 0 12px 32px rgba(16, 24, 40, .14); }
 .rc-foot .pp-go { flex: 2 1 0; background: var(--blue); color: #fff; }
 .rc-foot .pp-go[disabled] { background: var(--surface-2); color: var(--text-3); }
+/* Oraliq kalendari keng ekranda o'ng chetga yopishadi; sahifa chapga suriladi — hech narsa to'silmaydi */
+.cal.cal-dock { position: fixed; right: 16px; left: auto; z-index: 60; }
+.main.cal-docked { padding-right: 340px; }
+.cal-x { position: absolute; top: -10px; right: -10px; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border); background: #fff; color: var(--text-2); font: inherit; font-size: 17px; line-height: 1; cursor: pointer; box-shadow: 0 2px 8px rgba(16, 24, 40, .12); }
+.cal-x:hover { color: var(--text); background: var(--surface-2); }

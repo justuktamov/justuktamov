@@ -342,7 +342,7 @@ export function openRangeCalendar(anchor, { from, to, max = null, view: view0 = 
         ${max ? `<div class="cal-foot"><button type="button" data-preset="7">7 kun</button><button type="button" data-preset="30">30 kun</button><button type="button" data-preset="month">Shu oy</button></div>` : ''}`
       : `<div class="cal-foot rc-foot"><button type="button" class="pp-go" data-go ${a && b ? '' : 'disabled'}>Ko'rish${nDays && b ? ` · ${nDays} kun` : ''}</button>${onDay ? '<button type="button" data-mode="day">Bekor</button>' : ''}</div>`;
     pop.classList.toggle('rc-range', mode === 'range');
-    pop.innerHTML = `<div class="cal-head">
+    pop.innerHTML = `${onDay ? '<button type="button" class="cal-x" data-close aria-label="Kalendarni yopish" title="Yopish">×</button>' : ''}<div class="cal-head">
         <button type="button" class="cal-nav" data-m="${prevM}" aria-label="Oldingi oy">‹</button>
         <b>${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${y}</b>
         <button type="button" class="cal-nav" data-m="${nextM}" aria-label="Keyingi oy" ${max && `${nextM}-01` > max ? 'disabled' : ''}>›</button></div>
@@ -355,11 +355,21 @@ export function openRangeCalendar(anchor, { from, to, max = null, view: view0 = 
   document.body.append(pop);
   const r = anchor.getBoundingClientRect();
   const w = pop.offsetWidth;
-  pop.style.top = `${r.bottom + window.scrollY + 8}px`;
-  pop.style.left = `${Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - w - 8))}px`;
+  // Keng ekranda kalendar o'ng chetga «yopishadi», sahifa chapga suriladi — hech narsani to'sib qo'ymaydi
+  const main = document.getElementById('main');
+  const dock = !!onDay && window.innerWidth >= 1000 && main;
+  if (dock) {
+    pop.classList.add('cal-dock');
+    pop.style.top = `${Math.max(16, r.top)}px`;
+    main.classList.add('cal-docked');
+  } else {
+    pop.style.top = `${r.bottom + window.scrollY + 8}px`;
+    pop.style.left = `${Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - w - 8))}px`;
+  }
   const done = (x, y) => { close(); onPick(x <= y ? x : y, x <= y ? y : x); };
   pop.addEventListener('click', (e) => {
     e.stopPropagation();
+    if (e.target.closest('[data-close]')) { close(); return; }
     const nav = e.target.closest('[data-m]');
     if (nav && !nav.disabled) { view = nav.dataset.m; draw(); return; }
     const md = e.target.closest('[data-mode]');
@@ -386,9 +396,10 @@ export function openRangeCalendar(anchor, { from, to, max = null, view: view0 = 
     const day = e.target.closest('[data-d]');
     if (mode === 'range' && a && b == null && day && !day.disabled && day.dataset.d !== hover) { hover = day.dataset.d; draw(); }
   });
-  const outside = (e) => { if (!pop.contains(e.target) && !anchor.contains(e.target)) close(); };
+  // Yopishgan kalendar tashqarini bosganda yopilmaydi (sahifa bilan birga ishlatiladi) — × yoki Esc bilan yopiladi
+  const outside = (e) => { if (!dock && !pop.contains(e.target) && !anchor.contains(e.target)) close(); };
   const esc = (e) => { if (e.key === 'Escape') { close(); anchor.focus(); } };
-  function close() { pop.remove(); document.removeEventListener('mousedown', outside); document.removeEventListener('keydown', esc); calClose = null; }
+  function close() { pop.remove(); if (dock) main.classList.remove('cal-docked'); document.removeEventListener('mousedown', outside); document.removeEventListener('keydown', esc); calClose = null; }
   setTimeout(() => { document.addEventListener('mousedown', outside); document.addEventListener('keydown', esc); });
   calClose = close;
 }
