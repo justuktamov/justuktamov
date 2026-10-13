@@ -6,10 +6,11 @@ import { today, nowLocal, normalizeIds, projectReasons, normalizeReasonKeys, DIZ
 import { reportBundle, saveDraft, submitReport, listReports, reportText } from '../src/reports.js';
 import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, monthly, estimateLag, parseRate, parseNum, dayRates } from '../src/metrics.js';
 import { generateDemo, DEMO_USER } from '../src/demo-data.js';
+import { SELLER_FIELDS, SELLER_KEYS, parseDuration, sellerStats } from '../src/sellers-calc.js';
 import { ROLES, PARTS, isStaff, userProjects, canSeeProject, canWriteField, missingFor, normalizeProjectIds } from '../src/roles.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v25';
+const SAVE_KEY = 'analitika-demo-v26';
 let me = null;
 
 function seed() {
@@ -33,12 +34,39 @@ function seed() {
     { id: 3, name: 'Malika', login: 'malika', password: 'demo1234', telegram_id: '444555666', role: 'rop', projects: null, active: 1 },
   ];
   store.meId = 1;
+  seedSellers();
   const y = addDays(TODAY, -1);
   store.staffReports = [];
   for (let i = 1; i <= 14; i += 1) {
     const d = addDays(y, -i);
     store.staffReports.push({ date: d, user_id: 2, part: 'target', submitted_at: `${addDays(d, 1)} 09:${String(10 + (i * 7) % 40).padStart(2, '0')}:00` });
     store.staffReports.push({ date: d, user_id: 3, part: 'rop', submitted_at: `${addDays(d, 1)} 10:${String(5 + (i * 11) % 50).padStart(2, '0')}:00` });
+  }
+}
+
+// Sotuv xodimlari va ularning kunlik natijasi (oxirgi ~70 kun): har loyiha lidlari xodimlarga bo'linadi
+function seedSellers() {
+  const names = [['Barno', null, 1.25], ['Zebo', '2', 0.8], ['Zuxra', null, 1], ['Abdujalil', null, 0.9], ['Kamronbek', null, 1.05], ['Ozodbek', null, 0.85]];
+  store.sellers = names.map(([name, projects], i) => ({ id: i + 1, name, projects, active: 1 }));
+  store.sellerDaily = [];
+  let seedN = 7;
+  const rnd = () => { seedN = (seedN * 16807) % 2147483647; return seedN / 2147483647; };
+  const leadsP = store.projects.filter((p) => p.kind !== 'auto');
+  for (const r of store.daily) {
+    if (!leadsP.some((p) => p.id === r.project_id) || !(r.leads > 0) || r.date < addDays(TODAY, -75)) continue;
+    const team = store.sellers.filter((x) => !x.projects || x.projects.split(',').map(Number).includes(r.project_id));
+    const w = team.map((x) => names.find(([n]) => n === x.name)[2] * (0.7 + rnd() * 0.6));
+    const sum = w.reduce((a, x) => a + x, 0);
+    let salesLeft = r.sales || 0;
+    team.forEach((x, i) => {
+      const leads = Math.max(0, Math.round(r.leads * w[i] / sum));
+      if (!leads) return;
+      const qualified = Math.round(leads * (0.4 + rnd() * 0.2));
+      const sales = i === team.length - 1 ? salesLeft : Math.min(salesLeft, Math.round((r.sales || 0) * w[i] / sum + (rnd() - 0.5)));
+      salesLeft -= sales;
+      store.sellerDaily.push({ seller_id: x.id, project_id: r.project_id, date: r.date, leads, in_progress: Math.round(leads * (0.1 + rnd() * 0.25)), qualified, sales: Math.max(0, sales),
+        cancelled: Math.round(leads * (0.25 + rnd() * 0.2)), unqualified: leads - qualified, call_sec: Math.round(leads * (70 + rnd() * 90)) });
+    });
   }
 }
 
@@ -55,6 +83,7 @@ function save() {
 }
 load();
 // Eski saqlangan demoda xodimlar bo'lmasa — qo'shiladi
+if (!store.sellers) seedSellers();
 if (!store.users?.length) { const keep = store.user; seed(); if (keep) Object.assign(store.users[0], keep, { role: 'pm' }); }
 
 const nextId = (list) => list.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1;
@@ -86,7 +115,7 @@ function checkColor(v) {
 const DEMO_AI = { enabled: false, provider: null, label: null, model: null, reason: "Demoda AI tahlil yo'q — haqiqiy serverda OpenRouter kaliti bilan ishlaydi" };
 const needUser = () => { if (!me) throw new HttpError(401, 'Tizimga kiring'); return me; };
 // Targetolog va ROP chaqira oladigan yo'llar (qolganlari — faqat PM), serverdagi STAFF bilan bir xil
-const STAFF_ROUTES = new Set(['POST /api/login', 'POST /api/logout', 'GET /api/me', 'PUT /api/me', 'PUT /api/me/password', 'GET /api/projects', 'GET /api/daily', 'PUT /api/daily', 'PUT /api/rate', 'GET /api/history', 'POST /api/part/submit']);
+const STAFF_ROUTES = new Set(['GET /api/sellers', 'POST /api/sellers', 'PUT /api/sellers/:id', 'GET /api/sellers/daily', 'PUT /api/sellers/daily', 'GET /api/sellers/stats', 'POST /api/login', 'POST /api/logout', 'GET /api/me', 'PUT /api/me', 'PUT /api/me/password', 'GET /api/projects', 'GET /api/daily', 'PUT /api/daily', 'PUT /api/rate', 'GET /api/history', 'POST /api/part/submit']);
 const sentAt = (date, uid) => (store.staffReports || []).find((r) => r.date === date && r.user_id === uid)?.submitted_at || null;
 const staffList = (date) => store.users.filter((u) => u.active && isStaff(u)).sort((a, b) => (a.role < b.role ? 1 : -1)).map((u) => ({
   id: u.id, name: u.name, role: u.role, projects: userProjects(u), telegram: Boolean(u.telegram_id), submitted_at: sentAt(date, u.id),
@@ -350,6 +379,65 @@ const routes = {
     const u = store.users.find((x) => x.id === Number(b.user_id));
     throw new HttpError(503, `Demoda Telegram yo'q — haqiqiy serverda ${u?.name || 'xodim'} ga eslatma boradi`);
   },
+  'GET /api/sellers': () => { sellerUser(); return [...store.sellers].sort((a, b) => b.active - a.active || a.id - b.id).map(sellerOut); },
+  'POST /api/sellers': (b) => {
+    sellerUser();
+    const f = sellerFields(b);
+    if (store.sellers.some((x) => x.active && x.name.toLowerCase() === f.name.toLowerCase())) throw new HttpError(409, `«${f.name}» allaqachon bor`);
+    const x = { id: nextId(store.sellers), name: f.name, projects: f.projects, active: 1 };
+    store.sellers.push(x);
+    return sellerOut(x);
+  },
+  'GET /api/sellers/daily': (_b, _p, q) => {
+    sellerUser();
+    const date = isDate(q.get('date')) ? q.get('date') : addDays(TODAY, -1);
+    const projects = sellerProjects();
+    const ids = new Set(projects.map((p) => p.id));
+    return {
+      date, projects,
+      rop: Object.fromEntries(store.daily.filter((r) => r.date === date && ids.has(r.project_id)).map((r) => [r.project_id, { leads: r.leads, sales: r.sales }])),
+      sellers: store.sellers.filter((x) => x.active).sort((a, b) => a.id - b.id).map(sellerOut),
+      rows: store.sellerDaily.filter((r) => r.date === date && ids.has(r.project_id)),
+    };
+  },
+  'PUT /api/sellers/daily': (b) => {
+    sellerUser();
+    if (!isDate(b.date) || b.date > TODAY) throw new HttpError(400, "Sana noto'g'ri");
+    const ids = new Set(sellerProjects().map((p) => p.id));
+    let changed = 0;
+    const prepared = (b.rows || []).map((r) => {
+      const x = store.sellers.find((y) => y.id === Number(r.seller_id));
+      if (!x) throw new HttpError(404, 'Xodim topilmadi');
+      if (!ids.has(Number(r.project_id))) throw new HttpError(404, 'Loyiha topilmadi');
+      const v = {};
+      for (const [k, raw] of Object.entries(r.values || {})) {
+        if (!SELLER_FIELDS[k]) throw new HttpError(400, `Noma'lum maydon: ${k}`);
+        try { v[k] = k === 'call_sec' ? parseDuration(raw) : num(raw); } catch (e) { throw new HttpError(400, `${x.name}: ${e.message}`); }
+      }
+      return [x, Number(r.project_id), v];
+    });
+    for (const [x, pid, v] of prepared) {
+      const cur = store.sellerDaily.find((r) => r.seller_id === x.id && r.project_id === pid && r.date === b.date);
+      const next = Object.fromEntries(SELLER_KEYS.map((k) => [k, k in v ? v[k] : cur?.[k] ?? null]));
+      for (const k of Object.keys(v)) if ((cur?.[k] ?? null) !== next[k]) { changed += 1; logDemo(b.date, store.projects.find((p) => p.id === pid)?.name, `${x.name}: ${SELLER_FIELDS[k]}`, cur?.[k], next[k]); }
+      store.sellerDaily = store.sellerDaily.filter((r) => r !== cur);
+      if (SELLER_KEYS.some((k) => next[k] != null)) store.sellerDaily.push({ seller_id: x.id, project_id: pid, date: b.date, ...next });
+    }
+    return { ok: true, changed };
+  },
+  'PUT /api/sellers/:id': (b, { id }) => {
+    sellerUser();
+    const x = store.sellers.find((y) => y.id === Number(id));
+    if (!x) throw new HttpError(404, 'Xodim topilmadi');
+    const f = sellerFields(b, x);
+    Object.assign(x, { name: f.name, projects: f.projects }, b.active === undefined ? {} : { active: b.active ? 1 : 0 });
+    return sellerOut(x);
+  },
+  'GET /api/sellers/stats': (_b, _p, q) => {
+    sellerUser();
+    const { from, to } = period(q);
+    return { from, to, projects: sellerStats(store.sellerDaily.filter((r) => r.date >= from && r.date <= to), store.sellers, sellerProjects()) };
+  },
   'GET /api/users': () => { needUser(); return [...store.users].sort((a, b) => b.active - a.active || a.role.localeCompare(b.role)).map(userOut); },
   'POST /api/users': (b) => {
     needUser();
@@ -380,6 +468,17 @@ const routes = {
     return { ok: true };
   },
 };
+
+// Sotuv xodimlari — serverdagi bilan bir xil
+const sellerUser = () => { needUser(); if (isStaff(me) && me.role !== 'rop') throw new HttpError(403, "Sotuv xodimlari bo'limi — ROP va PM uchun"); };
+const sellerProjects = () => store.projects.filter((p) => p.active && p.kind !== 'auto' && canSeeProject(me, p.id)).sort((a, b) => (a.sort_order ?? a.id) - (b.sort_order ?? b.id)).map((p) => ({ id: p.id, name: p.name, color: p.color }));
+const sellerOut = (x) => ({ id: x.id, name: x.name, active: x.active, projects: userProjects(x) });
+function sellerFields(b, cur = {}) {
+  const name = b.name === undefined ? cur.name : String(b.name).trim().slice(0, 60);
+  if (!name) throw new HttpError(400, 'Xodim ismini kiriting');
+  const projects = b.projects === undefined ? cur.projects ?? null : wrap(() => normalizeProjectIds(b.projects, new Set(store.projects.map((p) => p.id))));
+  return { name, projects };
+}
 
 // Serverdagi userFields bilan bir xil tekshiruv
 function userFields(b, cur = {}) {

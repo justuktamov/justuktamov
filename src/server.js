@@ -8,6 +8,7 @@ import { reportBundle, saveDraft, submitReport, listReports, reportText, getRepo
 import { aiStatus, analyze, AiError } from './ai/index.js';
 import { buildAiInput, hashInput } from './ai/prompt.js';
 import { login, logout, userFromToken, changePassword, ensureUser, publicUser, createUser, setPassword } from './auth.js';
+import { SELLER_FIELDS, SELLER_KEYS, parseDuration, sellerStats } from './sellers-calc.js';
 import { ROLES, PARTS, isStaff, userProjects, canSeeProject, canWriteField, missingFor, normalizeProjectIds } from './roles.js';
 import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, planProgress, monthly, estimateLag, parseRate, parseNum, dayRates } from './metrics.js';
 import { startPolling, telegramStatus, sendMessage, sendDocument } from './telegram.js';
@@ -410,6 +411,104 @@ route('POST', '/api/part/remind', async (req, res) => {
   send(res, 200, { ok: true });
 });
 
+// ---- Sotuv xodimlari (operatorlar): ROP kiritadi, PM ham ko'radi ----
+function sellerUser(req) {
+  const u = requireUser(req);
+  if (isStaff(u) && u.role !== 'rop') throw new HttpError(403, "Sotuv xodimlari bo'limi — ROP va PM uchun");
+  return u;
+}
+// Sotuv bo'limi orqali ishlaydigan faol loyihalar (avtovoronkasiz), foydalanuvchiga ko'rinadiganlari
+const sellerProjects = (u) => getDb().prepare("SELECT id, name, color FROM projects WHERE active = 1 AND kind != 'auto' ORDER BY COALESCE(sort_order, id), id").all().filter((p) => canSeeProject(u, p.id));
+const sellerOut = (x) => ({ id: x.id, name: x.name, active: x.active, projects: userProjects(x) });
+route('GET', '/api/sellers', async (req, res) => {
+  sellerUser(req);
+  send(res, 200, getDb().prepare('SELECT * FROM sellers ORDER BY active DESC, id').all().map(sellerOut));
+}, STAFF);
+function sellerFields(b, cur = {}) {
+  const name = b.name === undefined ? cur.name : String(b.name).trim().slice(0, 60);
+  if (!name) throw new HttpError(400, 'Xodim ismini kiriting');
+  let projects = cur.projects ?? null;
+  try { if (b.projects !== undefined) projects = normalizeProjectIds(b.projects, new Set(getDb().prepare('SELECT id FROM projects').all().map((x) => x.id))); } catch (e) { throw new HttpError(400, e.message); }
+  return { name, projects };
+}
+route('POST', '/api/sellers', async (req, res) => {
+  sellerUser(req);
+  const f = sellerFields(await readBody(req));
+  if (getDb().prepare('SELECT 1 FROM sellers WHERE lower(name) = lower(?) AND active = 1').get(f.name)) throw new HttpError(409, `«${f.name}» allaqachon bor`);
+  const info = getDb().prepare('INSERT INTO sellers (name, projects) VALUES (?, ?)').run(f.name, f.projects);
+  send(res, 201, sellerOut(getDb().prepare('SELECT * FROM sellers WHERE id = ?').get(info.lastInsertRowid)));
+}, STAFF);
+route('GET', '/api/sellers/daily', async (req, res, _p, q) => {
+  const u = sellerUser(req);
+  const date = isDate(q.get('date')) ? q.get('date') : addDays(today(), -1);
+  const projects = sellerProjects(u);
+  const ids = new Set(projects.map((p) => p.id));
+  const db = getDb();
+  // ROP sotuv hisobotidagi shu kunlik lid va sotuv — xodimlar jamini solishtirish uchun
+  const rop = Object.fromEntries(db.prepare('SELECT project_id, leads, sales FROM daily WHERE date = ?').all(date).filter((r) => ids.has(r.project_id)).map((r) => [r.project_id, { leads: r.leads, sales: r.sales }]));
+  send(res, 200, {
+    date, projects, rop,
+    sellers: db.prepare('SELECT * FROM sellers WHERE active = 1 ORDER BY id').all().map(sellerOut),
+    rows: db.prepare('SELECT * FROM seller_daily WHERE date = ?').all(date).filter((r) => ids.has(r.project_id)),
+  });
+}, STAFF);
+route('PUT', '/api/sellers/daily', async (req, res) => {
+  const u = sellerUser(req);
+  const b = await readBody(req);
+  if (!isDate(b.date) || b.date > today()) throw new HttpError(400, "Sana noto'g'ri");
+  if (!Array.isArray(b.rows)) throw new HttpError(400, "Ma'lumot noto'g'ri");
+  const ids = new Set(sellerProjects(u).map((p) => p.id));
+  const db = getDb();
+  const names = new Map(db.prepare('SELECT id, name FROM sellers').all().map((x) => [x.id, x.name]));
+  const prepared = b.rows.map((r) => {
+    const sidN = Number(r.seller_id), pid = Number(r.project_id);
+    if (!names.has(sidN)) throw new HttpError(404, 'Xodim topilmadi');
+    if (!ids.has(pid)) throw new HttpError(404, 'Loyiha topilmadi');
+    const v = {};
+    for (const [k, raw] of Object.entries(r.values || {})) {
+      if (!SELLER_FIELDS[k]) throw new HttpError(400, `Noma'lum maydon: ${k}`);
+      try { v[k] = k === 'call_sec' ? parseDuration(raw) : num(raw); } catch (e) { throw new HttpError(400, `${names.get(sidN)}: ${e.message}`); }
+    }
+    return [sidN, pid, v];
+  });
+  let changed = 0;
+  db.exec('BEGIN');
+  try {
+    for (const [sidN, pid, v] of prepared) {
+      const cur = db.prepare('SELECT * FROM seller_daily WHERE seller_id = ? AND project_id = ? AND date = ?').get(sidN, pid, b.date) || {};
+      const next = Object.fromEntries(SELLER_KEYS.map((k) => [k, k in v ? v[k] : cur[k] ?? null]));
+      for (const k of Object.keys(v)) {
+        if ((cur[k] ?? null) === next[k]) continue;
+        changed += 1;
+        logEntry({ userId: u.id, date: b.date, projectId: pid, kind: 'seller', field: `${sidN}.${k}`, oldValue: cur[k], newValue: next[k] });
+      }
+      if (SELLER_KEYS.every((k) => next[k] == null)) db.prepare('DELETE FROM seller_daily WHERE seller_id = ? AND project_id = ? AND date = ?').run(sidN, pid, b.date);
+      else db.prepare(`INSERT INTO seller_daily (seller_id, project_id, date, ${SELLER_KEYS.join(', ')}, updated_at) VALUES (?, ?, ?, ${SELLER_KEYS.map(() => '?').join(', ')}, ?)
+        ON CONFLICT DO UPDATE SET ${SELLER_KEYS.map((k) => `${k} = excluded.${k}`).join(', ')}, updated_at = excluded.updated_at`).run(sidN, pid, b.date, ...SELLER_KEYS.map((k) => next[k]), nowLocal());
+    }
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  send(res, 200, { ok: true, changed });
+}, STAFF);
+// /api/sellers/daily dan keyin: aks holda «daily» xodim ID si deb olinadi
+route('PUT', '/api/sellers/:id', async (req, res, { id }) => {
+  sellerUser(req);
+  const cur = getDb().prepare('SELECT * FROM sellers WHERE id = ?').get(Number(id));
+  if (!cur) throw new HttpError(404, 'Xodim topilmadi');
+  const b = await readBody(req);
+  const f = sellerFields(b, cur);
+  getDb().prepare('UPDATE sellers SET name = ?, projects = ?, active = ? WHERE id = ?').run(f.name, f.projects, b.active === undefined ? cur.active : (b.active ? 1 : 0), cur.id);
+  send(res, 200, sellerOut(getDb().prepare('SELECT * FROM sellers WHERE id = ?').get(cur.id)));
+}, STAFF);
+// Davr bo'yicha: har loyihada har xodim — jami, konversiya (umumiy va sifatli), qo'ng'iroq vaqti
+route('GET', '/api/sellers/stats', async (req, res, _p, q) => {
+  const u = sellerUser(req);
+  const { from, to } = period(q);
+  const projects = sellerProjects(u);
+  const rows = getDb().prepare('SELECT * FROM seller_daily WHERE date BETWEEN ? AND ?').all(from, to);
+  send(res, 200, { from, to, projects: sellerStats(rows, getDb().prepare('SELECT * FROM sellers ORDER BY id').all(), projects) });
+}, STAFF);
+
 // ---- Xodimlar (faqat PM): targetolog va ROP uchun login ----
 const userOut = (u) => ({ ...publicUser(u), active: u.active, projects: userProjects(u) });
 route('GET', '/api/users', async (req, res) => {
@@ -590,10 +689,12 @@ route('GET', '/api/history', async (req, res, _p, q) => {
   const db = getDb();
   const users = new Map(db.prepare('SELECT id, name FROM users').all().map((x) => [x.id, x.name]));
   const projects = new Map(db.prepare('SELECT id, name FROM projects').all().map((x) => [x.id, x.name]));
+  const sellers = new Map(db.prepare('SELECT id, name FROM sellers').all().map((x) => [x.id, x.name]));
   const label = (r) => {
     if (r.kind === 'daily') return FIELDS[r.field] || TEXT_FIELDS[r.field] || r.field;
     if (r.kind === 'reason') { const [k, x] = r.field.split('.'); return `${REASON_KINDS[k] || k}: ${REASONS[k]?.[x] || x}`; }
     if (r.kind === 'channel') { const [c, f] = r.field.split('.'); return `${CHANNELS[c] || c}: ${CHANNEL_FIELDS[f] || f}`; }
+    if (r.kind === 'seller') { const [sId, f] = r.field.split('.'); return `${sellers.get(Number(sId)) || 'Xodim'}: ${SELLER_FIELDS[f] || f}`; }
     return HISTORY_LABEL[r.field] || r.field;
   };
   send(res, 200, db.prepare('SELECT * FROM entry_log WHERE date = ? ORDER BY id DESC LIMIT 500').all(q.get('date')).filter((r) => r.project_id == null || canSeeProject(req.user, r.project_id)).map((r) => ({

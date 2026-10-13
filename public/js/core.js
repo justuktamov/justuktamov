@@ -87,6 +87,7 @@ export const ICONS = {
   edit: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/>'),
   home: svg('<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/>'),
   trend: svg('<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'),
+  team: svg('<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.5 14.6c2.6.2 4.5 2.1 4.5 4.9"/>'),
   chart: svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
   archive: svg('<rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v11h14V9M10 13h4"/>'),
   check: svg('<path d="m5 12 5 5 9-10"/>'),
@@ -541,13 +542,16 @@ export const isStaffUser = () => ['target', 'rop'].includes(state.me?.user?.role
 
 function navItems() {
   if (isStaffUser()) {
-    return { items: [['#/kiritish', 'Kechagi hisobot', ICONS.edit, state.me.partSent ? null : '!']], bottom: [['#/sozlamalar', 'Profil', ICONS.set]] };
+    const items = [['#/kiritish', 'Kechagi hisobot', ICONS.edit, state.me.partSent ? null : '!']];
+    if (state.me.user.role === 'rop') items.push(['#/sotuvchilar', 'Sotuv xodimlari', ICONS.team]);
+    return { items, bottom: [['#/sozlamalar', 'Profil', ICONS.set]] };
   }
   const sent = ['submitted', 'reviewed'].includes(state.me.reportStatus);
   const items = [
     ['#/', 'Loyihalar', ICONS.chart],
     ['#/kiritish', 'Kechagi hisobot', ICONS.edit, sent ? null : '!'],
     ['#/dinamika', 'Dinamika', ICONS.trend],
+    ['#/sotuvchilar', 'Sotuv xodimlari', ICONS.team],
     ['#/hisobotlar', 'Hisobotlar', ICONS.archive],
   ];
   return { items, bottom: [['#/sozlamalar', 'Sozlamalar', ICONS.set]] };

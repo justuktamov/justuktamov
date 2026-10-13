@@ -1190,3 +1190,25 @@ input, select, textarea { color-scheme: light; }
 .rsn-lost { --rc: #e5484d; --rc-ink: #b42318; }
 .rsn-bad { --rc: #f59e0b; --rc-ink: #9a5b00; }
 .rsn-sec .rin { background: #fff; }
+/* Sotuv xodimlari: oylik jadval (Excel uslubida), kunlik kiritish, ro'yxat */
+.sl-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 14px; }
+.sl-bar .filters { margin: 0; }
+.sl-when { font-size: 15px; }
+.sl-card { border-top: 4px solid var(--pc); padding: 14px 16px; margin-bottom: 14px; }
+.sl-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-bottom: 10px; }
+.sl-head > b { display: inline-flex; align-items: center; font-size: 17px; }
+.sl-month { font-style: italic; font-weight: 700; color: var(--text-2); }
+.sl-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.sl-table th { background: color-mix(in srgb, var(--pc) 12%, #fff); font-size: 12.5px; font-weight: 800; color: var(--text); padding: 8px 10px; white-space: nowrap; }
+.sl-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.sl-table tbody td:first-child { background: color-mix(in srgb, var(--pc) 6%, #fff); }
+.sl-table tbody td:not(:first-child) { background: #eef7ea; }
+.sl-table tfoot td { font-weight: 800; border-top: 2px solid var(--border-strong); border-bottom: 0; }
+.sl-table tr.off td { opacity: .6; }
+.sl-table td.sl-best { background: #c9f0d4 !important; font-weight: 800; color: #146c2e; }
+.sl-table .mono, .sl-entry .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; }
+.sl-entry tfoot td { font-weight: 800; padding-top: 8px; }
+.sl-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.sl-person { display: grid; gap: 10px; padding: 14px; }
+.sl-person.off { opacity: .6; }
+.sl-person .row { justify-content: flex-end; }

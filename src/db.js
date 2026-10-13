@@ -236,6 +236,23 @@ function migrate(db) {
       new_value TEXT
     );
     CREATE INDEX IF NOT EXISTS entry_log_date ON entry_log (date, id);
+    -- Sotuv xodimlari (operatorlar) — tizimga kirmaydi, ROP ularning raqamlarini kiritadi
+    CREATE TABLE IF NOT EXISTS sellers (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      projects TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    -- Sotuv xodimining kunlik natijasi loyiha bo'yicha; call_sec — qo'ng'iroqlar davomiyligi, soniya
+    CREATE TABLE IF NOT EXISTS seller_daily (
+      seller_id INTEGER NOT NULL REFERENCES sellers(id) ON DELETE CASCADE,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      leads REAL, in_progress REAL, qualified REAL, sales REAL, cancelled REAL, unqualified REAL, call_sec REAL,
+      updated_at TEXT,
+      PRIMARY KEY (seller_id, project_id, date)
+    );
     -- Xodimlar (targetolog, ROP) o'z qismini yuborgani: kun × xodim
     CREATE TABLE IF NOT EXISTS staff_reports (
       date TEXT NOT NULL,
