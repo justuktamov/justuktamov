@@ -255,6 +255,22 @@ function migrate(db) {
       PRIMARY KEY (seller_id, project_id, date)
     );
     -- Xodimlar (targetolog, ROP) o'z qismini yuborgani: kun × xodim
+    -- PM xodim qismini tekshirib tasdiqlaydi (kun × qism: target | rop); xodim qayta yuborsa — tasdiq bekor bo'ladi
+    CREATE TABLE IF NOT EXISTS part_approvals (
+      date TEXT NOT NULL,
+      part TEXT NOT NULL,
+      user_id INTEGER,
+      approved_at TEXT NOT NULL,
+      PRIMARY KEY (date, part)
+    );
+    -- PM xodimga qaytargan (tuzatish uchun) — izohi bilan
+    CREATE TABLE IF NOT EXISTS staff_returns (
+      date TEXT NOT NULL,
+      user_id INTEGER NOT NULL,
+      note TEXT,
+      at TEXT NOT NULL,
+      PRIMARY KEY (date, user_id)
+    );
     CREATE TABLE IF NOT EXISTS staff_reports (
       date TEXT NOT NULL,
       user_id INTEGER NOT NULL,

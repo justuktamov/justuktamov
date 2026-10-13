@@ -169,3 +169,34 @@ test('sabablar yangi bo\'linishi: eski yozuvlar yangi guruhga ko\'chadi', async 
   assert.deepEqual(r.map((x) => ({ ...x })), [{ kind: 'bad', reason: 'no_laptop', count: 2 }, { kind: 'lost', reason: 'info_only', count: 6 }]);
   assert.equal(k, null, 'loyiha tanlovi — yangi umumiy tartib');
 });
+
+test('PM tekshiradi: tasdiqlaydi yoki izoh bilan qaytaradi; xodim qayta yuborsa — tasdiq yangilanadi', async () => {
+  const D2 = addDays(D, -1);
+  const t = await session('aziz', 'yangi1234');
+  await t('/api/rate', { method: 'PUT', body: { date: D2, usd_rate: '12700' } });
+  for (const id of [ids.vizart, ids.starpay]) await t('/api/daily', { method: 'PUT', body: { project_id: id, date: D2, values: { spend: 40, clicks: 300 } } });
+  assert.equal((await t('/api/part/submit', { method: 'POST', body: { date: D2 } })).status, 200);
+  let r = await pm('/api/part/approve', { method: 'POST', body: { date: D2, part: 'target' } });
+  assert.ok((await r.json()).approvals.target.approved_at);
+  assert.equal((await t('/api/part/approve', { method: 'POST', body: { date: D2, part: 'target' } })).status, 403, 'xodim tasdiqlay olmaydi');
+  // Qaytarish
+  const aziz = (await pm.json('/api/users')).find((u) => u.login === 'aziz');
+  r = await pm('/api/part/return', { method: 'POST', body: { date: D2, user_id: aziz.id, note: 'VIZART klik soni xato' } });
+  assert.equal(r.status, 200);
+  let mine = (await t.json(`/api/daily?date=${D2}`)).mine;
+  assert.equal(mine.submitted_at, null);
+  assert.equal(mine.returned.note, 'VIZART klik soni xato');
+  let d = await pm.json(`/api/daily?date=${D2}`);
+  assert.equal(d.approvals.target, undefined, 'qaytarilganda tasdiq bekor');
+  assert.equal(d.staff.find((s) => s.id === aziz.id).returned.note, 'VIZART klik soni xato');
+  // Tuzatib qayta yuboradi
+  await t('/api/daily', { method: 'PUT', body: { project_id: ids.vizart, date: D2, values: { clicks: 320 } } });
+  await t('/api/part/submit', { method: 'POST', body: { date: D2 } });
+  mine = (await t.json(`/api/daily?date=${D2}`)).mine;
+  assert.ok(mine.submitted_at);
+  assert.equal(mine.returned, null);
+  await pm('/api/part/approve', { method: 'POST', body: { date: D2, part: 'target' } });
+  await t('/api/part/submit', { method: 'POST', body: { date: D2 } });
+  d = await pm.json(`/api/daily?date=${D2}`);
+  assert.equal(d.approvals.target, undefined, 'qayta yuborilsa — PM qayta tasdiqlaydi');
+});

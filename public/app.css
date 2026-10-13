@@ -1212,3 +1212,13 @@ input, select, textarea { color-scheme: light; }
 .sl-person { display: grid; gap: 10px; padding: 14px; }
 .sl-person.off { opacity: .6; }
 .sl-person .row { justify-content: flex-end; }
+/* PM: xodim qismi — faqat ko'rish, tasdiqlash / qaytarish */
+.ro-mode .cell-in[readonly] { background: transparent; border-color: transparent; box-shadow: none; cursor: default; color: var(--text); font-weight: 600; }
+.ro-mode .cell-in[readonly]::placeholder { color: transparent; }
+.ro-mode .rate-in .cell-in[readonly] { background: #fff; }
+.staff-row .ret-note { flex-basis: 100%; color: #9a5b00; }
+.ret-form { display: flex; gap: 6px; flex-basis: 100%; }
+.ret-form input { flex: 1; min-width: 0; }
+.approved-line { margin: 0; font-weight: 700; color: #1f7a3d; font-size: 13px; }
+.part-back { display: grid; gap: 4px; margin-bottom: 14px; padding: 12px 16px; border-radius: 18px; background: #fff4e5; border: 1px solid #f5c98a; }
+.part-back p { margin: 0; font-weight: 600; }

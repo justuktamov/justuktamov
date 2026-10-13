@@ -35,19 +35,21 @@ export const STEPS = [
 ];
 
 const STAFF_HEAD = {
-  target: ['Targetolog raqamlari — tekshiring', "Target raqamlarini va shu kunning dollar kursini targetolog o'zi kiritadi. Siz tekshirasiz: xato bo'lsa — shu yerda tuzating (o'zgarish tarixda qoladi). U yubormagan bo'lsa — «Eslatish» bilan Telegramda eslating yoki raqamlarni o'zingiz kiriting."],
-  sales: ['ROP raqamlari — tekshiring', "Lidlar, holatlar, sabablar, sotuv va tushumni ROP o'zi kiritadi. Siz tekshirasiz: jami lid va qismlari mosmi, tushum to'g'rimi. Kanallar bo'yicha raqamlar — siz kiritasiz."],
+  target: ['Targetolog hisoboti — tekshiring va tasdiqlang', "Target raqamlarini va dollar kursini targetolog kiritadi — siz faqat tekshirasiz. Hammasi to'g'ri bo'lsa — «Tasdiqlash». Xato bo'lsa — «Qaytarish» bilan izoh yozing: targetolog tuzatib qayta yuboradi. Yubormagan bo'lsa — «Eslatish»."],
+  sales: ['ROP hisoboti — tekshiring va tasdiqlang', "Lidlar, holatlar, sabablar, sotuv va tushumni ROP kiritadi — siz faqat tekshirasiz: jami lid va qismlari mosmi, tushum to'g'rimi. To'g'ri bo'lsa — «Tasdiqlash», xato bo'lsa — «Qaytarish» (izoh bilan)."],
 };
 // Xodimlar (targetolog, ROP) — o'z qismini yuborganmi; PM eslatma yubora oladi
 const PART_ICON = { target: '🎯', rop: '📞' };
-function staffBox(staff, part, projects) {
+function staffBox(staff, part, projects, approval = null) {
   const list = (staff || []).filter((x) => x.role === part);
   if (!list.length) return '';
   const names = (ids) => (ids.length ? projects.filter((p) => ids.includes(p.id)).map((p) => p.name).join(', ') : 'hamma loyihalar');
   return `<div class="staff-box"><b>${part === 'target' ? 'Targetolog kiritadi' : 'ROP kiritadi'}</b>
     ${list.map((x) => `<div class="staff-row ${x.submitted_at ? 'ok' : ''}"><span>${PART_ICON[part]} <b>${esc(x.name)}</b> <span class="muted small">— ${esc(names(x.projects))}</span></span>
-      ${x.submitted_at ? `<span class="pill good">✓ ${esc(String(x.submitted_at).slice(11, 16))} da yubordi</span>` : `<span class="pill warn">Hali yubormadi</span>${x.telegram ? `<button type="button" class="btn small" data-remind="${x.id}">Eslatish</button>` : '<span class="muted small" title="Telegram ID kiritilmagan">eslatma — Telegram ID yo\'q</span>'}`}</div>`).join('')}
-    <p class="muted small">Ular kiritgan raqamlar quyida. Xato bo'lsa — shu yerda tuzating yoki xodimga ayting.</p></div>`;
+      ${x.submitted_at ? `<span class="pill good">✓ ${esc(String(x.submitted_at).slice(11, 16))} da yubordi</span><button type="button" class="btn small ghost" data-return="${x.id}" data-name="${esc(x.name)}">↩ Qaytarish</button>`
+        : `<span class="pill warn">${x.returned ? `Qaytarilgan — tuzatyapti` : 'Hali yubormadi'}</span>${x.telegram ? `<button type="button" class="btn small" data-remind="${x.id}">Eslatish</button>` : '<span class="muted small" title="Telegram ID kiritilmagan">eslatma — Telegram ID yo\'q</span>'}`}
+      ${x.returned && !x.submitted_at && x.returned.note ? `<span class="muted small ret-note">↩ ${esc(x.returned.note)}</span>` : ''}</div>`).join('')}
+    ${approval ? `<p class="approved-line">✓ Siz tasdiqladingiz · ${esc(String(approval.approved_at).slice(11, 16))}</p>` : '<p class="muted small">Ular kiritgan raqamlar quyida — faqat ko\'rish uchun.</p>'}</div>`;
 }
 
 // Korzinka ikkiga bo'linadi: «Bekor bo'lish sabablari» va «Sifatsiz lidlar» — alohida bo'limlar, har birida loyihalar
@@ -80,6 +82,9 @@ const filled = (row, fields) => fields.every((f) => row[f] != null);
 const dot = (c) => `<span class="dot" style="--dc:${esc(c || '#4c86ff')}"></span>`;
 
 function stepDone(key, daily, report) {
+  // Xodim kiritadigan qism — PM tasdiqlagan bo'lsa bajarilgan
+  const part = { target: 'target', sales: 'rop' }[key];
+  if (part && (daily.staff || []).some((x) => x.role === part)) return Boolean(daily.approvals?.[part]);
   if (key === 'target') return daily.rate?.value != null && daily.projects.length > 0 && daily.projects.every((p) => filled(p.row, STEPS[0].required));
   if (key === 'sales') return daily.projects.length > 0 && daily.projects.every((p) => filled(p.row, p.kind === 'auto' ? STEPS[1].autoRequired : STEPS[1].required));
   // PM tahlil qadamini saqlagan bo'lsa hisobotda muallif bor (direktor javobidan yaratilgan qatorda — yo'q)
@@ -170,10 +175,10 @@ export async function renderToday({ rolled = null } = {}) {
     const textP = sales ? leadsP : daily.projects;
     // Bu qismni xodim (targetolog / ROP) kiritadi — PM tekshiradi va kerak bo'lsa tuzatadi
     const byStaff = (daily.staff || []).some((x) => x.role === (sales ? 'rop' : 'target'));
-    return `<section class="card step">
+    return `<section class="card step ${byStaff ? 'ro-mode' : ''}" ${byStaff ? `data-ro="${sales ? 'rop' : 'target'}"` : ''}>
       <div class="step-top">
         <div class="step-head"><span class="eyebrow">${i + 1}-qadam</span><h2>${byStaff ? STAFF_HEAD[s.key][0] : s.head}</h2><p>${byStaff ? STAFF_HEAD[s.key][1] : s.hint}</p></div>
-        ${staffBox(daily.staff, i === 0 ? 'target' : 'rop', daily.projects) || `<div class="ask"><b>So'raladigan savollar</b><ol>${askList(s, daily.projects).map((q) => `<li>${esc(q)}</li>`).join('')}</ol>
+        ${staffBox(daily.staff, i === 0 ? 'target' : 'rop', daily.projects, daily.approvals?.[i === 0 ? 'target' : 'rop']) || `<div class="ask"><b>So'raladigan savollar</b><ol>${askList(s, daily.projects).map((q) => `<li>${esc(q)}</li>`).join('')}</ol>
           <button class="btn small" data-copy-ask>${ICONS.copy} Nusxalash — Telegramda yuborish uchun</button></div>`}
       </div>
       ${i === 0 ? rateBlock() : ''}
@@ -187,10 +192,20 @@ export async function renderToday({ rolled = null } = {}) {
           ${s.texts.map(([f, l, ph]) => `<td class="n" data-label="${l}"><input class="cell-in txt" name="${f}" maxlength="300" value="${esc(p.row[f] ?? '')}" placeholder="${esc(ph)}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>
       </details>` : ''}
       ${sales && leadsP.length ? reasonsBlock(leadsP) : ''}
-      ${sales ? channelsEntry(daily.projects) : ''}
-      <div class="step-foot"><span class="muted small">${sales ? "Jami lid bo'sh qolsa — uch turi qo'shiladi." : 'Kulrang raqam — kechagi qiymat. Enter — keyingi qator.'}</span><span class="spacer"></span>
-        <button class="btn ghost" data-skip>O'tkazib yuborish</button><button class="btn primary" data-save>Saqlash va davom etish →</button></div>
+      ${sales && !byStaff ? channelsEntry(daily.projects) : ''}
+      ${byStaff ? approveFoot(sales ? 'rop' : 'target') : `<div class="step-foot"><span class="muted small">${sales ? "Jami lid bo'sh qolsa — uch turi qo'shiladi." : 'Kulrang raqam — kechagi qiymat. Enter — keyingi qator.'}</span><span class="spacer"></span>
+        <button class="btn ghost" data-skip>O'tkazib yuborish</button><button class="btn primary" data-save>Saqlash va davom etish →</button></div>`}
     </section>`;
+  }
+
+  // Xodim kiritgan qism: PM faqat tasdiqlaydi (yoki tasdiqni bekor qiladi) va keyingi qadamga o'tadi
+  function approveFoot(part) {
+    const ok = daily.approvals?.[part];
+    const list = (daily.staff || []).filter((x) => x.role === part);
+    const waiting = list.filter((x) => !x.submitted_at).length;
+    return `<div class="step-foot"><span class="muted small">${waiting ? `${waiting} ta xodim hali yubormagan — yuborgach tekshirib tasdiqlang.` : 'Hamma yubordi. Raqamlarni tekshiring.'}</span><span class="spacer"></span>
+      ${ok ? `<button class="btn ghost" data-unapprove="${part}">Tasdiqni bekor qilish</button><button class="btn primary" data-next>Davom etish →</button>`
+        : `<button class="btn ghost" data-next>Keyinroq →</button><button class="btn primary" data-approve="${part}" ${waiting === list.length ? 'disabled title="Hali hech kim yubormagan"' : ''}>✓ Tasdiqlash va davom etish</button>`}</div>`;
   }
 
   // Shu kunning dollar kursi — har hisobotda PM o'zi yozadi; faqat shu kun hisobiga ta'sir qiladi
@@ -328,6 +343,7 @@ export async function renderToday({ rolled = null } = {}) {
         <div class="stack">
           <label class="field"><span>Kun xulosasi (ixtiyoriy)${aiTag(!report?.summary && sum)}</span><textarea id="rSummary" rows="3" class="${!report?.summary && sum ? 'ai-filled' : ''}" ${!report?.summary && sum ? 'data-ai-filled' : ''} placeholder="Masalan: DIZIPRO da lid ko'p, sotuv kam — ROP bilan gaplashdim">${esc(sum)}</textarea></label>
           <label class="field"><span>Ertaga nima qilamiz (ixtiyoriy)${aiTag(!report?.tomorrow && tom)}</span><textarea id="rTomorrow" rows="3" class="${!report?.tomorrow && tom ? 'ai-filled' : ''}" ${!report?.tomorrow && tom ? 'data-ai-filled' : ''} placeholder="Masalan: VIZART uchun 2 ta yangi video qo'yamiz">${esc(tom)}</textarea></label>
+          ${['target', 'rop'].filter((pt) => (daily.staff || []).some((x) => x.role === pt) && !daily.approvals?.[pt]).map((pt) => `<div class="insight warning"><span class="ic">Tasdiq</span><span>${pt === 'target' ? 'Targetolog' : 'ROP'} hisoboti hali tasdiqlanmagan — <button type="button" class="link-btn" data-step-go="${pt === 'target' ? 'target' : 'sales'}">tekshirib tasdiqlang</button>.</span></div>`).join('')}
           ${daily.rate?.value == null ? `<div class="insight warning"><span class="ic">Kurs</span><span>Shu kun uchun dollar kursi kiritilmagan — <button type="button" class="link-btn" data-step-go="target">1-qadamda kiriting</button>. Kurssiz hisobot yuborilmaydi.</span></div>` : ''}
           ${bundle.ai?.stale ? `<div class="insight warning"><span class="ic">AI</span><span>Raqamlar AI tahlildan keyin o'zgardi. <button type="button" class="link-btn" data-step-go="check">3-qadamda qayta tahlil qiling</button>.</span></div>` : ''}
           ${!tg.enabled || !tg.reportChat ? `<div class="insight warning"><span class="ic">Eslatma</span><span>Telegram ${tg.enabled ? 'chat ID si' : 'bot'} sozlanmagan — hisobot faqat tizimda saqlanadi. <a href="#/sozlamalar?tab=telegram">Sozlash</a></span></div>` : ''}
@@ -431,6 +447,46 @@ export async function renderToday({ rolled = null } = {}) {
     // «O'tkazib yuborish» ham, qadamlar paneli ham — avval kiritilganlarni saqlaydi (toStep → leaveOk)
     const skip = box.querySelector('[data-skip]');
     if (skip) skip.onclick = next;
+    // Xodim qismi: faqat ko'rish — kataklar o'zgartirilmaydi
+    box.querySelectorAll('.ro-mode input, .ro-mode textarea').forEach((el) => { el.readOnly = true; el.tabIndex = -1; });
+    const nx = box.querySelector('[data-next]');
+    if (nx) nx.onclick = next;
+    box.querySelectorAll('[data-approve], [data-unapprove]').forEach((b) => {
+      b.onclick = async () => {
+        b.disabled = true;
+        const undo = Boolean(b.dataset.unapprove);
+        try {
+          await api('/api/part/approve', { method: 'POST', body: { date, part: b.dataset.approve || b.dataset.unapprove, undo } });
+          toast(undo ? 'Tasdiq bekor qilindi' : 'Tasdiqlandi ✓');
+          if (undo) renderToday(); else next();
+        } catch (err) { toast(err.message, true); b.disabled = false; }
+      };
+    });
+    // Qaytarish: qator ostida izoh maydoni ochiladi (brauzer oynasisiz — ilova ichida ham ishlaydi)
+    box.querySelectorAll('[data-return]').forEach((b) => {
+      b.onclick = () => {
+        const row = b.closest('.staff-row');
+        if (row.querySelector('.ret-form')) return;
+        const f = document.createElement('div');
+        f.className = 'ret-form';
+        f.innerHTML = `<input class="cell-in txt" maxlength="500" placeholder="Nima xato? Masalan: VIZART klik soni noto'g'ri" aria-label="${esc(b.dataset.name)} ga izoh"><button type="button" class="btn small primary" data-ret-go>Qaytarish</button><button type="button" class="btn small ghost" data-ret-x>Bekor</button>`;
+        row.append(f);
+        const inp = f.querySelector('input');
+        inp.focus();
+        f.querySelector('[data-ret-x]').onclick = () => f.remove();
+        const go = f.querySelector('[data-ret-go]');
+        const send = async () => {
+          go.disabled = true;
+          try {
+            const r = await api('/api/part/return', { method: 'POST', body: { date, user_id: Number(b.dataset.return), note: inp.value } });
+            toast(`${b.dataset.name} ga qaytarildi${r.notified ? ' — Telegramda xabar bordi' : ''}`);
+            renderToday();
+          } catch (err) { toast(err.message, true); go.disabled = false; }
+        };
+        go.onclick = send;
+        inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
+      };
+    });
     const back = box.querySelector('[data-back]');
     if (back) back.onclick = () => toStep('check');
     const save = box.querySelector('[data-save]');

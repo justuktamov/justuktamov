@@ -61,7 +61,9 @@ export async function renderPart({ rolled = null } = {}) {
 
   const leadsP = role === 'rop' ? daily.projects.filter((p) => p.kind !== 'auto') : daily.projects;
   const autoP = role === 'rop' ? daily.projects.filter((p) => p.kind === 'auto') : [];
-  box.innerHTML = `${sentAt ? `<div class="part-sent"><span class="done-dot">${ICONS.check}</span><div><b>${String(sentAt).slice(11, 16)} da yuborildi</b>
+  const back = !sentAt ? daily.mine?.returned : null;
+  box.innerHTML = `${back ? `<div class="part-back"><b>↩ Proekt menejer qaytardi</b> <span class="muted small">${esc(String(back.at).slice(0, 16))}</span>
+      <p>${back.note ? esc(back.note) : "Raqamlarni qayta tekshiring."}</p><span class="muted small">Tuzating va «Yuborish» ni bosing.</span></div>` : ''}${sentAt ? `<div class="part-sent"><span class="done-dot">${ICONS.check}</span><div><b>${String(sentAt).slice(11, 16)} da yuborildi</b>
       <span class="muted small">PM ga yetkazildi. Raqamni tuzatsangiz — saqlab, «Qayta yuborish» ni bosing.</span></div></div>` : ''}
     <section class="card step">
       <div class="step-head"><span class="eyebrow">${esc(state.me.roles?.[role] || '')}</span><h2>${R.head}</h2><p>${R.hint}</p></div>

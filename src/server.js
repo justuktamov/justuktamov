@@ -100,10 +100,18 @@ const STAFF = { staff: true };
 function staffList(date) {
   const db = getDb();
   const sent = new Map(db.prepare('SELECT user_id, submitted_at FROM staff_reports WHERE date = ?').all(date).map((r) => [r.user_id, r.submitted_at]));
+  const back = new Map(db.prepare('SELECT user_id, note, at FROM staff_returns WHERE date = ?').all(date).map((r) => [r.user_id, r]));
   return db.prepare("SELECT * FROM users WHERE active = 1 AND role IN ('target', 'rop') ORDER BY role DESC, name").all().map((u) => ({
     id: u.id, name: u.name, role: u.role, projects: userProjects(u), telegram: Boolean(u.telegram_id), submitted_at: sent.get(u.id) || null,
+    returned: sent.has(u.id) ? null : back.get(u.id) || null,
   }));
 }
+// PM tasdig'i: { target: { approved_at, by }, rop: … }
+function approvals(date) {
+  const db = getDb();
+  return Object.fromEntries(db.prepare('SELECT a.part, a.approved_at, u.name AS by FROM part_approvals a LEFT JOIN users u ON u.id = a.user_id WHERE a.date = ?').all(date).map((r) => [r.part, { approved_at: r.approved_at, by: r.by }]));
+}
+const myReturn = (date, uid) => (getDb().prepare('SELECT 1 FROM staff_reports WHERE date = ? AND user_id = ?').get(date, uid) ? null : getDb().prepare('SELECT note, at FROM staff_returns WHERE date = ? AND user_id = ?').get(date, uid) || null);
 const pmChats = () => getDb().prepare("SELECT telegram_id FROM users WHERE active = 1 AND role = 'pm' AND telegram_id IS NOT NULL").all().flatMap((x) => splitIds(x.telegram_id));
 
 // ---- Holat (Coolify / Docker health check): kirishsiz, bazani tekshiradi ----
@@ -249,8 +257,9 @@ route('GET', '/api/daily', async (req, res, _p, q) => {
   send(res, 200, {
     date,
     // Xodim: o'z qismini yuborgan vaqti; PM: barcha xodimlar holati
-    mine: isStaff(user) ? { part: user.role, submitted_at: getDb().prepare('SELECT submitted_at FROM staff_reports WHERE date = ? AND user_id = ?').get(date, user.id)?.submitted_at || null } : null,
+    mine: isStaff(user) ? { part: user.role, submitted_at: getDb().prepare('SELECT submitted_at FROM staff_reports WHERE date = ? AND user_id = ?').get(date, user.id)?.submitted_at || null, returned: myReturn(date, user.id) } : null,
     staff: isStaff(user) ? null : staffList(date),
+    approvals: isStaff(user) ? null : approvals(date),
     // value — shu kun uchun kiritilgan kurs (yo'q bo'lsa null), prev — kiritilmasa hisobda ishlatiladigan kurs (oldingi kunniki)
     rate: { value: rateOf.entered(date), prev: rateOf(addDays(date, -1)) },
     projects: projects.map((p) => ({
@@ -393,11 +402,44 @@ route('POST', '/api/part/submit', async (req, res) => {
   const at = nowLocal();
   db.prepare('INSERT INTO staff_reports (date, user_id, part, submitted_at) VALUES (?, ?, ?, ?) ON CONFLICT(date, user_id) DO UPDATE SET part = excluded.part, submitted_at = excluded.submitted_at')
     .run(b.date, u.id, u.role, at);
+  // Raqamlar o'zgargan bo'lishi mumkin — PM qayta tekshirib tasdiqlaydi
+  db.prepare('DELETE FROM part_approvals WHERE date = ? AND part = ?').run(b.date, u.role);
   logEntry({ userId: u.id, date: b.date, kind: 'report', field: 'part', newValue: `${PARTS[u.role].title}: ${resend ? 'qayta yuborildi' : 'yuborildi'}` });
   const text = partText(u, b.date, projects, rowOf, resend);
   for (const c of new Set(pmChats())) sendMessage(c, text).catch((e) => console.error('Telegram:', e.message));
   send(res, 200, { submitted_at: at, resend });
 }, STAFF);
+// PM xodim qismini tekshirib tasdiqlaydi (raqamlarni o'zi kiritmaydi)
+route('POST', '/api/part/approve', async (req, res) => {
+  const u = requireUser(req);
+  const b = await readBody(req);
+  if (!isDate(b.date) || !PARTS[b.part]) throw new HttpError(400, "Ma'lumot noto'g'ri");
+  if (b.undo) getDb().prepare('DELETE FROM part_approvals WHERE date = ? AND part = ?').run(b.date, b.part);
+  else getDb().prepare('INSERT INTO part_approvals (date, part, user_id, approved_at) VALUES (?, ?, ?, ?) ON CONFLICT(date, part) DO UPDATE SET user_id = excluded.user_id, approved_at = excluded.approved_at').run(b.date, b.part, u.id, nowLocal());
+  logEntry({ userId: u.id, date: b.date, kind: 'report', field: 'approve', newValue: `${PARTS[b.part].title}: ${b.undo ? 'tasdiq bekor qilindi' : 'tasdiqlandi'}` });
+  send(res, 200, { approvals: approvals(b.date) });
+});
+// PM xodimga qaytaradi: xato bor — izoh bilan; xodim tuzatib qayta yuboradi
+route('POST', '/api/part/return', async (req, res) => {
+  const u = requireUser(req);
+  const b = await readBody(req);
+  if (!isDate(b.date)) throw new HttpError(400, "Sana noto'g'ri");
+  const s = getDb().prepare("SELECT * FROM users WHERE id = ? AND role IN ('target', 'rop')").get(Number(b.user_id));
+  if (!s) throw new HttpError(404, 'Xodim topilmadi');
+  const note = String(b.note ?? '').trim().slice(0, 500) || null;
+  const db = getDb();
+  db.prepare('DELETE FROM staff_reports WHERE date = ? AND user_id = ?').run(b.date, s.id);
+  db.prepare('DELETE FROM part_approvals WHERE date = ? AND part = ?').run(b.date, s.role);
+  db.prepare('INSERT INTO staff_returns (date, user_id, note, at) VALUES (?, ?, ?, ?) ON CONFLICT(date, user_id) DO UPDATE SET note = excluded.note, at = excluded.at').run(b.date, s.id, note, nowLocal());
+  logEntry({ userId: u.id, date: b.date, kind: 'report', field: 'return', newValue: `${s.name} ga qaytarildi${note ? `: ${note}` : ''}` });
+  let notified = false;
+  if (telegramStatus().enabled) {
+    for (const c of splitIds(s.telegram_id)) {
+      await sendMessage(c, `↩️ <b>${escTg(u.name)}</b> ${b.date} uchun ${escTg(PARTS[s.role].title.toLowerCase())}ni qaytardi${note ? `:\n${escTg(note)}` : ''}\n\nIlovada tuzating va qayta yuboring.`).then(() => { notified = true; }).catch((e) => console.error('Telegram:', e.message));
+    }
+  }
+  send(res, 200, { ok: true, notified });
+});
 // PM xodimga eslatma yuboradi (Telegram)
 route('POST', '/api/part/remind', async (req, res) => {
   requireUser(req);

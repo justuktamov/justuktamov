@@ -10,7 +10,7 @@ import { SELLER_FIELDS, SELLER_KEYS, parseDuration, sellerStats } from '../src/s
 import { ROLES, PARTS, isStaff, userProjects, canSeeProject, canWriteField, missingFor, normalizeProjectIds } from '../src/roles.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v26';
+const SAVE_KEY = 'analitika-demo-v27';
 let me = null;
 
 function seed() {
@@ -27,7 +27,7 @@ function seed() {
     reviewed_at: `${r.date} 21:05:00`, director_comment: r.director_comment, updated_at: `${r.date} 19:30:00`,
   }));
   store.settings = { usd_rate: '12800', report_time: '13:00', reminder_time: '11:00', report_chat_id: '123456789' };
-  // Xodimlar: PM, targetolog va ROP (hamma loyihalar). Oldingi kunlar yuborilgan, kechagi — hali yo'q (demoda kiritib, yuborib ko'rish uchun)
+  // Xodimlar: PM, targetolog va ROP (hamma loyihalar). Oldingi kunlar yuborilgan va tasdiqlangan
   store.users = [
     { id: 1, name: DEMO_USER.name, login: DEMO_USER.login, password: DEMO_USER.password, telegram_id: null, role: 'pm', projects: null, active: 1 },
     { id: 2, name: 'Aziz', login: 'aziz', password: 'demo1234', telegram_id: '111222333', role: 'target', projects: null, active: 1 },
@@ -37,11 +37,17 @@ function seed() {
   seedSellers();
   const y = addDays(TODAY, -1);
   store.staffReports = [];
+  store.approvals = [];
+  store.staffReturns = [];
   for (let i = 1; i <= 14; i += 1) {
     const d = addDays(y, -i);
     store.staffReports.push({ date: d, user_id: 2, part: 'target', submitted_at: `${addDays(d, 1)} 09:${String(10 + (i * 7) % 40).padStart(2, '0')}:00` });
     store.staffReports.push({ date: d, user_id: 3, part: 'rop', submitted_at: `${addDays(d, 1)} 10:${String(5 + (i * 11) % 50).padStart(2, '0')}:00` });
+    for (const part of ['target', 'rop']) store.approvals.push({ date: d, part, user_id: 1, approved_at: `${addDays(d, 1)} 11:20:00` });
   }
+  // Kecha: targetolog kiritib yuborgan (kursi bilan), ROP — hali yo'q: PM tekshirib tasdiqlashini ko'rsatish uchun
+  if (!store.rates.some((r) => r.date === y)) store.rates.push({ date: y, usd_rate: 12750 });
+  store.staffReports.push({ date: y, user_id: 2, part: 'target', submitted_at: `${TODAY} 09:42:00` });
 }
 
 // Sotuv xodimlari va ularning kunlik natijasi (oxirgi ~70 kun): har loyiha lidlari xodimlarga bo'linadi
@@ -117,8 +123,10 @@ const needUser = () => { if (!me) throw new HttpError(401, 'Tizimga kiring'); re
 // Targetolog va ROP chaqira oladigan yo'llar (qolganlari — faqat PM), serverdagi STAFF bilan bir xil
 const STAFF_ROUTES = new Set(['GET /api/sellers', 'POST /api/sellers', 'PUT /api/sellers/:id', 'GET /api/sellers/daily', 'PUT /api/sellers/daily', 'GET /api/sellers/stats', 'POST /api/login', 'POST /api/logout', 'GET /api/me', 'PUT /api/me', 'PUT /api/me/password', 'GET /api/projects', 'GET /api/daily', 'PUT /api/daily', 'PUT /api/rate', 'GET /api/history', 'POST /api/part/submit']);
 const sentAt = (date, uid) => (store.staffReports || []).find((r) => r.date === date && r.user_id === uid)?.submitted_at || null;
+const returnOf = (date, uid) => (sentAt(date, uid) ? null : (store.staffReturns || []).find((r) => r.date === date && r.user_id === uid) || null);
+const approvalsOf = (date) => Object.fromEntries((store.approvals || []).filter((a) => a.date === date).map((a) => [a.part, { approved_at: a.approved_at, by: store.users.find((u) => u.id === a.user_id)?.name || null }]));
 const staffList = (date) => store.users.filter((u) => u.active && isStaff(u)).sort((a, b) => (a.role < b.role ? 1 : -1)).map((u) => ({
-  id: u.id, name: u.name, role: u.role, projects: userProjects(u), telegram: Boolean(u.telegram_id), submitted_at: sentAt(date, u.id),
+  id: u.id, name: u.name, role: u.role, projects: userProjects(u), telegram: Boolean(u.telegram_id), submitted_at: sentAt(date, u.id), returned: returnOf(date, u.id),
 }));
 const userOut = (u) => ({ ...publicUser(u), projects: userProjects(u) });
 function period(q) {
@@ -224,8 +232,9 @@ const routes = {
     const rateOf = dayRates();
     return {
       date,
-      mine: isStaff(me) ? { part: me.role, submitted_at: sentAt(date, me.id) } : null,
+      mine: isStaff(me) ? { part: me.role, submitted_at: sentAt(date, me.id), returned: returnOf(date, me.id) } : null,
       staff: isStaff(me) ? null : staffList(date),
+      approvals: isStaff(me) ? null : approvalsOf(date),
       rate: { value: rateOf.entered(date), prev: rateOf(addDays(date, -1)) },
       projects: projects.map((p) => ({
         id: p.id, name: p.name, color: p.color, kind: p.kind || 'leads',
@@ -371,8 +380,29 @@ const routes = {
     const at = nowLocal();
     store.staffReports = store.staffReports.filter((r) => !(r.date === b.date && r.user_id === me.id));
     store.staffReports.push({ date: b.date, user_id: me.id, part: me.role, submitted_at: at });
+    store.approvals = (store.approvals || []).filter((a) => !(a.date === b.date && a.part === me.role));
     logDemo(b.date, null, PARTS[me.role].title, null, resend ? 'qayta yuborildi' : 'yuborildi');
     return { submitted_at: at, resend };
+  },
+  'POST /api/part/approve': (b) => {
+    needUser();
+    if (!isDate(b.date) || !PARTS[b.part]) throw new HttpError(400, "Ma'lumot noto'g'ri");
+    store.approvals = (store.approvals || []).filter((a) => !(a.date === b.date && a.part === b.part));
+    if (!b.undo) store.approvals.push({ date: b.date, part: b.part, user_id: me.id, approved_at: nowLocal() });
+    logDemo(b.date, null, PARTS[b.part].title, null, b.undo ? 'tasdiq bekor qilindi' : 'tasdiqlandi');
+    return { approvals: approvalsOf(b.date) };
+  },
+  'POST /api/part/return': (b) => {
+    needUser();
+    const s = store.users.find((u) => u.id === Number(b.user_id) && isStaff(u));
+    if (!s) throw new HttpError(404, 'Xodim topilmadi');
+    const note = String(b.note ?? '').trim().slice(0, 500) || null;
+    store.staffReports = store.staffReports.filter((r) => !(r.date === b.date && r.user_id === s.id));
+    store.approvals = (store.approvals || []).filter((a) => !(a.date === b.date && a.part === s.role));
+    store.staffReturns = (store.staffReturns || []).filter((r) => !(r.date === b.date && r.user_id === s.id));
+    store.staffReturns.push({ date: b.date, user_id: s.id, note, at: nowLocal() });
+    logDemo(b.date, null, PARTS[s.role].title, null, `${s.name} ga qaytarildi${note ? `: ${note}` : ''}`);
+    return { ok: true, notified: false };
   },
   'POST /api/part/remind': (b) => {
     needUser();
