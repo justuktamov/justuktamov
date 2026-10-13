@@ -1183,3 +1183,10 @@ input, select, textarea { color-scheme: light; }
 .user-card.off { opacity: .6; }
 .user-card .chips { margin-top: 6px; }
 .demo-as button { padding: 5px 10px; }
+/* Korzinka: bekor bo'lish sabablari va sifatsiz lidlar — alohida, rangi bilan ajraladigan bo'limlar */
+.rsn-sec { border-radius: 18px; padding: 4px 14px 14px; border: 1px solid var(--border); border-left: 5px solid var(--rc); background: color-mix(in srgb, var(--rc) 5%, #fff); }
+.rsn-sec + .rsn-sec { margin-top: 12px; }
+.rsn-sec > summary { color: var(--rc-ink); }
+.rsn-lost { --rc: #e5484d; --rc-ink: #b42318; }
+.rsn-bad { --rc: #f59e0b; --rc-ink: #9a5b00; }
+.rsn-sec .rin { background: #fff; }

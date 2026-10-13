@@ -3,7 +3,7 @@
 import {
   $, $$, esc, api, state, shell, fmtN, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, parseNum,
 } from './core.js';
-import { STEPS, LEAD_ST, dateNav, historyBlock, reportHash } from './pm.js';
+import { STEPS, LEAD_ST, dateNav, historyBlock, reportHash, reasonsHtml } from './pm.js';
 
 const ROLE = {
   target: {
@@ -115,13 +115,7 @@ export async function renderPart({ rolled = null } = {}) {
   }
 
   function reasonsBlock(projects) {
-    const { reasons, reasonKinds } = state.me;
-    return `<details class="extra" open><summary>Korzinka: bekor bo'lish sabablari va sifatsiz lidlar</summary>
-      <div class="reasons-in">${projects.map((p) => `<div class="rin" data-rid="${p.id}"><b>${dot(p.color)}${esc(p.name)}</b>
-        ${Object.entries(reasonKinds).map(([kind, title]) => `<div class="rin-kind"><span class="muted small">${title}</span><div class="rin-grid">
-          ${[...new Set([...(p.reasonKeys?.[kind] || Object.keys(reasons[kind])), ...Object.keys(p.reasons?.[kind] || {})])].filter((r) => reasons[kind][r]).map((r) => `<label><span>${esc(reasons[kind][r])}</span><input class="cell-in" inputmode="numeric" data-kind="${kind}" data-reason="${r}" value="${p.reasons?.[kind]?.[r] ?? ''}" aria-label="${esc(p.name)} — ${esc(reasons[kind][r])}"></label>`).join('')}
-        </div></div>`).join('')}</div>`).join('')}</div>
-    </details>`;
+    return reasonsHtml(projects);
   }
 
   function bind() {

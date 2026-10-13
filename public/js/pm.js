@@ -50,6 +50,20 @@ function staffBox(staff, part, projects) {
     <p class="muted small">Ular kiritgan raqamlar quyida. Xato bo'lsa — shu yerda tuzating yoki xodimga ayting.</p></div>`;
 }
 
+// Korzinka ikkiga bo'linadi: «Bekor bo'lish sabablari» va «Sifatsiz lidlar» — alohida bo'limlar, har birida loyihalar
+const RSN_SUB = { lost: "gaplashildi, lekin sotib olmadi", bad: "haqiqiy mijoz emas yoki aloqa bo'lmadi" };
+export function reasonsHtml(projects, { hint = '' } = {}) {
+  const { reasons, reasonKinds } = state.me;
+  return Object.entries(reasonKinds).map(([kind, title]) => {
+    const has = projects.some((p) => Object.keys(p.reasons?.[kind] || {}).length);
+    return `<details class="extra rsn-sec rsn-${kind}" ${has || !hint ? 'open' : ''}><summary>${esc(title)} <span class="muted">— ${RSN_SUB[kind] || ''}${hint ? ` ${hint}` : ''}</span></summary>
+      <div class="reasons-in">${projects.map((p) => `<div class="rin" data-rid="${p.id}"><b>${dot(p.color)}${esc(p.name)}</b><div class="rin-grid">
+        ${[...new Set([...(p.reasonKeys?.[kind] || Object.keys(reasons[kind])), ...Object.keys(p.reasons?.[kind] || {})])].filter((r) => reasons[kind][r]).map((r) => `<label><span>${esc(reasons[kind][r])}</span><input class="cell-in" inputmode="numeric" data-kind="${kind}" data-reason="${r}" value="${p.reasons?.[kind]?.[r] ?? ''}" aria-label="${esc(p.name)} — ${esc(title)} — ${esc(reasons[kind][r])}"></label>`).join('')}
+      </div></div>`).join('')}</div>
+    </details>`;
+  }).join('');
+}
+
 export function dateNav(date, onChange) {
   const isToday = date === state.me.reportDay;
   setTimeout(() => {
@@ -198,16 +212,9 @@ export async function renderToday({ rolled = null } = {}) {
         <td data-state>${filled(p.row, required) ? '<span class="pill good">✓</span>' : ''}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
-  // «Nega?» — ROP har sababdan nechta ekanini aytadi
+  // Korzinka — ROP har sababdan nechta ekanini aytadi (ikki alohida bo'lim)
   function reasonsBlock(projects) {
-    const { reasons, reasonKinds } = state.me;
-    const has = projects.some((p) => Object.values(p.reasons || {}).some((m) => Object.keys(m).length));
-    return `<details class="extra" ${has ? 'open' : ''}><summary>Korzinka: bekor bo'lish sabablari va sifatsiz lidlar <span class="muted">(ROP sanab beradi)</span></summary>
-      <div class="reasons-in">${projects.map((p) => `<div class="rin" data-rid="${p.id}"><b>${dot(p.color)}${esc(p.name)}</b>
-        ${Object.entries(reasonKinds).map(([kind, title]) => `<div class="rin-kind"><span class="muted small">${title}</span><div class="rin-grid">
-          ${[...new Set([...(p.reasonKeys?.[kind] || Object.keys(reasons[kind])), ...Object.keys(p.reasons?.[kind] || {})])].filter((r) => reasons[kind][r]).map((r) => [r, reasons[kind][r]]).map(([r, l]) => `<label><span>${esc(l)}</span><input class="cell-in" inputmode="numeric" data-kind="${kind}" data-reason="${r}" value="${p.reasons?.[kind]?.[r] ?? ''}" aria-label="${esc(p.name)} — ${esc(l)}"></label>`).join('')}
-        </div></div>`).join('')}</div>`).join('')}</div>
-    </details>`;
+    return reasonsHtml(projects, { hint: '(ROP sanab beradi)' });
   }
 
   // Lichkadan kelgan lidlar: Instagram direkt va Telegram admin lichkasi — faqat soni (jami lid ichida)
