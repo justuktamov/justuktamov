@@ -175,7 +175,7 @@ export function qualityBlock(p) {
       ${wasted ? `<p class="small" style="margin:8px 0 0">Sifatsiz lidlarga ketgan pul: <b>${fmtUsd(wasted, 0)}</b></p>` : ''}`
       : '<p class="small muted">Sifatli / sifatsiz bo\'linmasi kiritilmagan.</p>'}
     ${leadStatus(p)}
-    ${reasonBars('Nega sifatsiz', p.reasons.bad)}
+    ${reasonBars('Sifatsiz lidlar', p.reasons.bad)}
   </div>`;
 }
 
@@ -189,7 +189,7 @@ function leadStatus(p) {
 
 export function lostBlock(p) {
   if (!p.reasons.lost.length) return '';
-  return `<div class="sub-card"><h3>Nega sotib olmadi</h3>${reasonBars('', p.reasons.lost)}</div>`;
+  return `<div class="sub-card"><h3>Bekor bo'lish sabablari</h3>${reasonBars('', p.reasons.lost)}</div>`;
 }
 
 export function reasonBars(title, list) {

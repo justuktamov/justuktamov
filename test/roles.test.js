@@ -143,3 +143,29 @@ test('PM xodimni o\'chiradi — kira olmaydi; o\'zini o\'chira olmaydi', async (
   assert.equal(r.status, 200);
   await session('aziz', 'yangi1234');
 });
+
+test('sabablar yangi bo\'linishi: eski yozuvlar yangi guruhga ko\'chadi', async () => {
+  const { DatabaseSync } = await import('node:sqlite');
+  const { mkdtempSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const file = join(mkdtempSync(join(tmpdir(), 'rsn-')), 'old.db');
+  // Eski baza: info_only — «sifatsiz», no_laptop — «sotib olmadi» guruhida
+  const old = new DatabaseSync(file);
+  old.exec(`CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
+    CREATE TABLE projects (id INTEGER PRIMARY KEY, name TEXT NOT NULL, color TEXT, kind TEXT NOT NULL DEFAULT 'leads', active INTEGER NOT NULL DEFAULT 1, created_at TEXT, reason_keys TEXT);
+    CREATE TABLE reasons (project_id INTEGER NOT NULL, date TEXT NOT NULL, kind TEXT NOT NULL, reason TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY (project_id, date, kind, reason));
+    INSERT INTO projects (id, name, reason_keys) VALUES (1, 'DIZIPRO', '{"bad":["info_only"],"lost":["no_laptop"]}');
+    INSERT INTO reasons VALUES (1, '2026-10-01', 'bad', 'info_only', 5), (1, '2026-10-01', 'lost', 'no_laptop', 2), (1, '2026-10-01', 'lost', 'info_only', 1);`);
+  old.close();
+  const { execFileSync } = await import('node:child_process');
+  const out = execFileSync(process.execPath, ['--no-warnings', '-e', `
+    process.env.DB_PATH = ${JSON.stringify(file)};
+    const { getDb } = await import(${JSON.stringify(new URL('../src/db.js', import.meta.url).href)});
+    const db = getDb();
+    console.log(JSON.stringify({ r: db.prepare('SELECT kind, reason, count FROM reasons ORDER BY kind, reason').all(), k: db.prepare('SELECT reason_keys FROM projects').get().reason_keys }));
+  `], { encoding: 'utf8', input: '' });
+  const { r, k } = JSON.parse(out.trim().split('\n').at(-1));
+  assert.deepEqual(r.map((x) => ({ ...x })), [{ kind: 'bad', reason: 'no_laptop', count: 2 }, { kind: 'lost', reason: 'info_only', count: 6 }]);
+  assert.equal(k, null, 'loyiha tanlovi — yangi umumiy tartib');
+});

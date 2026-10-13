@@ -73,38 +73,39 @@ export const TEXT_FIELDS = {
   note_sales: 'ROP izohi',
 };
 
-// «Nega?» raqamlarda: ROP har kuni sanab beradi
+// «Korzinka» ikkiga bo'linadi — ROP har kuni sanab beradi: bekor bo'lgan lidlar sababi va sifatsiz lidlar sababi
 export const REASONS = {
-  // Nega sifatsiz — aloqa bo'lmadi yoki haqiqiy mijoz emas
-  bad: {
-    info_only: "Shunchaki ma'lumot oldi",
-    unreachable: "Qaytib bog'lanib bo'lmadi",
-    no_pickup: "Umuman ko'tarmadi",
-    no_request: 'Zayafka qoldirmagan',
-    wrong_number: "Noto'g'ri raqam",
-    duplicate: 'Dublikat',
-  },
-  // Nega sotib olmadi — gaplashildi, lekin olmadi
+  // Bekor bo'lish sabablari — gaplashildi, lekin olmadi
   lost: {
     expensive: 'Qimmatli qildi',
-    no_permission: "Eri / ota-onasi ruxsat bermadi",
-    no_laptop: "Laptop yo'q",
+    no_permission: 'Ota-onasi ruxsat bermadi',
+    info_only: "Shunchaki ma'lumot oldi",
+    unreachable: "Qaytib bog'lanib bo'lmadi",
     bad_time: "Vaqti to'g'ri kelmadi",
     plans_changed: "Planlari o'zgardi",
     lesson_disliked: "Dars ma'qul bo'lmadi",
+  },
+  // Sifatsiz lidlar — haqiqiy mijoz emas yoki aloqa bo'lmadi
+  bad: {
+    no_laptop: "Laptop yo'q, VD ko'rmagan",
+    no_pickup: "Umuman ko'tarmadi",
+    no_request: 'Zayafka qoldirmagan',
+    wrong_number: "Noto'g'ri nomer",
+    duplicate: 'Dublikat',
     wants_offline: 'Offline hohladi',
   },
 };
+// Sabab qaysi guruhdan qaysiga o'tdi (2026-10: ROP yangi bo'linishi) — eski kiritilganlar ham yangi guruhda ko'rinadi
+export const REASON_MOVES = { info_only: 'lost', unreachable: 'lost', no_laptop: 'bad', wants_offline: 'bad' };
 // Eski sabablar — avval kiritilgan raqamlar tarixda shu nomlar bilan ko'rinadi (kiritishda yo'q)
 export const OLD_REASON_LABELS = {
   not_target: 'Maqsadli auditoriya emas', no_money: "Puli yo'q", no_answer: 'Javob bermadi / raqam xato', age: "Yoshi to'g'ri kelmaydi",
   curious: 'Shunchaki qiziqdi', spam: 'Spam / adashib yozgan', thinking: "O'ylab ko'radi", later: 'Keyinroq oladi',
   competitor: 'Raqobatchini tanladi', no_trust: "Ishonch yo'q", other: 'Boshqa',
 };
-// DIZIPRO: qimmatli qildi, qaytib bog'lanib bo'lmadi, umuman ko'tarmadi, noto'g'ri raqam, shunchaki ma'lumot oldi, zayafka qoldirmagan,
-// dars ma'qul bo'lmadi, laptop yo'q, offline hohladi, dublikat, planlari o'zgardi
-export const DIZIPRO_REASONS = JSON.stringify({ bad: ['unreachable', 'no_pickup', 'wrong_number', 'info_only', 'no_request', 'duplicate'], lost: ['expensive', 'lesson_disliked', 'no_laptop', 'wants_offline', 'plans_changed'] });
-export const REASON_KINDS = { bad: 'Nega sifatsiz', lost: 'Nega sotib olmadi' };
+// DIZIPRO — ROP bergan ro'yxat (hozir umumiy tartib bilan bir xil)
+export const DIZIPRO_REASONS = JSON.stringify({ lost: Object.keys(REASONS.lost), bad: Object.keys(REASONS.bad) });
+export const REASON_KINDS = { lost: "Bekor bo'lish sabablari", bad: 'Sifatsiz lidlar' };
 
 export const PLAN_FIELDS = {
   budget: 'Byudjet ($)',
@@ -263,6 +264,27 @@ function migrate(db) {
   // Xodimga biriktirilgan loyihalar («1,3»; bo'sh — hammasi)
   const ucols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
   if (ucols.length && !ucols.includes('projects')) db.exec('ALTER TABLE users ADD COLUMN projects TEXT');
+  // Sabablar yangi bo'linishi: ko'chgan sabablarning eski yozuvlari yangi guruhga; loyihalar tanlovi — yangi tartib (bir marta)
+  try {
+    if (!db.prepare("SELECT value FROM settings WHERE key = 'reasons_v2'").get()) {
+      db.exec('BEGIN');
+      for (const [reason, kind] of Object.entries(REASON_MOVES)) {
+        const from = kind === 'lost' ? 'bad' : 'lost';
+        // Shu kunda yangi guruhda ham yozuv bo'lsa — qo'shiladi
+        for (const r of db.prepare('SELECT * FROM reasons WHERE kind = ? AND reason = ?').all(from, reason)) {
+          db.prepare('INSERT INTO reasons (project_id, date, kind, reason, count) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO UPDATE SET count = count + excluded.count').run(r.project_id, r.date, kind, reason, r.count);
+          db.prepare('DELETE FROM reasons WHERE project_id = ? AND date = ? AND kind = ? AND reason = ?').run(r.project_id, r.date, from, reason);
+        }
+      }
+      db.exec('UPDATE projects SET reason_keys = NULL');
+      db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('reasons_v2', '1')").run();
+      db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('reasons_dizipro_v1', '1')").run();
+      db.exec('COMMIT');
+    }
+  } catch (e) {
+    try { db.exec('ROLLBACK'); } catch { /* tranzaksiya ochilmagan */ }
+    if (typeof window === 'undefined') console.error('Sabablar migratsiyasi:', e.message);
+  }
   const rcols = db.prepare('PRAGMA table_info(daily_reports)').all().map((c) => c.name);
   if (rcols.length && !rcols.includes('ai_analysis')) db.exec('ALTER TABLE daily_reports ADD COLUMN ai_analysis TEXT');
 }

@@ -130,7 +130,7 @@ test("har bir kiritish tarixda saqlanadi: kim, qachon, nima, eski va yangi qiyma
   assert.equal(spend[0].project, 'TARIX');
   assert.match(spend[0].at, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
   assert.equal(h.filter((x) => x.field === 'target_leads').length, 1);
-  assert.ok(find("Nega sifatsiz: Dublikat", '3'));
+  assert.ok(find("Sifatsiz lidlar: Dublikat", '3'));
   assert.ok(find('Dollar kursi', '12600'));
   assert.equal(find('Kun xulosasi', 'Tuzatilgan xulosa').old, 'Birinchi xulosa');
   assert.ok(find('Hisobot', 'yuborildi'));

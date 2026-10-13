@@ -218,15 +218,16 @@ test('loyihalar tartibi: sudrab almashtirish saqlanadi', async () => {
 test("loyiha sabablari: har loyihaning o'z ro'yxati va tartibi; DIZIPRO — ROP ro'yxati", async () => {
   const pm = await session();
   const d = await pm.json('/api/projects', { method: 'POST', body: { name: 'DIZIPRO' } });
-  assert.deepEqual(d.reasonKeys.lost, ['expensive', 'lesson_disliked', 'no_laptop', 'wants_offline', 'plans_changed']);
-  assert.deepEqual(d.reasonKeys.bad, ['unreachable', 'no_pickup', 'wrong_number', 'info_only', 'no_request', 'duplicate']);
+  // ROP ning yangi bo'linishi: bekor bo'lish sabablari va sifatsiz lidlar — shu tartibda
+  assert.deepEqual(d.reasonKeys.lost, ['expensive', 'no_permission', 'info_only', 'unreachable', 'bad_time', 'plans_changed', 'lesson_disliked']);
+  assert.deepEqual(d.reasonKeys.bad, ['no_laptop', 'no_pickup', 'no_request', 'wrong_number', 'duplicate', 'wants_offline']);
   const x = await pm.json('/api/projects', { method: 'POST', body: { name: 'BOSHQA' } });
   assert.ok(x.reasonKeys.lost.includes('bad_time'), 'boshqa loyihada hammasi');
   let r = await pm(`/api/projects/${x.id}`, { method: 'PUT', body: { reason_keys: { bad: ['nope'], lost: [] } } });
   assert.equal(r.status, 400);
-  const u = await pm.json(`/api/projects/${x.id}`, { method: 'PUT', body: { reason_keys: { bad: ['duplicate', 'info_only'], lost: ['no_laptop'] } } });
-  assert.deepEqual(u.reasonKeys, { bad: ['duplicate', 'info_only'], lost: ['no_laptop'] });
+  const u = await pm.json(`/api/projects/${x.id}`, { method: 'PUT', body: { reason_keys: { bad: ['duplicate', 'no_laptop'], lost: ['info_only'] } } });
+  assert.deepEqual(u.reasonKeys, { lost: ['info_only'], bad: ['duplicate', 'no_laptop'] });
   const day = await pm.json(`/api/daily?date=${today()}`);
-  assert.deepEqual(day.projects.find((p) => p.id === x.id).reasonKeys.lost, ['no_laptop']);
+  assert.deepEqual(day.projects.find((p) => p.id === x.id).reasonKeys.lost, ['info_only']);
   for (const p of [d, x]) await pm.json(`/api/projects/${p.id}`, { method: 'PUT', body: { active: false } });
 });

@@ -9,7 +9,7 @@ import { generateDemo, DEMO_USER } from '../src/demo-data.js';
 import { ROLES, PARTS, isStaff, userProjects, canSeeProject, canWriteField, missingFor, normalizeProjectIds } from '../src/roles.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v24';
+const SAVE_KEY = 'analitika-demo-v25';
 let me = null;
 
 function seed() {

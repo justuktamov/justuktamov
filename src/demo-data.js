@@ -20,13 +20,13 @@ const MONEY = [
 ];
 // «Nega?» — sabablar ulushi (ROP aytadi)
 const BAD_MIX = [null,
-  { info_only: 0.3, no_pickup: 0.25, unreachable: 0.2, no_request: 0.1, wrong_number: 0.1, duplicate: 0.05 },
-  { info_only: 0.4, no_request: 0.2, no_pickup: 0.15, wrong_number: 0.15, duplicate: 0.1 },
-  { no_pickup: 0.35, unreachable: 0.25, info_only: 0.2, wrong_number: 0.1, duplicate: 0.1 }];
+  { no_pickup: 0.35, no_request: 0.2, wrong_number: 0.15, duplicate: 0.1, wants_offline: 0.2 },
+  { no_request: 0.3, no_pickup: 0.25, no_laptop: 0.2, wrong_number: 0.15, duplicate: 0.1 },
+  { no_pickup: 0.4, wrong_number: 0.2, no_request: 0.2, duplicate: 0.1, wants_offline: 0.1 }];
 const LOST_MIX = [null,
-  { expensive: 0.45, bad_time: 0.15, no_permission: 0.1, plans_changed: 0.1, wants_offline: 0.15, lesson_disliked: 0.05 },
-  { expensive: 0.3, lesson_disliked: 0.2, no_laptop: 0.25, wants_offline: 0.1, plans_changed: 0.15 },
-  { bad_time: 0.3, expensive: 0.2, no_permission: 0.2, wants_offline: 0.15, plans_changed: 0.15 }];
+  { expensive: 0.4, info_only: 0.15, unreachable: 0.1, bad_time: 0.15, no_permission: 0.1, plans_changed: 0.05, lesson_disliked: 0.05 },
+  { expensive: 0.3, lesson_disliked: 0.2, info_only: 0.2, unreachable: 0.15, plans_changed: 0.15 },
+  { bad_time: 0.3, expensive: 0.2, no_permission: 0.2, info_only: 0.15, unreachable: 0.15 }];
 const COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100'];
 // Targetolog aytgan eng yaxshi / ishlamayotgan kreativ
 const CREATIVES = [
