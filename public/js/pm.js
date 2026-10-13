@@ -5,6 +5,9 @@ import {
 
 const STATUS_PILL = { unprofitable: 'crit', sales_issue: 'crit', creative: 'warn', needs_leads: 'info', scale: 'lime', good: 'good', nodata: '' };
 
+// Lid holatlari jadvali (sotuv bo'limi orqali) — shu tartibda
+export const LEAD_ST = ['st_nopickup', 'st_callback', 'st_thinking', 'potential', 'st_video', 'st_later', 'sales'];
+
 export const STEPS = [
   { key: 'target', title: 'Target', head: "Targetologdan so'rang",
     hint: "Avval shu kunning dollar kursini, keyin har bir loyiha bo'yicha raqamlarni yozing. Lid — targetolog reklama kabinetidan aytgani (sotuv bo'limi lidlari 2-qadamda alohida). Ko'rish va klik — faqat target. Bloger va Telegram kanallarga to'lov bo'lmagan kun bo'sh qoldiriladi.",
@@ -15,10 +18,12 @@ export const STEPS = [
     texts: [['creative_best', 'Yaxshi ishlagan kreativ', 'nomi yoki havola'], ['creative_worst', 'Ishlamayotgan kreativ', 'nomi yoki havola'], ['note_target', 'Muammo', "akkaunt, moderatsiya, to'lov…"]] },
   { key: 'sales', title: 'Sotuv', head: "Sotuv va tushgan pul",
     hint: "Sifatli — sotib olishga tayyor. Potensial — qiziqdi, keyinroq olishi mumkin. Sifatsiz — maqsadli emas yoki javob bermadi. Avtovoronka raqamlari botdan / to'lov tizimidan olinadi.",
-    ask: ['Har bir loyihaga nechta lid tushdi? Nechta qo\'ng\'iroq qilindi?', 'Nechtasi sifatli, nechtasi sifatsiz, nechtasi potensial?', "Nechtasi ko'tarmadi, nechtasi bilan qayta aloqa, nechtasi o'ylab ko'radi, nechtasi video ko'rishi kerak, nechtasi bekor qildi?", 'Instagram direktdan va Telegram admin lichkasidan nechta lid keldi?', "Nechta sotuv bo'ldi va qancha pul tushdi?",
+    ask: ['Har bir loyihaga nechta lid tushdi? Nechta qo\'ng\'iroq qilindi?', 'Nechtasi sifatli, nechtasi sifatsiz, nechtasi potensial?', "Lidlar holati: nechtasi ko'tarmadi, nechtasi bilan qayta aloqa, nechtasi o'ylab ko'radi, nechtasi potensial, nechtasi video ko'rishi kerak, nechtasi keyinroq o'qiydi, nechtasi sotildi?", 'Instagram direktdan va Telegram admin lichkasidan nechta lid keldi?', "Nechta sotuv bo'ldi va qancha pul tushdi?",
       'Sifatsizlar nega sifatsiz, sotib olmaganlar nega olmadi (har sababdan nechta)?'],
     askAuto: ['Avtovoronka: botga nechta odam kirdi (start), nechtasi sotib oldi, qancha pul tushdi?'],
-    fields: [['leads', 'Umumiy lid'], ['calls', "Qo'ng'iroq"], ['qualified', 'Sifatli'], ['unqualified', 'Sifatsiz'], ['potential', 'Potensial'], ['st_nopickup', "Ko'tarmadi"], ['st_callback', 'Qayta aloqa'], ['st_thinking', "O'ylab ko'radi"], ['st_video', "Video ko'rishi kerak"], ['st_cancelled', 'Bekor qilindi'], ['sales', 'Sotuv'], ['revenue', "Tushgan pul, so'm"]],
+    // Lid holatlari (LEAD_ST) — alohida jadvalda, ROP aytgan tartibda: ko'tarmadi → … → sotildi
+    fields: [['leads', 'Umumiy lid'], ['calls', "Qo'ng'iroq"], ['qualified', 'Sifatli'], ['unqualified', 'Sifatsiz'], ['revenue', "Tushgan pul, so'm"],
+      ['st_nopickup', "Ko'tarmadi"], ['st_callback', 'Qayta aloqa'], ['st_thinking', "O'ylab ko'radi"], ['potential', 'Potensial'], ['st_video', "Video ko'rishi kerak"], ['st_later', "Keyinroq o'qiydi"], ['sales', 'Sotildi']],
     required: ['leads', 'sales', 'revenue'],
     autoFields: [['starts', 'Bot start'], ['sales', 'Xarid'], ['revenue', "Tushgan pul, so'm"]],
     autoRequired: ['sales', 'revenue'],
@@ -158,7 +163,8 @@ export async function renderToday({ rolled = null } = {}) {
           <button class="btn small" data-copy-ask>${ICONS.copy} Nusxalash — Telegramda yuborish uchun</button></div>`}
       </div>
       ${i === 0 ? rateBlock() : ''}
-      ${leadsP.length ? `${sales && autoP.length ? "<h3 class=\"tbl-title\">Sotuv bo'limi orqali</h3>" : ''}${numTable(leadsP, s.fields, s.required, sales ? 'cpl' : null)}` : ''}
+      ${leadsP.length ? `${sales && autoP.length ? "<h3 class=\"tbl-title\">Sotuv bo'limi orqali</h3>" : ''}${numTable(leadsP, sales ? s.fields.filter(([f]) => !LEAD_ST.includes(f)) : s.fields, s.required, sales ? 'cpl' : null)}` : ''}
+      ${sales && leadsP.length ? `<h3 class="tbl-title">Lidlar holati <span class="muted small">— sotuv bo'limi orqali, nechta</span></h3>${numTable(leadsP, LEAD_ST.map((f) => s.fields.find(([x]) => x === f)), [], null)}` : ''}
       ${autoP.length ? `<h3 class="tbl-title">Avtovoronka <span class="muted small">— botdan va to'lov tizimidan</span></h3>${numTable(autoP, s.autoFields, s.autoRequired, 'cps')}` : ''}
       ${sales && leadsP.length ? sourcesBlock(leadsP) : ''}
       ${textP.length ? `<details class="extra" ${textP.some((p) => s.texts.some(([f]) => p.row[f])) ? 'open' : ''}><summary>${sales ? 'ROP izohlari' : 'Kreativlar va muammolar'} <span class="muted">(ixtiyoriy)</span></summary>
@@ -359,11 +365,14 @@ export async function renderToday({ rolled = null } = {}) {
     const copyAsk = box.querySelector('[data-copy-ask]');
     if (copyAsk) copyAsk.onclick = () => copyText(askText(cur, daily.projects));
     // Sotuv qadami: lid narxi va lid turlari yig'indisi yozish paytida
-    box.querySelectorAll('table[data-calc]').forEach((tbl) => tbl.addEventListener('input', (e) => {
-      const tr = e.target.closest('tr[data-id]');
+    // Lid turlari bir nechta jadvalda (potensial — «Lidlar holati» da): qiymat shu loyihaning har qanday qatoridan olinadi
+    box.addEventListener('input', (e) => {
+      const row = e.target.closest('tr[data-id]');
+      const tr = row && box.querySelector(`table[data-calc] tr[data-id="${row.dataset.id}"]`);
       if (!tr) return;
+      const tbl = tr.closest('table');
       const p = daily.projects.find((x) => String(x.id) === tr.dataset.id);
-      const v = (f) => { const el = $(`input[name="${f}"]`, tr); return !el || el.value.trim() === '' ? null : parseNum(el.value); };
+      const v = (f) => { const el = box.querySelector(`tr[data-id="${p.id}"] input[name="${f}"]`); return !el || el.value.trim() === '' ? null : parseNum(el.value); };
       if (tbl.dataset.calc === 'cps') { $('[data-cpl]', tr).textContent = cplText(p.row.spend, v('starts')); return; }
       {
         const parts = ['qualified', 'potential', 'unqualified'].map(v);
@@ -373,7 +382,7 @@ export async function renderToday({ rolled = null } = {}) {
         $('[data-state]', tr).innerHTML = v('leads') != null && parts.some((x) => x != null) && sumParts !== v('leads')
           ? `<span class="pill warn" title="Sifatli + potensial + sifatsiz = ${sumParts}">≠ ${sumParts}</span>` : '';
       }
-    }));
+    });
     box.querySelectorAll('[data-step-go]').forEach((b) => { b.onclick = () => toStep(b.dataset.stepGo); });
     box.querySelectorAll('[data-remind]').forEach((b) => {
       b.onclick = async () => {
@@ -489,8 +498,7 @@ export async function renderToday({ rolled = null } = {}) {
       }
       if (step === 'sales') {
         for (const p of daily.projects.filter((x) => x.kind !== 'auto')) {
-          const tr = box.querySelector(`tr[data-id="${p.id}"]`);
-          const val = (f) => $(`input[name="${f}"]`, tr).value.trim();
+          const val = (f) => box.querySelector(`tr[data-id="${p.id}"] input[name="${f}"]`)?.value.trim() || '';
           const parts = ['qualified', 'potential', 'unqualified'].map(val).filter(Boolean);
           if (!val('leads') && parts.length) (byProject[p.id] ||= {}).leads = String(parts.reduce((a, x) => a + (parseNum(x) || 0), 0));
         }

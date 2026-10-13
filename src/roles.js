@@ -21,7 +21,7 @@ export const PARTS = {
   },
   rop: {
     title: 'Sotuv hisoboti',
-    fields: ['leads', 'calls', 'qualified', 'unqualified', 'potential', 'st_nopickup', 'st_callback', 'st_thinking', 'st_video', 'st_cancelled', 'src_ig', 'src_tg', 'sales', 'revenue', 'starts'],
+    fields: ['leads', 'calls', 'qualified', 'unqualified', 'potential', 'st_nopickup', 'st_callback', 'st_thinking', 'st_video', 'st_later', 'src_ig', 'src_tg', 'sales', 'revenue', 'starts'],
     texts: ['note_sales'],
     required: ['leads', 'sales', 'revenue'],
     autoRequired: ['sales', 'revenue'],

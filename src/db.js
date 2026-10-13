@@ -38,6 +38,7 @@ export const FIELDS = {
   st_callback: 'Qayta aloqa',
   st_thinking: "O'ylab ko'radi",
   st_video: "Video ko'rishi kerak",
+  st_later: "Keyinroq o'qiydi",
   st_cancelled: 'Bekor qilindi',
   sales: 'Sotuvlar',
   revenue: "Tushum (so'm)",

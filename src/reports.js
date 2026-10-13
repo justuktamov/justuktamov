@@ -170,7 +170,7 @@ export function reportText(date) {
     if (pr.kind === 'auto') lines.push(`   ${tl}${pr.reported.starts ? `${n(pr.starts)} bot start · ` : ''}${n(pr.sales)} xarid (${p(pr.conv)} ${pr.conv_label})`);
     else {
       lines.push(`   ${tl ? `${tl}sotuv bo'limi lid ${n(pr.leads)}` : `${n(pr.leads)} lid`}${q.length ? ` (${q.join(' · ')})` : ''} · ${n(pr.sales)} sotuv`);
-      const st = [["ko'tarmadi", 'st_nopickup'], ['qayta aloqa', 'st_callback'], ["o'ylab ko'radi", 'st_thinking'], ["video ko'rishi kerak", 'st_video'], ['bekor qilindi', 'st_cancelled']].filter(([, f]) => pr.reported[f]);
+      const st = [["ko'tarmadi", 'st_nopickup'], ['qayta aloqa', 'st_callback'], ["o'ylab ko'radi", 'st_thinking'], ["video ko'rishi kerak", 'st_video'], ["keyinroq o'qiydi", 'st_later'], ['bekor qilindi', 'st_cancelled']].filter(([, f]) => pr.reported[f]);
       if (st.length || pr.reported.calls) lines.push(`   📋 ${[pr.reported.calls ? `qo'ng'iroq ${n(pr.calls)}` : '', ...st.map(([l, f]) => `${l} ${n(pr[f])}`)].filter(Boolean).join(' · ')}`);
       const src = [['Instagram direkt', pr.src_ig], ['Telegram lichka', pr.src_tg]].filter(([, v]) => v > 0);
       if (src.length) lines.push(`   📥 Lichkadan: ${src.map(([l, v]) => `${l} ${n(v)}`).join(' · ')}`);

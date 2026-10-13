@@ -3,7 +3,7 @@
 import {
   $, $$, esc, api, state, shell, fmtN, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, parseNum,
 } from './core.js';
-import { STEPS, dateNav, historyBlock, reportHash } from './pm.js';
+import { STEPS, LEAD_ST, dateNav, historyBlock, reportHash } from './pm.js';
 
 const ROLE = {
   target: {
@@ -21,7 +21,7 @@ const ROLE = {
 };
 const dot = (c) => `<span class="dot" style="--dc:${esc(c || '#4c86ff')}"></span>`;
 // Lid holatlari — ROP sahifasida alohida jadvalda (asosiy jadval torayadi)
-const STATUS = ['st_nopickup', 'st_callback', 'st_thinking', 'st_video', 'st_cancelled'];
+const STATUS = LEAD_ST;
 const LABEL = { target_leads: 'Lid (jami)', tl_web: 'Lid: saytdan', tl_bot: 'Lid: botdan' };
 
 export async function renderPart({ rolled = null } = {}) {
@@ -67,7 +67,7 @@ export async function renderPart({ rolled = null } = {}) {
       <div class="step-head"><span class="eyebrow">${esc(state.me.roles?.[role] || '')}</span><h2>${R.head}</h2><p>${R.hint}</p></div>
       ${s.key === 'target' ? rateBlock() : ''}
       ${leadsP.length ? `${autoP.length ? "<h3 class=\"tbl-title\">Sotuv bo'limi orqali</h3>" : ''}${numTable(leadsP, role === 'rop' ? s.fields.filter(([f]) => !STATUS.includes(f)) : s.fields, s.required)}` : ''}
-      ${role === 'rop' && leadsP.length ? `<h3 class="tbl-title">Lidlar holati <span class="muted small">— hozir qaysi bosqichda, nechta</span></h3>${numTable(leadsP, s.fields.filter(([f]) => STATUS.includes(f)), [], false)}` : ''}
+      ${role === 'rop' && leadsP.length ? `<h3 class="tbl-title">Lidlar holati <span class="muted small">— sotuv bo'limi orqali, nechta</span></h3>${numTable(leadsP, STATUS.map((f) => s.fields.find(([x]) => x === f)), [], false)}` : ''}
       ${autoP.length ? `<h3 class="tbl-title">Avtovoronka <span class="muted small">— botdan va to'lov tizimidan</span></h3>${numTable(autoP, s.autoFields, s.autoRequired)}` : ''}
       ${role === 'rop' && leadsP.length ? sourcesBlock(leadsP) : ''}
       ${textsBlock(role === 'rop' ? leadsP : daily.projects)}
@@ -133,15 +133,16 @@ export async function renderPart({ rolled = null } = {}) {
       (next || box.querySelector('[data-send]')).focus();
     }));
     // Jami va qismlari mos kelmasa — belgi (lid = web + bot; lid = sifatli + potensial + sifatsiz)
-    box.querySelectorAll('table[data-part]').forEach((tbl) => tbl.addEventListener('input', (e) => {
-      const tr = e.target.closest('tr[data-id]');
+    box.addEventListener('input', (e) => {
+      const row = e.target.closest('tr[data-id]');
+      const tr = row && box.querySelector(`table[data-part] tr[data-id="${row.dataset.id}"]`);
       if (!tr) return;
-      const v = (f) => { const el = $(`input[name="${f}"]`, tr); return !el || el.value.trim() === '' ? null : parseNum(el.value); };
+      const v = (f) => { const el = box.querySelector(`tr[data-id="${tr.dataset.id}"] input[name="${f}"]`); return !el || el.value.trim() === '' ? null : parseNum(el.value); };
       const [total, parts] = role === 'target' ? [v('target_leads'), ['tl_web', 'tl_bot'].map(v)] : [v('leads'), ['qualified', 'potential', 'unqualified'].map(v)];
       const sum = parts.reduce((a, x) => a + (x || 0), 0);
       $('[data-state]', tr).innerHTML = total != null && parts.some((x) => x != null) && sum > total
         ? `<span class="pill warn" title="Qismlari jamidan ko'p: ${sum}">≠ ${sum}</span>` : '';
-    }));
+    });
     $('[data-save]', box).onclick = async (e) => {
       const b = e.currentTarget;
       b.disabled = true;
@@ -182,7 +183,7 @@ export async function renderPart({ rolled = null } = {}) {
     const sumInto = (p, total, parts) => {
       const tr = box.querySelector(`table[data-part] tr[data-id="${p.id}"]`);
       if (!tr || !$(`input[name="${total}"]`, tr)) return;
-      const val = (f) => $(`input[name="${f}"]`, tr)?.value.trim() || '';
+      const val = (f) => box.querySelector(`tr[data-id="${p.id}"] input[name="${f}"]`)?.value.trim() || '';
       const got = parts.map(val).filter(Boolean);
       if (!val(total) && got.length) (byProject[p.id] ||= {})[total] = String(got.reduce((a, x) => a + (parseNum(x) || 0), 0));
     };

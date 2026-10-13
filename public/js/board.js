@@ -236,6 +236,8 @@ function planTile(p, plan) {
     ${a ? `<p class="plan-warn ${a.level}">${esc(a.text)}</p>` : plan.elapsed >= 5 ? '<p class="plan-ok">✓ Reja bo\'yicha</p>' : '<p class="why">Oy boshi — xulosa 5-kundan</p>'}</div>`;
 }
 
+// Lid holatlari — ROP tartibida; «Bekor» — faqat eski kunlarda kiritilgan bo'lsa
+const BOARD_ST = [["Ko'tarmadi", 'st_nopickup'], ['Qayta aloqa', 'st_callback'], ["O'ylab ko'radi", 'st_thinking'], ['Video', 'st_video'], ["Keyinroq o'qiydi", 'st_later'], ['Bekor', 'st_cancelled']];
 function column(p, plan, collapsed = false, picked = false) {
   const [cls, label] = statusOf(p);
   const auto = p.kind === 'auto';
@@ -282,7 +284,7 @@ function column(p, plan, collapsed = false, picked = false) {
         <div class="kv"><span>Sifatsiz</span><b>${fmtP(p.unqualified_share, 0)}</b></div>
         ${badTop ? `<p class="why">Nega: «${esc(badTop.label)}» — ${fmtP(badTop.share, 0)}</p>` : ''}
         ${srcLine(p)}
-        ${[["Ko'tarmadi", 'st_nopickup'], ['Qayta aloqa', 'st_callback'], ["O'ylab ko'radi", 'st_thinking'], ['Video', 'st_video'], ['Bekor', 'st_cancelled']].some(([, k]) => p[k] > 0) ? `<p class="src-line">${[["Ko'tarmadi", 'st_nopickup'], ['Qayta aloqa', 'st_callback'], ["O'ylab ko'radi", 'st_thinking'], ['Video', 'st_video'], ['Bekor', 'st_cancelled']].filter(([, k]) => p[k] > 0).map(([l, k]) => `${l} <b>${fmtN(p[k])}</b>`).join(' · ')}</p>` : ''}` : '<p class="why">Kiritilmagan</p>'}
+        ${BOARD_ST.some(([, k]) => p[k] > 0) ? `<p class="src-line">${BOARD_ST.filter(([, k]) => p[k] > 0).map(([l, k]) => `${l} <b>${fmtN(p[k])}</b>`).join(' · ')}</p>` : ''}` : '<p class="why">Kiritilmagan</p>'}
     </div>`}
     ${planTile(p, plan)}
     ${issue ? `<div class="tile issue ${issue.level}"><small>${issue.level === 'critical' ? 'Muhim' : 'Diqqat'}</small><p>${esc(issue.text)}</p></div>` : ''}
