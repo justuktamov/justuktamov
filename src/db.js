@@ -249,7 +249,8 @@ function migrate(db) {
       seller_id INTEGER NOT NULL REFERENCES sellers(id) ON DELETE CASCADE,
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       date TEXT NOT NULL,
-      leads REAL, in_progress REAL, qualified REAL, sales REAL, cancelled REAL, unqualified REAL, call_sec REAL,
+      leads REAL, in_progress REAL, qualified REAL, -- in_progress endi kiritilmaydi
+      sales REAL, cancelled REAL, unqualified REAL, call_sec REAL,
       updated_at TEXT,
       PRIMARY KEY (seller_id, project_id, date)
     );

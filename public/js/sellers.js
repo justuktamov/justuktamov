@@ -5,9 +5,11 @@ import {
 import { dateNav } from './pm.js';
 
 const FIELDS = [
-  ['leads', 'Umumiy lidlar soni'], ['in_progress', 'Jarayonda'], ['qualified', 'Sifatli lid soni'], ['sales', 'Sotuv'],
+  ['leads', 'Umumiy lidlar soni'], ['qualified', 'Sifatli lid soni'], ['sales', 'Sotuv'],
   ['cancelled', "Bekor bo'ldi"], ['unqualified', 'Sifatsiz lidlar'], ['call_sec', 'Call duration'],
 ];
+// Hisobot jadvalidagi son ustunlari (call duration — alohida, oxirida)
+const NUM = FIELDS.filter(([k]) => k !== 'call_sec');
 const TABS = [['report', 'Hisobot'], ['entry', 'Kunlik kiritish'], ['list', "Xodimlar ro'yxati"]];
 const dot = (c) => `<span class="dot" style="--dc:${esc(c || '#4c86ff')}"></span>`;
 
@@ -60,13 +62,13 @@ async function tabReport(box, f, rid) {
   const table = (p) => {
     const best = Math.max(...p.rows.map((r) => r.conv ?? -1));
     const bestQ = Math.max(...p.rows.map((r) => r.conv_q ?? -1));
-    const cells = (r, tot) => `${FIELDS.slice(0, 6).map(([k]) => `<td class="n">${fmtN(r[k])}</td>`).join('')}
+    const cells = (r, tot) => `${NUM.map(([k]) => `<td class="n">${fmtN(r[k])}</td>`).join('')}
       <td class="n ${!tot && r.conv === best && best > 0 ? 'sl-best' : ''}">${r.conv == null ? '—' : fmtP(r.conv, 1)}</td>
       <td class="n ${!tot && r.conv_q === bestQ && bestQ > 0 ? 'sl-best' : ''}">${r.conv_q == null ? '—' : fmtP(r.conv_q, 1)}</td>
       <td class="n mono">${fmtDuration(r.call_sec)}</td>`;
     return `<section class="card sl-card" style="--pc:${esc(p.color || '#4c86ff')}">
       <div class="sl-head"><span class="sl-month">${esc(label)}</span><b>${dot(p.color)}${esc(p.name)}</b></div>
-      <div class="table-wrap"><table class="sl-table"><thead><tr><th>Xodimlar</th>${FIELDS.slice(0, 6).map(([, l]) => `<th class="n">${l}</th>`).join('')}<th class="n">Konversiya umumiy</th><th class="n">Konversiya sifatli</th><th class="n">Call duration</th></tr></thead>
+      <div class="table-wrap"><table class="sl-table"><thead><tr><th>Xodimlar</th>${NUM.map(([, l]) => `<th class="n">${l}</th>`).join('')}<th class="n">Konversiya umumiy</th><th class="n">Konversiya sifatli</th><th class="n">Call duration</th></tr></thead>
       <tbody>${p.rows.map((r) => `<tr class="${r.active ? '' : 'off'}"><td><b>${esc(r.name)}</b>${r.active ? '' : ' <span class="muted small">(arxiv)</span>'}</td>${cells(r)}</tr>`).join('')}</tbody>
       <tfoot><tr><td>Jami</td>${cells(p.total, true)}</tr></tfoot></table></div></section>`;
   };

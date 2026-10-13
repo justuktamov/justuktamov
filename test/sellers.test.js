@@ -52,7 +52,7 @@ test('ROP sotuv xodimlarini qo\'shadi, kunlik raqamlarini kiritadi; oylik jadval
   const day = await rop.json(`/api/sellers/daily?date=${D}`);
   assert.deepEqual(day.projects.map((p) => p.name), ['VIZART', 'DIZIPRO'], 'avtovoronka yo\'q');
   let r = await rop('/api/sellers/daily', { method: 'PUT', body: { date: D, rows: [
-    { seller_id: barno.id, project_id: viz.id, values: { leads: 20, in_progress: 6, qualified: 10, sales: 2, cancelled: 8, unqualified: 6, call_sec: '1:30:00' } },
+    { seller_id: barno.id, project_id: viz.id, values: { leads: 20, qualified: 10, sales: 2, cancelled: 8, unqualified: 6, call_sec: '1:30:00' } },
     { seller_id: zebo.id, project_id: viz.id, values: { leads: 10, qualified: 4, sales: 1, call_sec: '45:00' } },
     { seller_id: barno.id, project_id: diz.id, values: { leads: 5, sales: 0 } },
   ] } });

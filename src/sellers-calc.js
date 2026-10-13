@@ -1,7 +1,6 @@
 // Sotuv xodimlari (operatorlar): maydonlar, qo'ng'iroq vaqti va jamlash — server ham, brauzer demosi ham shundan foydalanadi
 export const SELLER_FIELDS = {
   leads: 'Umumiy lidlar soni',
-  in_progress: 'Jarayonda',
   qualified: 'Sifatli lid soni',
   sales: 'Sotuv',
   cancelled: "Bekor bo'ldi",

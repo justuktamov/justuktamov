@@ -64,7 +64,7 @@ function seedSellers() {
       const qualified = Math.round(leads * (0.4 + rnd() * 0.2));
       const sales = i === team.length - 1 ? salesLeft : Math.min(salesLeft, Math.round((r.sales || 0) * w[i] / sum + (rnd() - 0.5)));
       salesLeft -= sales;
-      store.sellerDaily.push({ seller_id: x.id, project_id: r.project_id, date: r.date, leads, in_progress: Math.round(leads * (0.1 + rnd() * 0.25)), qualified, sales: Math.max(0, sales),
+      store.sellerDaily.push({ seller_id: x.id, project_id: r.project_id, date: r.date, leads, qualified, sales: Math.max(0, sales),
         cancelled: Math.round(leads * (0.25 + rnd() * 0.2)), unqualified: leads - qualified, call_sec: Math.round(leads * (70 + rnd() * 90)) });
     });
   }
