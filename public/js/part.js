@@ -1,9 +1,9 @@
 // Targetolog va ROP ning kunlik ishi: o'z qismini kiritadi va «Yuborish» bilan PM ga topshiradi.
 // PM keyin tekshiradi, tahlil yozadi va direktorga umumiy hisobotni yuboradi
 import {
-  $, $$, esc, api, state, shell, fmtN, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, parseNum,
+  $, $$, esc, api, state, shell, fmtN, PART_ROUTE, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, parseNum,
 } from './core.js';
-import { STEPS, LEAD_ST, dateNav, historyBlock, reportHash, reasonsHtml } from './pm.js';
+import { STEPS, LEAD_ST, dateNav, historyBlock, reasonsHtml } from './pm.js';
 
 const ROLE = {
   target: {
@@ -22,6 +22,8 @@ const ROLE = {
 const dot = (c) => `<span class="dot" style="--dc:${esc(c || '#4c86ff')}"></span>`;
 // Lid holatlari — ROP sahifasida alohida jadvalda (asosiy jadval torayadi)
 const STATUS = LEAD_ST;
+// O'z sahifasi manzili: #/target yoki #/sotuv (kechadan boshqa kun — ?date=…)
+const partHash = (d) => `${PART_ROUTE[state.me.user.role][0]}${d === state.me.reportDay ? '' : `?date=${d}`}`;
 const LABEL = { target_leads: 'Lid (jami)', tl_web: 'Lid: saytdan', tl_bot: 'Lid: botdan' };
 
 export async function renderPart({ rolled = null } = {}) {
@@ -34,13 +36,13 @@ export async function renderPart({ rolled = null } = {}) {
   let date = /^\d{4}-\d{2}-\d{2}$/.test(qd || '') && qd <= state.me.reportDay ? qd : state.me.reportDay;
   if (!qd && rolled && rolled < state.me.reportDay && state.partOpen?.date === rolled && !state.partOpen.sent) {
     date = rolled;
-    history.replaceState(null, '', reportHash(rolled));
+    history.replaceState(null, '', partHash(rolled));
     state.shownHash = location.hash;
     toast(`Kun almashdi. ${dayLabel(rolled)} hisoboti hali yuborilmagan — shu yerda davom eting`);
   }
   const go = async (d) => {
     if (state.leaveGuard && !(await state.leaveGuard())) return;
-    if (location.hash !== reportHash(d)) location.hash = reportHash(d); else renderPart();
+    if (location.hash !== partHash(d)) location.hash = partHash(d); else renderPart();
   };
   const first = String(state.me.user.name || '').split(' ')[0];
   const isY = date === state.me.reportDay;
@@ -52,6 +54,8 @@ export async function renderPart({ rolled = null } = {}) {
   try { daily = await api(`/api/daily?date=${date}`); } catch (e) { const el = $('#part'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#part');
   if (!box || isStale(rid)) return;
+  // Kiritish — faqat o'ziga biriktirilgan loyihalar (qolganlari umumiy sahifalarda ko'rinadi)
+  if (daily.editable) daily.projects = daily.projects.filter((p) => daily.editable.includes(p.id));
   if (!daily.projects.length) {
     box.innerHTML = '<div class="card empty">Sizga hali loyiha biriktirilmagan — proekt menejerga ayting.</div>';
     return;

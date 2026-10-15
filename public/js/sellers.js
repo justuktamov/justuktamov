@@ -10,7 +10,7 @@ const FIELDS = [
 ];
 // Hisobot jadvalidagi son ustunlari (call duration — alohida, oxirida)
 const NUM = FIELDS.filter(([k]) => k !== 'call_sec');
-const TABS = [['report', 'Hisobot'], ['entry', 'Kunlik kiritish'], ['list', "Xodimlar ro'yxati"]];
+const ALL_TABS = [['report', 'Hisobot'], ['entry', 'Kunlik kiritish'], ['list', "Xodimlar ro'yxati"]];
 const dot = (c) => `<span class="dot" style="--dc:${esc(c || '#4c86ff')}"></span>`;
 
 // Soniya ↔ «2:15:30» (soat 24 dan oshishi mumkin)
@@ -25,8 +25,11 @@ export async function renderSellers() {
   state.leaveGuard = null;
   state.isDirty = null;
   const f = (state.sellers ||= { tab: state.me.user.role === 'rop' ? 'entry' : 'report', period: 'month', month: 0, date: null });
+  // Kiritish va ro'yxat — ROP va PM; targetolog faqat hisobotni ko'radi
+  const TABS = state.me.user.role === 'target' ? ALL_TABS.slice(0, 1) : ALL_TABS;
   const q = new URLSearchParams(location.hash.split('?')[1] || '');
   if (TABS.some(([k]) => k === q.get('tab'))) f.tab = q.get('tab');
+  if (!TABS.some(([k]) => k === f.tab)) f.tab = 'report';
   shell(`<div class="page-head"><div><h1><span class="grad">Sotuv xodimlari</span></h1>
       <div class="sub">Har bir sotuvchi qanday ishlayapti: nechta lid oldi, nechtasi bilan gaplashdi, nechta sotdi, qancha vaqt qo'ng'iroq qildi</div></div></div>
     <div class="tabs" id="slTabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-k="${k}" class="${f.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>

@@ -1,6 +1,6 @@
 // Proekt menejerning kunlik ishi — 4 qadam: target raqamlari → sotuv raqamlari → tekshirish → direktorga yuborish
 import {
-  $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtUzs, fmtSom, fmtP, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, shortDate, copyText, dateButton, openCalendar, parseNum,
+  $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtUzs, fmtSom, fmtP, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, shortDate, copyText, dateButton, openCalendar, parseNum, isStaffUser,
 } from './core.js';
 
 const STATUS_PILL = { unprofitable: 'crit', sales_issue: 'crit', creative: 'warn', needs_leads: 'info', scale: 'lime', good: 'good', nodata: '' };
@@ -40,16 +40,16 @@ const STAFF_HEAD = {
 };
 // Xodimlar (targetolog, ROP) — o'z qismini yuborganmi; PM eslatma yubora oladi
 const PART_ICON = { target: '🎯', rop: '📞' };
-function staffBox(staff, part, projects, approval = null) {
+function staffBox(staff, part, projects, approval = null, actions = true) {
   const list = (staff || []).filter((x) => x.role === part);
   if (!list.length) return '';
   const names = (ids) => (ids.length ? projects.filter((p) => ids.includes(p.id)).map((p) => p.name).join(', ') : 'hamma loyihalar');
   return `<div class="staff-box"><b>${part === 'target' ? 'Targetolog kiritadi' : 'ROP kiritadi'}</b>
     ${list.map((x) => `<div class="staff-row ${x.submitted_at ? 'ok' : ''}"><span>${PART_ICON[part]} <b>${esc(x.name)}</b> <span class="muted small">— ${esc(names(x.projects))}</span></span>
-      ${x.submitted_at ? `<span class="pill good">✓ ${esc(String(x.submitted_at).slice(11, 16))} da yubordi</span><button type="button" class="btn small ghost" data-return="${x.id}" data-name="${esc(x.name)}">↩ Qaytarish</button>`
-        : `<span class="pill warn">${x.returned ? `Qaytarilgan — tuzatyapti` : 'Hali yubormadi'}</span>${x.telegram ? `<button type="button" class="btn small" data-remind="${x.id}">Eslatish</button>` : '<span class="muted small" title="Telegram ID kiritilmagan">eslatma — Telegram ID yo\'q</span>'}`}
+      ${x.submitted_at ? `<span class="pill good">✓ ${esc(String(x.submitted_at).slice(11, 16))} da yubordi</span>${actions ? `<button type="button" class="btn small ghost" data-return="${x.id}" data-name="${esc(x.name)}">↩ Qaytarish</button>` : ''}`
+        : `<span class="pill warn">${x.returned ? `Qaytarilgan — tuzatyapti` : 'Hali yubormadi'}</span>${!actions ? '' : x.telegram ? `<button type="button" class="btn small" data-remind="${x.id}">Eslatish</button>` : '<span class="muted small" title="Telegram ID kiritilmagan">eslatma — Telegram ID yo\'q</span>'}`}
       ${x.returned && !x.submitted_at && x.returned.note ? `<span class="muted small ret-note">↩ ${esc(x.returned.note)}</span>` : ''}</div>`).join('')}
-    ${approval ? `<p class="approved-line">✓ Siz tasdiqladingiz · ${esc(String(approval.approved_at).slice(11, 16))}</p>` : '<p class="muted small">Ular kiritgan raqamlar quyida — faqat ko\'rish uchun.</p>'}</div>`;
+    ${approval ? `<p class="approved-line">✓ ${actions ? 'Siz tasdiqladingiz' : `PM tasdiqladi${approval.by ? ` (${esc(approval.by)})` : ''}`} · ${esc(String(approval.approved_at).slice(11, 16))}</p>` : `<p class="muted small">${actions ? "Ular kiritgan raqamlar quyida — faqat ko'rish uchun." : 'PM hali tasdiqlamagan.'}</p>`}</div>`;
 }
 
 // Korzinka ikkiga bo'linadi: «Bekor bo'lish sabablari» va «Sifatsiz lidlar» — alohida bo'limlar, har birida loyihalar
@@ -121,8 +121,10 @@ export async function renderToday({ rolled = null } = {}) {
     if (location.hash !== reportHash(d)) location.hash = reportHash(d); else renderToday();
   };
   const first = String(state.me.user.name || '').split(' ')[0];
+  // Targetolog va ROP ham shu sahifani ko'radi (tahlil uchun) — faqat ko'rish: tasdiqlash va yuborish PM da
+  const viewer = isStaffUser();
   shell(`<div class="page-head"><div><h1>${date === state.me.reportDay ? `Salom, <span class="grad">${esc(first)}</span>` : `<span class="grad">${dayLabel(date)}</span>`}</h1>
-      <div class="sub">${date === state.me.reportDay ? `Kechagi (${dayLabel(date)}) hisobotni 4 qadamda tayyorlaymiz` : 'Shu kun hisoboti'}</div></div>${dateNav(date, go)}</div>
+      <div class="sub">${viewer ? `${date === state.me.reportDay ? `Kechagi (${dayLabel(date)})` : 'Shu kun'} umumiy hisoboti — PM tekshirib direktorga yuboradi, siz ko'rasiz` : date === state.me.reportDay ? `Kechagi (${dayLabel(date)}) hisobotni 4 qadamda tayyorlaymiz` : 'Shu kun hisoboti'}</div></div>${dateNav(date, go)}</div>
     <div id="pm">${spinnerBlock()}</div>`);
   const rid = state.renderId;
   let daily, bundle;
@@ -131,7 +133,10 @@ export async function renderToday({ rolled = null } = {}) {
   if (!box || isStale(rid)) return;
 
   // Loyiha yo'q — avval loyihalarni qo'shish
-  if (!daily.projects.length) return renderOnboarding(box);
+  if (!daily.projects.length) {
+    if (viewer) { box.innerHTML = "<div class=\"card empty\">Hali loyiha qo'shilmagan.</div>"; return; }
+    return renderOnboarding(box);
+  }
 
   const report = bundle.report;
   const done = Object.fromEntries(STEPS.map((s) => [s.key, stepDone(s.key, daily, report)]));
@@ -175,11 +180,11 @@ export async function renderToday({ rolled = null } = {}) {
     const textP = sales ? leadsP : daily.projects;
     // Bu qismni xodim (targetolog / ROP) kiritadi — PM tekshiradi va kerak bo'lsa tuzatadi
     const byStaff = (daily.staff || []).some((x) => x.role === (sales ? 'rop' : 'target'));
-    return `<section class="card step ${byStaff ? 'ro-mode' : ''}" ${byStaff ? `data-ro="${sales ? 'rop' : 'target'}"` : ''}>
+    return `<section class="card step ${byStaff || viewer ? 'ro-mode' : ''}" ${byStaff ? `data-ro="${sales ? 'rop' : 'target'}"` : ''}>
       <div class="step-top">
-        <div class="step-head"><span class="eyebrow">${i + 1}-qadam</span><h2>${byStaff ? STAFF_HEAD[s.key][0] : s.head}</h2><p>${byStaff ? STAFF_HEAD[s.key][1] : s.hint}</p></div>
-        ${staffBox(daily.staff, i === 0 ? 'target' : 'rop', daily.projects, daily.approvals?.[i === 0 ? 'target' : 'rop']) || `<div class="ask"><b>So'raladigan savollar</b><ol>${askList(s, daily.projects).map((q) => `<li>${esc(q)}</li>`).join('')}</ol>
-          <button class="btn small" data-copy-ask>${ICONS.copy} Nusxalash — Telegramda yuborish uchun</button></div>`}
+        <div class="step-head"><span class="eyebrow">${i + 1}-qadam</span><h2>${viewer ? (sales ? 'ROP hisoboti' : 'Targetolog hisoboti') : byStaff ? STAFF_HEAD[s.key][0] : s.head}</h2><p>${viewer ? `${sales ? 'ROP' : 'Targetolog'} kiritgan raqamlar — faqat ko'rish uchun. O'z raqamlaringizni chap menyudagi «${state.me.user.role === 'target' ? 'Target kiritish' : 'Sotuv kiritish'}» bo'limida kiritasiz.` : byStaff ? STAFF_HEAD[s.key][1] : s.hint}</p></div>
+        ${staffBox(daily.staff, i === 0 ? 'target' : 'rop', daily.projects, daily.approvals?.[i === 0 ? 'target' : 'rop'], !viewer) || (viewer ? '' : `<div class="ask"><b>So'raladigan savollar</b><ol>${askList(s, daily.projects).map((q) => `<li>${esc(q)}</li>`).join('')}</ol>
+          <button class="btn small" data-copy-ask>${ICONS.copy} Nusxalash — Telegramda yuborish uchun</button></div>`)}
       </div>
       ${i === 0 ? rateBlock() : ''}
       ${leadsP.length ? `${sales && autoP.length ? "<h3 class=\"tbl-title\">Sotuv bo'limi orqali</h3>" : ''}${numTable(leadsP, sales ? s.fields.filter(([f]) => !LEAD_ST.includes(f)) : s.fields, s.required, sales ? 'cpl' : null)}` : ''}
@@ -193,9 +198,14 @@ export async function renderToday({ rolled = null } = {}) {
       </details>` : ''}
       ${sales && leadsP.length ? reasonsBlock(leadsP) : ''}
       ${sales && !byStaff ? channelsEntry(daily.projects) : ''}
-      ${byStaff ? approveFoot(sales ? 'rop' : 'target') : `<div class="step-foot"><span class="muted small">${sales ? "Jami lid bo'sh qolsa — uch turi qo'shiladi." : 'Kulrang raqam — kechagi qiymat. Enter — keyingi qator.'}</span><span class="spacer"></span>
+      ${viewer ? viewFoot() : byStaff ? approveFoot(sales ? 'rop' : 'target') : `<div class="step-foot"><span class="muted small">${sales ? "Jami lid bo'sh qolsa — uch turi qo'shiladi." : 'Kulrang raqam — kechagi qiymat. Enter — keyingi qator.'}</span><span class="spacer"></span>
         <button class="btn ghost" data-skip>O'tkazib yuborish</button><button class="btn primary" data-save>Saqlash va davom etish →</button></div>`}
     </section>`;
+  }
+
+  // Targetolog / ROP uchun: faqat keyingi qadamga o'tish
+  function viewFoot(back = false) {
+    return `<div class="step-foot">${back ? '<button class="btn ghost" data-back>← Orqaga</button>' : ''}<span class="muted small">Faqat ko'rish uchun — tasdiqlash va direktorga yuborish PM da.</span><span class="spacer"></span>${back ? '' : '<button class="btn primary" data-next>Keyingi →</button>'}</div>`;
   }
 
   // Xodim kiritgan qism: PM faqat tasdiqlaydi (yoki tasdiqni bekor qiladi) va keyingi qadamga o'tadi
@@ -269,9 +279,9 @@ export async function renderToday({ rolled = null } = {}) {
     const ai = bundle.ai && !bundle.ai.stale ? bundle.ai : null;
     const fresh = state.aiFill === date;
     state.aiFill = null;
-    return `<section class="card step">
-      <div class="step-head"><span class="eyebrow">3-qadam</span><h2>${STEPS[2].head}</h2><p>${STEPS[2].hint}</p></div>
-      ${aiBar()}
+    return `<section class="card step ${viewer ? 'ro-mode' : ''}">
+      <div class="step-head"><span class="eyebrow">3-qadam</span><h2>${viewer ? 'Tahlil va takliflar' : STEPS[2].head}</h2><p>${viewer ? "PM va tizim har loyiha bo'yicha yozgan tahlil va takliflar." : STEPS[2].hint}</p></div>
+      ${viewer ? '' : aiBar()}
       <div class="checks">${bundle.day.byProject.map((p) => {
         const adv = bundle.advice?.[p.id] || { status: 'nodata', problems: [], proposals: [] };
         const auto = adv.status || 'nodata';
@@ -308,7 +318,7 @@ export async function renderToday({ rolled = null } = {}) {
           </details>
         </article>`;
       }).join('')}</div>
-      <div class="step-foot"><span class="spacer"></span><button class="btn primary" data-save>Saqlash va davom etish →</button></div>
+      ${viewer ? viewFoot() : '<div class="step-foot"><span class="spacer"></span><button class="btn primary" data-save>Saqlash va davom etish →</button></div>'}
     </section>`;
   }
 
@@ -337,6 +347,14 @@ export async function renderToday({ rolled = null } = {}) {
     const sum = report?.summary || ai?.xulosa || '';
     const tom = report?.tomorrow || ai?.ertaga || '';
     const aiTag = (fromAi) => (fromAi ? '<span class="ai-tag">🤖 AI yozdi — tekshiring</span>' : '');
+    if (viewer) {
+      return `<section class="card step ro-mode">
+      <div class="step-head"><span class="eyebrow">4-qadam</span><h2>Direktorga boradigan xabar</h2><p>${report?.submitted_at ? `PM ${esc(String(report.submitted_at).slice(0, 16))} da yubordi.` : 'PM hali yubormagan — tayyorlanyapti.'}</p></div>
+      ${report?.director_comment ? `<div class="reply-banner"><span class="eyebrow">Direktor yechimi</span><p>${esc(report.director_comment).replace(/\n/g, '<br>')}</p></div>` : ''}
+      <pre class="tg" id="preview">Yuklanmoqda…</pre>
+      ${viewFoot(true)}
+    </section>`;
+    }
     return `<section class="card step">
       <div class="step-head"><span class="eyebrow">4-qadam</span><h2>${STEPS[3].head}</h2><p>${STEPS[3].hint}</p></div>
       <div class="grid g2">
@@ -366,9 +384,10 @@ export async function renderToday({ rolled = null } = {}) {
       <p class="muted">${String(report.submitted_at || '').slice(11, 16)} da yuborildi${report.status === 'reviewed' ? ' · direktor javob berdi' : ' · direktor javobini kutyapmiz'} · kurs ${fmtN(bundle.rate?.used)}</p>
       ${report.director_comment ? `<div class="reply-banner" style="text-align:left"><span class="eyebrow">Direktor yechimi</span><p>${esc(report.director_comment).replace(/\n/g, '<br>')}</p></div>` : ''}
       <div class="nums big-nums"><span><b>${fmtUsd(t.spend, 0)}</b>xarajat</span><span><b>${fmtSom(t.net_profit)}</b>sof foyda</span>${tl.length ? `<span><b>${fmtN(tl.reduce((a, p) => a + (p.target_leads || 0), 0))} / ${fmtN(t.leads)}</b>lid: target / sotuv bo'limi</span>` : `<span><b>${fmtN(t.leads)}</b>lid</span>`}<span><b>${fmtN(t.sales)}</b>sotuv</span><span><b>${fmtUzs(t.revenue)}</b>tushum</span></div>
-      <div class="row" style="justify-content:center"><button class="btn" data-step-go="send">Xabarni ko'rish</button><button class="btn ghost" data-step-go="target">Raqamlarni tuzatish</button><button class="btn primary" data-step-go="send">${ICONS.send} Qayta yuborish</button></div>
+      ${viewer ? `<div class="row" style="justify-content:center"><button class="btn" data-step-go="send">Xabarni ko'rish</button><button class="btn ghost" data-step-go="target">Raqamlarni ko'rish</button></div>`
+        : `<div class="row" style="justify-content:center"><button class="btn" data-step-go="send">Xabarni ko'rish</button><button class="btn ghost" data-step-go="target">Raqamlarni tuzatish</button><button class="btn primary" data-step-go="send">${ICONS.send} Qayta yuborish</button></div>
       <p class="small muted">Raqamlarni tuzatib, hisobotni istalgan payt qayta yuborishingiz mumkin — eski kunlarniki ham («Hisobotlar» bo'limidan oching).</p>
-      <p class="small muted">Ertaga shu yerda bugungi kun hisobotini tayyorlaysiz.</p>
+      <p class="small muted">Ertaga shu yerda bugungi kun hisobotini tayyorlaysiz.</p>`}
     </section>`;
   }
 
@@ -432,7 +451,7 @@ export async function renderToday({ rolled = null } = {}) {
         aiBtn.innerHTML = label;
       }
     };
-    box.querySelector('.checks')?.addEventListener('click', (e) => {
+    if (!viewer) box.querySelector('.checks')?.addEventListener('click', (e) => {
       const b = e.target.closest('[data-st]');
       if (!b) return;
       const card = b.closest('.check');
@@ -499,6 +518,7 @@ export async function renderToday({ rolled = null } = {}) {
     };
     if (step === 'send') {
       const refresh = () => api(`/api/report/preview?date=${date}`).then((r) => { const el = $('#preview'); if (el) el.innerHTML = r.text; }).catch(() => {});
+      if (viewer) { refresh(); return; }
       // Xulosa yozilgach ko'rinish yangilansin
       persistSend = async () => {
         await api('/api/report', { method: 'PUT', body: { date, ...collectDraft() } });
@@ -527,6 +547,7 @@ export async function renderToday({ rolled = null } = {}) {
 
   // Joriy qadamda kiritilgan, lekin hali saqlanmagan narsa bormi
   function isDirty() {
+    if (viewer) return false;
     return box.isConnected && ($$('input, textarea', box).some((el) => el.value !== el.defaultValue) || stChanged);
   }
   function markClean() {

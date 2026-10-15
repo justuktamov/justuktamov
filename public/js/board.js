@@ -1,7 +1,7 @@
 // Bosh sahifa — doska: har bir loyiha alohida ustun (CRM dagi kabi). Ustun bosilsa — loyihaning to'liq sahifasi.
 import {
   $, esc, api, state, shell, filtersHtml, bindFilters, computePeriod, fmtN, fmtUsd, fmtUzs, fmtSom, fmtP,
-  spinnerBlock, downloadCsv, toast, ICONS, isStale, monthLabel,
+  spinnerBlock, downloadCsv, toast, ICONS, isStale, monthLabel, isStaffUser,
 } from './core.js';
 import { signed, statusOf, M_IC } from './blocks.js';
 
@@ -177,7 +177,8 @@ async function setActive(id, active, name = '') {
 // Tepadagi «Arxiv» papkasi: arxivdagi loyihalar ro'yxati, har birini qaytarish
 function archFolder() {
   const slot = $('#archSlot');
-  if (!slot) return;
+  // Arxivlash va qaytarish — PM ishi
+  if (!slot || isStaffUser()) return;
   const list = state.projects.filter((p) => !p.active);
   slot.innerHTML = `<button type="button" class="btn small arch-btn ${list.length ? '' : 'empty'}" aria-expanded="false" title="${list.length ? 'Arxivdagi loyihalar' : "Arxiv bo'sh"}">${FOLDER} Arxiv${list.length ? ` <span class="arch-count">${list.length}</span>` : ''}</button>
     <div class="arch-pop" hidden>${list.length ? list.map((p) => `<div class="arch-item"><span class="col-dot" style="--pc:${esc(p.color || '#4c86ff')}"></span><b>${esc(p.name)}</b>
@@ -263,8 +264,8 @@ function column(p, plan, collapsed = false, picked = false) {
   const q = [['q-good', p.qualified], ['q-mid', p.potential], ['q-bad', p.unqualified]];
   const badTop = p.reasons.bad[0];
   return `<section class="col ${collapsed ? 'collapsed' : ''} ${picked ? 'picked' : ''}" style="--pc:${esc(p.color || '#4c86ff')}" data-open="${p.id}" tabindex="0" role="button" aria-label="${esc(p.name)} — batafsil">
-    <header class="col-head"><button type="button" class="col-pick" data-pick role="checkbox" aria-checked="${picked}" title="Belgilash — tepadagi jami faqat belgilanganlar bo'yicha" aria-label="${esc(p.name)} — tepadagi jamiga qo'shish">${CHECK}</button><button type="button" class="col-grip" data-grip title="Sudrab joyini almashtiring (← → tugmalari ham ishlaydi)" aria-label="${esc(p.name)} — joyini almashtirish">${GRIP}</button><button type="button" class="col-toggle" data-collapse aria-expanded="${!collapsed}" title="${collapsed ? 'Ochish' : "Yig'ish"}" aria-label="${esc(p.name)} — yig'ish yoki ochish">${COLLAPSE_IC}</button>
-      <span class="col-dot"></span><div class="col-name"><h2>${esc(p.name)}</h2><small>${auto ? 'avtovoronka' : "sotuv bo'limi"}</small></div><span class="pill ${cls}">${label}</span><button type="button" class="col-hide" data-hide title="Arxivlash — doskadan yashirish" aria-label="${esc(p.name)} — arxivlash">${EYE_OFF}</button></header>
+    <header class="col-head"><button type="button" class="col-pick" data-pick role="checkbox" aria-checked="${picked}" title="Belgilash — tepadagi jami faqat belgilanganlar bo'yicha" aria-label="${esc(p.name)} — tepadagi jamiga qo'shish">${CHECK}</button>${isStaffUser() ? '' : `<button type="button" class="col-grip" data-grip title="Sudrab joyini almashtiring (← → tugmalari ham ishlaydi)" aria-label="${esc(p.name)} — joyini almashtirish">${GRIP}</button>`}<button type="button" class="col-toggle" data-collapse aria-expanded="${!collapsed}" title="${collapsed ? 'Ochish' : "Yig'ish"}" aria-label="${esc(p.name)} — yig'ish yoki ochish">${COLLAPSE_IC}</button>
+      <span class="col-dot"></span><div class="col-name"><h2>${esc(p.name)}</h2><small>${auto ? 'avtovoronka' : "sotuv bo'limi"}</small></div><span class="pill ${cls}">${label}</span>${isStaffUser() ? '' : `<button type="button" class="col-hide" data-hide title="Arxivlash — doskadan yashirish" aria-label="${esc(p.name)} — arxivlash">${EYE_OFF}</button>`}</header>
     <div class="tile money">
       <div class="m-hero ad" data-exp role="button" tabindex="0" aria-expanded="false" title="Bosing — qayerga qancha ketgani"><span class="m-ic">${M_IC.ad}</span><div><small>Reklama · umumiy</small><b>${fmtUsd(p.spend, 0)}</b><span class="m-sub">${fmtUzs(p.spend_uzs)} so'm</span></div><span class="m-chev">${CHEV}</span>
         <div class="ad-break">${adRows(p)}</div></div>

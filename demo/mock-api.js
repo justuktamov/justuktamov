@@ -10,7 +10,7 @@ import { SELLER_FIELDS, SELLER_KEYS, parseDuration, sellerStats } from '../src/s
 import { ROLES, PARTS, isStaff, userProjects, canSeeProject, canWriteField, missingFor, normalizeProjectIds } from '../src/roles.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v27';
+const SAVE_KEY = 'analitika-demo-v28';
 let me = null;
 
 function seed() {
@@ -121,7 +121,7 @@ function checkColor(v) {
 const DEMO_AI = { enabled: false, provider: null, label: null, model: null, reason: "Demoda AI tahlil yo'q — haqiqiy serverda OpenRouter kaliti bilan ishlaydi" };
 const needUser = () => { if (!me) throw new HttpError(401, 'Tizimga kiring'); return me; };
 // Targetolog va ROP chaqira oladigan yo'llar (qolganlari — faqat PM), serverdagi STAFF bilan bir xil
-const STAFF_ROUTES = new Set(['GET /api/sellers', 'POST /api/sellers', 'PUT /api/sellers/:id', 'GET /api/sellers/daily', 'PUT /api/sellers/daily', 'GET /api/sellers/stats', 'POST /api/login', 'POST /api/logout', 'GET /api/me', 'PUT /api/me', 'PUT /api/me/password', 'GET /api/projects', 'GET /api/daily', 'PUT /api/daily', 'PUT /api/rate', 'GET /api/history', 'POST /api/part/submit']);
+const STAFF_ROUTES = new Set(['GET /api/summary', 'GET /api/monthly', 'GET /api/export.csv', 'GET /api/plans', 'GET /api/report', 'GET /api/report/preview', 'GET /api/reports','GET /api/sellers', 'POST /api/sellers', 'PUT /api/sellers/:id', 'GET /api/sellers/daily', 'PUT /api/sellers/daily', 'GET /api/sellers/stats', 'POST /api/login', 'POST /api/logout', 'GET /api/me', 'PUT /api/me', 'PUT /api/me/password', 'GET /api/projects', 'GET /api/daily', 'PUT /api/daily', 'PUT /api/rate', 'GET /api/history', 'POST /api/part/submit']);
 const sentAt = (date, uid) => (store.staffReports || []).find((r) => r.date === date && r.user_id === uid)?.submitted_at || null;
 const returnOf = (date, uid) => (sentAt(date, uid) ? null : (store.staffReturns || []).find((r) => r.date === date && r.user_id === uid) || null);
 const approvalsOf = (date) => Object.fromEntries((store.approvals || []).filter((a) => a.date === date).map((a) => [a.part, { approved_at: a.approved_at, by: store.users.find((u) => u.id === a.user_id)?.name || null }]));
@@ -195,7 +195,7 @@ const routes = {
     u.password = b.new;
     return { ok: true };
   },
-  'GET /api/projects': () => { needUser(); return [...store.projects].filter((p) => canSeeProject(me, p.id)).sort((a, b) => b.active - a.active || (a.sort_order ?? a.id) - (b.sort_order ?? b.id) || a.id - b.id).map(projectOut); },
+  'GET /api/projects': () => { needUser(); return [...store.projects].sort((a, b) => b.active - a.active || (a.sort_order ?? a.id) - (b.sort_order ?? b.id) || a.id - b.id).map(projectOut); },
   'PUT /api/projects/order': (b) => {
     needUser();
     const ids = (b.ids || []).map(Number);
@@ -223,9 +223,7 @@ const routes = {
   'GET /api/daily': (_b, _p, q) => {
     needUser();
     const date = isDate(q.get('date')) ? q.get('date') : TODAY;
-    const all = loadRows(date, date, null, { activeOnly: true });
-    const projects = all.projects.filter((p) => canSeeProject(me, p.id));
-    const { rows } = all;
+    const { projects, rows } = loadRows(date, date, null, { activeOnly: true });
     const { rows: prevRows } = loadRows(addDays(date, -1), addDays(date, -1), null, { activeOnly: true });
     const reasons = loadReasons(date, date);
     const ch = loadChannels(date, date);
@@ -233,8 +231,9 @@ const routes = {
     return {
       date,
       mine: isStaff(me) ? { part: me.role, submitted_at: sentAt(date, me.id), returned: returnOf(date, me.id) } : null,
-      staff: isStaff(me) ? null : staffList(date),
-      approvals: isStaff(me) ? null : approvalsOf(date),
+      editable: isStaff(me) ? projects.filter((p) => canSeeProject(me, p.id)).map((p) => p.id) : null,
+      staff: staffList(date),
+      approvals: approvalsOf(date),
       rate: { value: rateOf.entered(date), prev: rateOf(addDays(date, -1)) },
       projects: projects.map((p) => ({
         id: p.id, name: p.name, color: p.color, kind: p.kind || 'leads',
@@ -366,7 +365,7 @@ const routes = {
     });
   },
   'GET /api/reports': () => { needUser(); return listReports(90); },
-  'GET /api/history': (_b, _p, q) => { needUser(); return (store.log || []).filter((r) => r.date === q.get('date') && (r.project_id == null || canSeeProject(me, r.project_id))).reverse(); },
+  'GET /api/history': (_b, _p, q) => { needUser(); return (store.log || []).filter((r) => r.date === q.get('date') && true).reverse(); },
   'POST /api/part/submit': (b) => {
     needUser();
     if (!isStaff(me)) throw new HttpError(403, 'Bu tugma targetolog va ROP uchun');
@@ -409,7 +408,7 @@ const routes = {
     const u = store.users.find((x) => x.id === Number(b.user_id));
     throw new HttpError(503, `Demoda Telegram yo'q — haqiqiy serverda ${u?.name || 'xodim'} ga eslatma boradi`);
   },
-  'GET /api/sellers': () => { sellerUser(); return [...store.sellers].sort((a, b) => b.active - a.active || a.id - b.id).map(sellerOut); },
+  'GET /api/sellers': () => { needUser(); return [...store.sellers].sort((a, b) => b.active - a.active || a.id - b.id).map(sellerOut); },
   'POST /api/sellers': (b) => {
     sellerUser();
     const f = sellerFields(b);
@@ -464,9 +463,9 @@ const routes = {
     return sellerOut(x);
   },
   'GET /api/sellers/stats': (_b, _p, q) => {
-    sellerUser();
+    needUser();
     const { from, to } = period(q);
-    return { from, to, projects: sellerStats(store.sellerDaily.filter((r) => r.date >= from && r.date <= to), store.sellers, sellerProjects()) };
+    return { from, to, projects: sellerStats(store.sellerDaily.filter((r) => r.date >= from && r.date <= to), store.sellers, sellerProjects(true)) };
   },
   'GET /api/users': () => { needUser(); return [...store.users].sort((a, b) => b.active - a.active || a.role.localeCompare(b.role)).map(userOut); },
   'POST /api/users': (b) => {
@@ -501,7 +500,7 @@ const routes = {
 
 // Sotuv xodimlari — serverdagi bilan bir xil
 const sellerUser = () => { needUser(); if (isStaff(me) && me.role !== 'rop') throw new HttpError(403, "Sotuv xodimlari bo'limi — ROP va PM uchun"); };
-const sellerProjects = () => store.projects.filter((p) => p.active && p.kind !== 'auto' && canSeeProject(me, p.id)).sort((a, b) => (a.sort_order ?? a.id) - (b.sort_order ?? b.id)).map((p) => ({ id: p.id, name: p.name, color: p.color }));
+const sellerProjects = (all = false) => store.projects.filter((p) => p.active && p.kind !== 'auto' && (all || canSeeProject(me, p.id))).sort((a, b) => (a.sort_order ?? a.id) - (b.sort_order ?? b.id)).map((p) => ({ id: p.id, name: p.name, color: p.color }));
 const sellerOut = (x) => ({ id: x.id, name: x.name, active: x.active, projects: userProjects(x) });
 function sellerFields(b, cur = {}) {
   const name = b.name === undefined ? cur.name : String(b.name).trim().slice(0, 60);
@@ -571,7 +570,7 @@ window.__demoAs = (role) => {
   if (!u) return;
   store.meId = u.id;
   save();
-  location.hash = role === 'pm' ? '#/' : '#/kiritish';
+  location.hash = '#/';
   location.reload();
 };
 

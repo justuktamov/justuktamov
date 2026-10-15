@@ -539,12 +539,24 @@ function demoMenu() {
 
 // Targetolog va ROP: faqat o'z kiritish sahifasi va profil
 export const isStaffUser = () => ['target', 'rop'].includes(state.me?.user?.role);
+// Xodimning o'z kiritish sahifasi: manzil va menyudagi nomi
+export const PART_ROUTE = { target: ['#/target', 'Target kiritish'], rop: ['#/sotuv', 'Sotuv kiritish'] };
 
 function navItems() {
+  // Hamma bir xil asosiy sahifalarni ko'radi; targetolog va ROP — qo'shimcha o'z kiritish sahifasi (belgi bilan)
   if (isStaffUser()) {
-    const items = [['#/kiritish', 'Kechagi hisobot', ICONS.edit, state.me.partSent ? null : '!']];
-    if (state.me.user.role === 'rop') items.push(['#/sotuvchilar', 'Sotuv xodimlari', ICONS.team]);
-    return { items, bottom: [['#/sozlamalar', 'Profil', ICONS.set]] };
+    const own = PART_ROUTE[state.me.user.role];
+    return {
+      items: [
+        ['#/', 'Loyihalar', ICONS.chart],
+        [own[0], own[1], ICONS.edit, state.me.partSent ? null : '!', 'own'],
+        ['#/kiritish', 'Kechagi hisobot', ICONS.send],
+        ['#/dinamika', 'Dinamika', ICONS.trend],
+        ['#/sotuvchilar', 'Sotuv xodimlari', ICONS.team],
+        ['#/hisobotlar', 'Hisobotlar', ICONS.archive],
+      ],
+      bottom: [['#/sozlamalar', 'Profil', ICONS.set]],
+    };
   }
   const sent = ['submitted', 'reviewed'].includes(state.me.reportStatus);
   const items = [
@@ -571,7 +583,7 @@ export function shell(content) {
   const route = location.hash.split('?')[0] || '#/';
   const { items, bottom } = navItems();
   const active = (href) => route === href || (href !== '#/' && route.startsWith(href)) || (href === '#/' && route.startsWith('#/loyiha/'));
-  const link = ([href, label, icon, badge]) => `<a href="${href}" class="${active(href) ? 'active' : ''}" title="${label}"><span class="ic">${icon}</span><span>${label}</span>${badge ? `<span class="badge">${badge}</span>` : ''}</a>`;
+  const link = ([href, label, icon, badge, cls = '']) => `<a href="${href}" class="${active(href) ? 'active' : ''} ${cls}" title="${label}"><span class="ic">${icon}</span><span>${label}</span>${badge ? `<span class="badge">${badge}</span>` : ''}</a>`;
   const u = state.me.user;
   const mobileItems = [...items, ...bottom];
   app().innerHTML = `

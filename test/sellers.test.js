@@ -72,7 +72,9 @@ test('ROP sotuv xodimlarini qo\'shadi, kunlik raqamlarini kiritadi; oylik jadval
   assert.equal(v.total.leads, 60);
   // Targetolog — yo'q
   const t = await session('aziz', 'target123');
-  assert.equal((await t('/api/sellers')).status, 403);
+  assert.equal((await t('/api/sellers')).status, 200, 'ko\'rish — hamma');
+  assert.equal((await t(`/api/sellers/daily?date=${D}`)).status, 403, 'kiritish — ROP va PM');
+  assert.equal((await t('/api/sellers', { method: 'POST', body: { name: 'X' } })).status, 403);
   // Xodimni arxivlash — kunlik ro'yxatda yo'q, hisobotda bor
   await rop.json(`/api/sellers/${zebo.id}`, { method: 'PUT', body: { active: false } });
   assert.ok(!(await rop.json(`/api/sellers/daily?date=${D}`)).sellers.some((s) => s.id === zebo.id));

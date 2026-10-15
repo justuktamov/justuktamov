@@ -92,7 +92,8 @@ function num(v) {
 }
 
 const routes = [];
-// staff: true — targetolog va ROP ham chaqira oladi (qolganlari faqat PM uchun)
+// staff: true — targetolog va ROP ham chaqira oladi: hamma ko'radigan sahifalar (doska, dinamika, hisobotlar) va o'z kiritishi.
+// Qolganlari (tasdiqlash, direktorga yuborish, sozlamalar, xodimlar) — faqat PM
 const route = (method, path, fn, { staff = false } = {}) => routes.push({ method, re: new RegExp(`^${path.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), fn, staff });
 const STAFF = { staff: true };
 
@@ -191,8 +192,8 @@ function checkName(name, exceptId = null) {
 route('GET', '/api/projects', async (req, res) => {
   requireUser(req);
   // channels — JSON ro'yxat; lag_hint — ma'lumotdan taxmin qilingan lid → sotuv kechikishi (kun)
-  const u = req.user;
-  send(res, 200, getDb().prepare('SELECT * FROM projects ORDER BY active DESC, COALESCE(sort_order, id), id').all().filter((p) => canSeeProject(u, p.id)).map(projectOut));
+  // Hamma loyihalar hammaga ko'rinadi (tahlil uchun); kiritish — faqat biriktirilganlariga (/api/daily → editable)
+  send(res, 200, getDb().prepare('SELECT * FROM projects ORDER BY active DESC, COALESCE(sort_order, id), id').all().map(projectOut));
 }, STAFF);
 const projectOut = (p) => {
   let channels = [];
@@ -246,10 +247,8 @@ route('GET', '/api/daily', async (req, res, _p, q) => {
   const user = requireUser(req);
   const date = isDate(q.get('date')) ? q.get('date') : today();
   // Kiritish — faqat faol loyihalar (arxivdagisining eski raqamlari hisobda qoladi, lekin bu yerda tahrirlanmaydi).
-  // Xodim — faqat o'ziga biriktirilgan loyihalar
-  const all = loadRows(date, date, null, { activeOnly: true });
-  const projects = all.projects.filter((p) => canSeeProject(user, p.id));
-  const { rows } = all;
+  // Hamma loyihalar ko'rinadi; xodim faqat o'ziga biriktirilganlarini kirita oladi (editable)
+  const { projects, rows } = loadRows(date, date, null, { activeOnly: true });
   const { rows: prevRows } = loadRows(addDays(date, -1), addDays(date, -1), null, { activeOnly: true });
   const reasons = loadReasons(date, date);
   const ch = loadChannels(date, date);
@@ -258,8 +257,9 @@ route('GET', '/api/daily', async (req, res, _p, q) => {
     date,
     // Xodim: o'z qismini yuborgan vaqti; PM: barcha xodimlar holati
     mine: isStaff(user) ? { part: user.role, submitted_at: getDb().prepare('SELECT submitted_at FROM staff_reports WHERE date = ? AND user_id = ?').get(date, user.id)?.submitted_at || null, returned: myReturn(date, user.id) } : null,
-    staff: isStaff(user) ? null : staffList(date),
-    approvals: isStaff(user) ? null : approvals(date),
+    editable: isStaff(user) ? projects.filter((p) => canSeeProject(user, p.id)).map((p) => p.id) : null,
+    staff: staffList(date),
+    approvals: approvals(date),
     // value — shu kun uchun kiritilgan kurs (yo'q bo'lsa null), prev — kiritilmasa hisobda ishlatiladigan kurs (oldingi kunniki)
     rate: { value: rateOf.entered(date), prev: rateOf(addDays(date, -1)) },
     projects: projects.map((p) => ({
@@ -449,21 +449,22 @@ route('POST', '/api/part/remind', async (req, res) => {
   if (!s.telegram_id) throw new HttpError(400, `${s.name} Telegram ID sini kiritmagan — eslatma yuborib bo'lmaydi`);
   if (!telegramStatus().enabled) throw new HttpError(503, 'Telegram bot ulanmagan');
   const date = isDate(b.date) ? b.date : addDays(today(), -1);
-  for (const c of splitIds(s.telegram_id)) await sendMessage(c, `⏰ ${date} uchun ${PARTS[s.role].title.toLowerCase()} kutilmoqda. Ilovada «Kechagi hisobot» bo'limini oching, raqamlarni kiriting va «Yuborish» ni bosing.`).catch((e) => { throw new HttpError(502, e.message); });
+  for (const c of splitIds(s.telegram_id)) await sendMessage(c, `⏰ ${date} uchun ${PARTS[s.role].title.toLowerCase()} kutilmoqda. Ilovada «${s.role === 'target' ? 'Target kiritish' : 'Sotuv kiritish'}» bo'limini oching, raqamlarni kiriting va «Yuborish» ni bosing.`).catch((e) => { throw new HttpError(502, e.message); });
   send(res, 200, { ok: true });
 });
 
 // ---- Sotuv xodimlari (operatorlar): ROP kiritadi, PM ham ko'radi ----
+// Kiritish va xodimlarni o'zgartirish — ROP va PM; ko'rish (ro'yxat, hisobot) — hamma
 function sellerUser(req) {
   const u = requireUser(req);
-  if (isStaff(u) && u.role !== 'rop') throw new HttpError(403, "Sotuv xodimlari bo'limi — ROP va PM uchun");
+  if (isStaff(u) && u.role !== 'rop') throw new HttpError(403, "Sotuv xodimlari raqamlarini ROP kiritadi");
   return u;
 }
 // Sotuv bo'limi orqali ishlaydigan faol loyihalar (avtovoronkasiz), foydalanuvchiga ko'rinadiganlari
 const sellerProjects = (u) => getDb().prepare("SELECT id, name, color FROM projects WHERE active = 1 AND kind != 'auto' ORDER BY COALESCE(sort_order, id), id").all().filter((p) => canSeeProject(u, p.id));
 const sellerOut = (x) => ({ id: x.id, name: x.name, active: x.active, projects: userProjects(x) });
 route('GET', '/api/sellers', async (req, res) => {
-  sellerUser(req);
+  requireUser(req);
   send(res, 200, getDb().prepare('SELECT * FROM sellers ORDER BY active DESC, id').all().map(sellerOut));
 }, STAFF);
 function sellerFields(b, cur = {}) {
@@ -544,9 +545,9 @@ route('PUT', '/api/sellers/:id', async (req, res, { id }) => {
 }, STAFF);
 // Davr bo'yicha: har loyihada har xodim — jami, konversiya (umumiy va sifatli), qo'ng'iroq vaqti
 route('GET', '/api/sellers/stats', async (req, res, _p, q) => {
-  const u = sellerUser(req);
+  requireUser(req);
   const { from, to } = period(q);
-  const projects = sellerProjects(u);
+  const projects = sellerProjects(null);
   const rows = getDb().prepare('SELECT * FROM seller_daily WHERE date BETWEEN ? AND ?').all(from, to);
   send(res, 200, { from, to, projects: sellerStats(rows, getDb().prepare('SELECT * FROM sellers ORDER BY id').all(), projects) });
 }, STAFF);
@@ -599,7 +600,7 @@ route('PUT', '/api/users/:id', async (req, res, { id }) => {
 route('GET', '/api/summary', async (req, res, _p, q) => {
   requireUser(req);
   send(res, 200, summary({ ...period(q), projectId: q.get('project') ? Number(q.get('project')) : null }));
-});
+}, STAFF);
 // Oylar bo'yicha dinamika: oxirgi N oy (joriy oy — kechagacha, ya'ni oxirgi hisobot kunigacha)
 route('GET', '/api/monthly', async (req, res, _p, q) => {
   requireUser(req);
@@ -609,21 +610,21 @@ route('GET', '/api/monthly', async (req, res, _p, q) => {
   const yesterday = addDays(today(), -1);
   const asOf = isDate(q.get('to')) && q.get('to') < yesterday ? q.get('to') : yesterday;
   send(res, 200, monthly({ months, projectId: q.get('project') ? Number(q.get('project')) : null, unit, asOf }));
-});
+}, STAFF);
 route('GET', '/api/export.csv', async (req, res, _p, q) => {
   requireUser(req);
   const { from, to } = period(q);
   const { projects, rows } = loadRows(from, to, q.get('project') ? Number(q.get('project')) : null);
   res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="hisobot_${from}_${to}.csv"` });
   res.end(toCsv(projects, rows));
-});
+}, STAFF);
 
 // ---- Oylik reja ----
 route('GET', '/api/plans', async (req, res, _p, q) => {
   requireUser(req);
   const month = isMonth(q.get('month')) ? q.get('month') : today().slice(0, 7);
   send(res, 200, { month, rows: getDb().prepare('SELECT * FROM plans WHERE month = ?').all(month), prev: prevMonthFacts(month) });
-});
+}, STAFF);
 // O'tgan oy fakti — reja kiritishda mo'ljal uchun
 function prevMonthFacts(month) {
   const prev = addDays(`${month}-01`, -1).slice(0, 7);
@@ -655,7 +656,7 @@ route('PUT', '/api/plans', async (req, res) => {
 route('GET', '/api/report', async (req, res, _p, q) => {
   requireUser(req);
   send(res, 200, { ...reportBundle(isDate(q.get('date')) ? q.get('date') : today()), aiStatus: aiStatus() });
-});
+}, STAFF);
 // AI tahlil (3-qadam): natija saqlanadi va PM ga ko'rsatiladi; PM o'qib, tuzatib, o'zi saqlaydi.
 // Bir kun uchun bir vaqtda bitta so'rov (har chaqiruv pullik)
 const aiBusy = new Set();
@@ -722,7 +723,7 @@ route('POST', '/api/report/submit', async (req, res) => {
 route('GET', '/api/report/preview', async (req, res, _p, q) => {
   requireUser(req);
   send(res, 200, { text: reportText(isDate(q.get('date')) ? q.get('date') : today()) });
-});
+}, STAFF);
 // Shu kun bo'yicha barcha kiritishlar tarixi (eng yangisi birinchi)
 const HISTORY_LABEL = { usd_rate: 'Dollar kursi', summary: 'Kun xulosasi', tomorrow: 'Ertaga', status: 'Holat', comment: 'Direktorga taklif', submit: 'Hisobot' };
 route('GET', '/api/history', async (req, res, _p, q) => {
@@ -739,14 +740,14 @@ route('GET', '/api/history', async (req, res, _p, q) => {
     if (r.kind === 'seller') { const [sId, f] = r.field.split('.'); return `${sellers.get(Number(sId)) || 'Xodim'}: ${SELLER_FIELDS[f] || f}`; }
     return HISTORY_LABEL[r.field] || r.field;
   };
-  send(res, 200, db.prepare('SELECT * FROM entry_log WHERE date = ? ORDER BY id DESC LIMIT 500').all(q.get('date')).filter((r) => r.project_id == null || canSeeProject(req.user, r.project_id)).map((r) => ({
+  send(res, 200, db.prepare('SELECT * FROM entry_log WHERE date = ? ORDER BY id DESC LIMIT 500').all(q.get('date')).map((r) => ({
     at: r.at, user: users.get(r.user_id) || null, project: projects.get(r.project_id) || null, kind: r.kind, field: r.field, label: label(r), old: r.old_value, new: r.new_value,
   })));
 }, STAFF);
 route('GET', '/api/reports', async (req, res, _p, q) => {
   requireUser(req);
   send(res, 200, listReports(Math.min(Number(q.get('limit')) || 30, 120)));
-});
+}, STAFF);
 
 // ---- Sozlamalar ----
 // Dollar kursi bu yerda yo'q: har kun uchun hisobotda kiritiladi (PUT /api/rate).
@@ -917,7 +918,7 @@ function startScheduler() {
       ['last_staff_reminder', getSetting('staff_reminder_time', '10:00'), async () => {
         for (const s of staffList(d).filter((x) => !x.submitted_at)) {
           const tg = getDb().prepare('SELECT telegram_id FROM users WHERE id = ?').get(s.id)?.telegram_id;
-          for (const id of splitIds(tg)) await sendMessage(id, `⏰ Kechagi (${d}) ${PARTS[s.role].title.toLowerCase()} hali yuborilmagan. Ilovada «Kechagi hisobot» ni oching, raqamlarni kiriting va «Yuborish» ni bosing.`).catch((e) => console.error('Telegram:', e.message));
+          for (const id of splitIds(tg)) await sendMessage(id, `⏰ Kechagi (${d}) ${PARTS[s.role].title.toLowerCase()} hali yuborilmagan. Ilovada «${s.role === 'target' ? 'Target kiritish' : 'Sotuv kiritish'}» bo'limini oching, raqamlarni kiriting va «Yuborish» ni bosing.`).catch((e) => console.error('Telegram:', e.message));
         }
       }],
       // Oylik reja: loyiha rejadan jiddiy orqada qolsa — bir marta xabar (har ko'rsatkich uchun oyiga bir marta)

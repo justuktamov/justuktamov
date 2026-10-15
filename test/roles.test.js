@@ -60,12 +60,19 @@ test('targetolog: faqat o\'z loyihalari, faqat target maydonlari, PM bo\'limlari
   const me = await t.json('/api/me');
   assert.equal(me.user.role, 'target');
   const daily = await t.json(`/api/daily?date=${D}`);
-  assert.deepEqual(daily.projects.map((p) => p.name).sort(), ['STARPAY', 'VIZART']);
+  // Hamma loyihalar ko'rinadi (tahlil uchun), kiritish — faqat biriktirilganlariga
+  assert.equal(daily.projects.length, 3);
+  assert.deepEqual(daily.editable.sort(), [ids.vizart, ids.starpay].sort());
   assert.equal(daily.mine.submitted_at, null);
-  assert.equal(daily.staff, null, 'xodim boshqalar holatini ko\'rmaydi');
+  assert.ok(Array.isArray(daily.staff), 'umumiy hisobot sahifasi hammaga bir xil');
   // PM bo'limlari
-  for (const path of ['/api/summary', `/api/report?date=${D}`, '/api/users', '/api/settings', '/api/monthly']) {
-    assert.equal((await t(path)).status, 403, path);
+  // Ko'rish sahifalari — hammaga; boshqaruv (xodimlar, sozlamalar, tasdiqlash, direktorga yuborish) — faqat PM
+  for (const path of ['/api/summary', `/api/report?date=${D}`, '/api/monthly', '/api/reports', `/api/sellers/stats?from=${D}&to=${D}`]) {
+    assert.equal((await t(path)).status, 200, path);
+  }
+  for (const path of ['/api/users', '/api/settings']) assert.equal((await t(path)).status, 403, path);
+  for (const [path, body] of [['/api/report/submit', { date: D }], ['/api/report', { date: D }], ['/api/part/approve', { date: D, part: 'target' }], ['/api/projects/order', { ids: [1] }]]) {
+    assert.equal((await t(path, { method: path === '/api/report' || path === '/api/projects/order' ? 'PUT' : 'POST', body })).status, 403, path);
   }
   // Sotuv maydoni — yo'q
   let r = await t('/api/daily', { method: 'PUT', body: { project_id: ids.vizart, date: D, values: { revenue: 100 } } });
@@ -95,7 +102,7 @@ test('targetolog: faqat o\'z loyihalari, faqat target maydonlari, PM bo\'limlari
 test('ROP: sotuv maydonlari va sabablar; target maydoni va kurs — yo\'q', async () => {
   const rop = await session('malika', 'rop12345');
   const daily = await rop.json(`/api/daily?date=${D}`);
-  assert.equal(daily.projects.length, 3, 'biriktirilmagan — hamma loyihalar');
+  assert.equal(daily.editable.length, 3, 'biriktirilmagan — hamma loyihalarga kiritadi');
   let r = await rop('/api/daily', { method: 'PUT', body: { project_id: ids.vizart, date: D, values: { spend: 5 } } });
   assert.equal(r.status, 403);
   r = await rop('/api/rate', { method: 'PUT', body: { date: D, usd_rate: '12000' } });
