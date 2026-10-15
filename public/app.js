@@ -51,6 +51,10 @@ window.addEventListener('hashchange', () => { router(); window.scrollTo(0, 0); }
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible' && await syncDay(60e3)) router();
 });
+// Ochiq turgan sahifa ham har 5 daqiqada tekshiradi: kun almashdimi, yangi versiya chiqdimi (chiqsa — o'zi yangilanadi)
+setInterval(async () => {
+  if (document.visibilityState === 'visible' && await syncDay(4 * 60e3)) router();
+}, 5 * 60e3);
 // Sahifa yopilsa yoki yangilansa — saqlanmagan raqamlar bo'lsa brauzer ogohlantiradi
 window.addEventListener('beforeunload', (e) => {
   if (state.isDirty?.()) { e.preventDefault(); e.returnValue = ''; }

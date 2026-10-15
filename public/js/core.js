@@ -702,6 +702,7 @@ export async function boot() {
   if (!me) return renderLogin();
   state.me = me;
   state.meAt = Date.now();
+  state.version = me.version;
   state.projects = await api('/api/projects');
   // Hash o'zgarsa — hashchange o'zi chizadi; ikki marta chizilmasin
   if (!location.hash || location.hash === '#') location.hash = '#/';
@@ -716,6 +717,24 @@ async function fetchMe() {
 export async function refreshMe() {
   state.me = await api('/api/me');
   state.meAt = Date.now();
+  checkVersion(state.me.version);
+}
+
+// Yangi versiya chiqdi (deploy): saqlanmagan narsa bo'lmasa — sahifa o'zi yangilanadi; bo'lsa — tugmali eslatma
+function checkVersion(v) {
+  if (!v || window.DEMO) return;
+  state.version ||= v;
+  if (v === state.version || state.versionNotice) return;
+  if (!state.isDirty?.()) { location.reload(); return; }
+  state.versionNotice = true;
+  const bar = document.createElement('div');
+  bar.className = 'update-bar';
+  bar.innerHTML = 'Ilovaning yangi versiyasi chiqdi. <button type="button" class="btn small primary">Saqlab, yangilash</button>';
+  bar.querySelector('button').onclick = async () => {
+    if (state.leaveGuard && !(await state.leaveGuard())) return;
+    location.reload();
+  };
+  document.body.append(bar);
 }
 
 // Ilova uzoq ochiq tursa (telefonda — kunlab) «bugun» va «kecha» eskiradi: 5 daqiqadan eski bo'lsa qayta olinadi.

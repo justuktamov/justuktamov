@@ -1,6 +1,8 @@
 // HTTP server: API + statik fayllar + rejalashtiruvchi (eslatma, avto-hisobot)
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { readFileSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { basename, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getDb, getSetting, setSetting, today, nowLocal, logEntry, splitIds, normalizeIds, projectReasons, normalizeReasonKeys, DIZIPRO_REASONS, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from './db.js';
@@ -20,6 +22,21 @@ const PORT = Number(process.env.PORT || 3000);
 
 const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json' };
 const STATIC = { '/vendor/chart.js': join(ROOT, 'node_modules/chart.js/dist/chart.umd.min.js') };
+
+// Ilova versiyasi — public/ fayllaridan hisoblanadi. Brauzer /api/me dagi versiya o'zgarganini ko'rsa, sahifani o'zi yangilaydi
+// (yangi deploydan keyin Ctrl+Shift+R kerak bo'lmaydi)
+function appVersion(dir = PUBLIC) {
+  const h = createHash('sha1');
+  const walk = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const f = join(d, e.name);
+      if (e.isDirectory()) walk(f); else if (/\.(js|css|html)$/.test(e.name)) h.update(e.name).update(readFileSync(f));
+    }
+  };
+  try { walk(dir); } catch { return 'dev'; }
+  return h.digest('hex').slice(0, 12);
+}
+const APP_VERSION = appVersion();
 
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -140,6 +157,7 @@ route('GET', '/api/me', async (req, res) => {
     user, today: today(), reportDay: addDays(today(), -1), planFields: PLAN_FIELDS, kinds: PROJECT_KINDS, reasons: REASONS, reasonKinds: REASON_KINDS, channels: CHANNELS, channelFields: CHANNEL_FIELDS,
     reportStatus: getDb().prepare('SELECT status FROM daily_reports WHERE date = ?').get(addDays(today(), -1))?.status || null,
     roles: ROLES,
+    version: APP_VERSION,
     // Xodim: kechagi qismini yuborganmi
     partSent: isStaff(user) ? getDb().prepare('SELECT submitted_at FROM staff_reports WHERE date = ? AND user_id = ?').get(addDays(today(), -1), user.id)?.submitted_at || null : null,
     telegram: { enabled: tg.enabled, bot: tg.bot, reportChat: Boolean(getSetting('report_chat_id')) },

@@ -42,6 +42,12 @@ test('kirish: noto\'g\'ri parol va kirmagan foydalanuvchi rad etiladi', async ()
   assert.equal(r.status, 415);
 });
 
+test('ilova versiyasi /api/me da — brauzer yangi deployni o\'zi aniqlaydi', async () => {
+  const pm = await session();
+  const me = await pm.json('/api/me');
+  assert.match(me.version, /^[0-9a-f]{12}$/);
+});
+
 test('profil: ism, Telegram ID, parol', async () => {
   const pm = await session();
   let r = await pm('/api/me', { method: 'PUT', body: { telegram_id: 'abc' } });
