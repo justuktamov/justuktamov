@@ -1,7 +1,7 @@
 // Targetolog va ROP ning kunlik ishi: o'z qismini kiritadi va «Yuborish» bilan PM ga topshiradi.
 // PM keyin tekshiradi, tahlil yozadi va direktorga umumiy hisobotni yuboradi
 import {
-  $, $$, esc, api, state, shell, fmtN, PART_ROUTE, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, parseNum,
+  $, $$, esc, api, state, shell, fmtN, PART_ROUTE, inVal, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, parseNum,
 } from './core.js';
 import { STEPS, LEAD_ST, dateNav, historyBlock, reasonsHtml } from './pm.js';
 
@@ -178,12 +178,12 @@ export async function renderPart({ rolled = null } = {}) {
     const byProject = {};
     for (const el of box.querySelectorAll('tr[data-id] input[name]')) {
       const p = daily.projects.find((x) => String(x.id) === el.closest('tr').dataset.id);
-      if (el.value.trim() !== String(p.row[el.name] ?? '')) (byProject[p.id] ||= {})[el.name] = el.value.trim();
+      if (inVal(el) !== String(p.row[el.name] ?? '')) (byProject[p.id] ||= {})[el.name] = inVal(el);
     }
     const sumInto = (p, total, parts) => {
       const tr = box.querySelector(`table[data-part] tr[data-id="${p.id}"]`);
       if (!tr || !$(`input[name="${total}"]`, tr)) return;
-      const val = (f) => box.querySelector(`tr[data-id="${p.id}"] input[name="${f}"]`)?.value.trim() || '';
+      const val = (f) => { const el = box.querySelector(`tr[data-id="${p.id}"] input[name="${f}"]`); return el ? inVal(el) : ''; };
       const got = parts.map(val).filter(Boolean);
       if (!val(total) && got.length) (byProject[p.id] ||= {})[total] = String(got.reduce((a, x) => a + (parseNum(x) || 0), 0));
     };
@@ -194,12 +194,12 @@ export async function renderPart({ rolled = null } = {}) {
     const reasonsBy = {};
     for (const el of box.querySelectorAll('[data-rid] input[data-reason]')) {
       const p = daily.projects.find((x) => String(x.id) === el.closest('[data-rid]').dataset.rid);
-      if (el.value.trim() !== String(p.reasons?.[el.dataset.kind]?.[el.dataset.reason] ?? '')) ((reasonsBy[p.id] ||= {})[el.dataset.kind] ||= {})[el.dataset.reason] = el.value.trim();
+      if (inVal(el) !== String(p.reasons?.[el.dataset.kind]?.[el.dataset.reason] ?? '')) ((reasonsBy[p.id] ||= {})[el.dataset.kind] ||= {})[el.dataset.reason] = inVal(el);
     }
     let changed = 0;
     const rateEl = box.querySelector('#dRate');
-    if (rateEl && rateEl.value.trim() !== String(daily.rate?.value ?? '')) {
-      const r = await api('/api/rate', { method: 'PUT', body: { date, usd_rate: rateEl.value.trim() } });
+    if (rateEl && inVal(rateEl) !== String(daily.rate?.value ?? '')) {
+      const r = await api('/api/rate', { method: 'PUT', body: { date, usd_rate: inVal(rateEl) } });
       daily.rate = { ...daily.rate, value: r.usd_rate };
       changed += 1;
     }

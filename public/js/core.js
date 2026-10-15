@@ -13,6 +13,44 @@ export const fmtUzs = (x) => (x == null ? '—' : fmtN(Math.round(x)));
 // So'mdagi summa doim «so'm» bilan, dollar — «$» bilan (adashmaslik uchun)
 export const fmtSom = (x) => (x == null ? '—' : `${fmtUzs(x)} so'm`);
 export const fmtP = (x, d = 1) => (x == null || !Number.isFinite(x) ? '—' : `${fmtN(x * 100, d)}%`);
+// Son kataklari: yozish paytida har 3 raqamdan keyin bo'sh joy (123 020 000). Telegram ID kabi kataklar — data-raw (formatlanmaydi)
+const NUM_SEL = 'input[inputmode="numeric"]:not([data-raw]), input[inputmode="decimal"]:not([data-raw])';
+export const isNumInput = (el) => Boolean(el?.matches?.(NUM_SEL));
+// Katakdagi qiymat saqlash/solishtirish uchun: son kataklarida bo'sh joylarsiz
+export const inVal = (el) => (isNumInput(el) ? el.value.replace(/\s/g, '') : el.value.trim());
+// Butun qismi 3 tadan guruhlanadi; kasr qismi («,5» yoki «.75») va «450.000» kabi yozuv o'zgarmaydi
+export function groupDigits(v) {
+  const s = String(v ?? '').replace(/\s/g, '');
+  const m = s.match(/^(-?)(\d*)(.*)$/);
+  if (!m || m[2].length < 4) return s;
+  return m[1] + m[2].replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + m[3];
+}
+function formatNumInput(el, keepCaret) {
+  const before = el.value;
+  const next = groupDigits(before);
+  if (next === before) return;
+  // Kursor: undan oldingi raqamlar soni saqlanadi
+  const caret = keepCaret ? el.selectionStart : null;
+  const digitsBefore = caret == null ? 0 : before.slice(0, caret).replace(/\s/g, '').length;
+  el.value = next;
+  if (caret != null) {
+    let i = 0, n = 0;
+    while (i < next.length && n < digitsBefore) { if (next[i] !== ' ') n += 1; i += 1; }
+    try { el.setSelectionRange(i, i); } catch { /* ba'zi kataklar tanlashni qo'llamaydi */ }
+  }
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('input', (e) => { if (isNumInput(e.target)) formatNumInput(e.target, true); }, true);
+  // Sahifa chizilganda — mavjud qiymatlar ham formatlanadi (defaultValue bilan: «o'zgardi» deb hisoblanmaydi)
+  const fmtAll = (root) => root.querySelectorAll?.(NUM_SEL).forEach((el) => {
+    const same = el.value === el.defaultValue;
+    formatNumInput(el, false);
+    if (same) el.defaultValue = el.value;
+  });
+  new MutationObserver((list) => { for (const r of list) for (const n of r.addedNodes) if (n.nodeType === 1) { if (isNumInput(n)) fmtAll(n.parentNode); else fmtAll(n); } })
+    .observe(document.documentElement, { childList: true, subtree: true });
+}
+
 // Kiritilgan son — serverdagi parseNum bilan bir xil: «450.000» va «450,000» — 450000 (minglik), «58.58», «12,5» — kasr
 export function parseNum(v) {
   if (v === '' || v == null) return null;

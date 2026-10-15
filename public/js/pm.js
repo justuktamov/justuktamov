@@ -1,6 +1,6 @@
 // Proekt menejerning kunlik ishi — 4 qadam: target raqamlari → sotuv raqamlari → tekshirish → direktorga yuborish
 import {
-  $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtUzs, fmtSom, fmtP, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, shortDate, copyText, dateButton, openCalendar, parseNum, isStaffUser,
+  $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtUzs, fmtSom, fmtP, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, shortDate, copyText, dateButton, openCalendar, parseNum, isStaffUser, inVal,
 } from './core.js';
 
 const STATUS_PILL = { unprofitable: 'crit', sales_issue: 'crit', creative: 'warn', needs_leads: 'info', scale: 'lime', good: 'good', nodata: '' };
@@ -579,11 +579,11 @@ export async function renderToday({ rolled = null } = {}) {
       const byProject = {};
       for (const el of box.querySelectorAll('tr[data-id] input[name]')) {
         const p = daily.projects.find((x) => String(x.id) === el.closest('tr').dataset.id);
-        if (el.value.trim() !== String(p.row[el.name] ?? '')) (byProject[p.id] ||= {})[el.name] = el.value.trim();
+        if (inVal(el) !== String(p.row[el.name] ?? '')) (byProject[p.id] ||= {})[el.name] = inVal(el);
       }
       if (step === 'sales') {
         for (const p of daily.projects.filter((x) => x.kind !== 'auto')) {
-          const val = (f) => box.querySelector(`tr[data-id="${p.id}"] input[name="${f}"]`)?.value.trim() || '';
+          const val = (f) => { const el = box.querySelector(`tr[data-id="${p.id}"] input[name="${f}"]`); return el ? inVal(el) : ''; };
           const parts = ['qualified', 'potential', 'unqualified'].map(val).filter(Boolean);
           if (!val('leads') && parts.length) (byProject[p.id] ||= {}).leads = String(parts.reduce((a, x) => a + (parseNum(x) || 0), 0));
         }
@@ -593,7 +593,7 @@ export async function renderToday({ rolled = null } = {}) {
       for (const el of box.querySelectorAll('[data-rid] input[data-reason]')) {
         const p = daily.projects.find((x) => String(x.id) === el.closest('[data-rid]').dataset.rid);
         const old = String(p.reasons?.[el.dataset.kind]?.[el.dataset.reason] ?? '');
-        if (el.value.trim() !== old) ((reasonsBy[p.id] ||= {})[el.dataset.kind] ||= {})[el.dataset.reason] = el.value.trim();
+        if (inVal(el) !== old) ((reasonsBy[p.id] ||= {})[el.dataset.kind] ||= {})[el.dataset.reason] = inVal(el);
       }
       // Kanallar: o'zgargan kataklar
       const chBy = {};
@@ -601,13 +601,13 @@ export async function renderToday({ rolled = null } = {}) {
         const pid = el.closest('[data-chp]').dataset.chp;
         const ch = el.closest('[data-ch]').dataset.ch;
         const p = daily.projects.find((x) => String(x.id) === pid);
-        if (el.value.trim() !== String(p.channelRows?.[ch]?.[el.dataset.f] ?? '')) ((chBy[pid] ||= {})[ch] ||= {})[el.dataset.f] = el.value.trim();
+        if (inVal(el) !== String(p.channelRows?.[ch]?.[el.dataset.f] ?? '')) ((chBy[pid] ||= {})[ch] ||= {})[el.dataset.f] = inVal(el);
       }
       let changed = 0;
       // Dollar kursi (1-qadam) — faqat shu kun uchun
       const rateEl = box.querySelector('#dRate');
-      if (rateEl && rateEl.value.trim() !== String(daily.rate?.value ?? '')) {
-        const r = await api('/api/rate', { method: 'PUT', body: { date, usd_rate: rateEl.value.trim() } });
+      if (rateEl && inVal(rateEl) !== String(daily.rate?.value ?? '')) {
+        const r = await api('/api/rate', { method: 'PUT', body: { date, usd_rate: inVal(rateEl) } });
         daily.rate = { ...daily.rate, value: r.usd_rate };
         changed += 1;
       }

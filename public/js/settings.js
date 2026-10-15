@@ -218,7 +218,7 @@ async function tabPlans(body) {
 // Bir nechta Telegram ID: har biri alohida qatorda
 function idList(id, label, hint, value) {
   const ids = String(value || '').split(/[\s,;]+/).filter(Boolean);
-  const row = (v) => `<div class="id-row"><input inputmode="numeric" value="${esc(v)}" placeholder="123456789" aria-label="${esc(label)}"><button type="button" class="btn small icon ghost" data-id-del aria-label="O'chirish" title="O'chirish">×</button></div>`;
+  const row = (v) => `<div class="id-row"><input inputmode="numeric" data-raw value="${esc(v)}" placeholder="123456789" aria-label="${esc(label)}"><button type="button" class="btn small icon ghost" data-id-del aria-label="O'chirish" title="O'chirish">×</button></div>`;
   return `<div class="field id-list" id="${id}"><span>${label}</span><span class="hint">${hint}</span>
     <div class="id-rows">${(ids.length ? ids : ['']).map(row).join('')}</div>
     <button type="button" class="link-btn id-add" data-id-add>+ ID qo'shish</button></div>`;
@@ -355,7 +355,7 @@ async function tabStaff(body) {
       <p class="hint small" data-role-hint>${esc(ROLE_HINT[u.role || 'target'])}</p>
       <div class="plan-inputs">
         <label class="field">${u.id ? 'Yangi parol <span class="hint">almashtirish uchun</span>' : 'Parol'}<input data-f="password" type="text" autocomplete="new-password" minlength="6" placeholder="${u.id ? 'o\'zgarmaydi' : 'kamida 6 belgi'}"></label>
-        <label class="field">Telegram ID <span class="hint">eslatma uchun</span><input data-f="telegram_id" inputmode="numeric" value="${esc(u.telegram_id || '')}" placeholder="123456789"></label>
+        <label class="field">Telegram ID <span class="hint">eslatma uchun</span><input data-f="telegram_id" inputmode="numeric" data-raw value="${esc(u.telegram_id || '')}" placeholder="123456789"></label>
       </div>
       <div class="field" data-proj-field ${u.role === 'pm' ? 'hidden' : ''}>Loyihalari <span class="hint">hech biri tanlanmasa — hamma loyihalar</span>${projChips(u.projects || [])}</div>
       <div class="row" style="justify-content:flex-end">${u.id && u.id !== state.me.user.id ? `<button class="btn small ghost" data-a="toggle">${u.active ? "O'chirish" : 'Qayta yoqish'}</button>` : ''}<button class="btn small primary" data-a="save">${u.id ? 'Saqlash' : "Qo'shish"}</button></div>
