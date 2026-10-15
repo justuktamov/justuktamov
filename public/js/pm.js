@@ -54,16 +54,17 @@ function staffBox(staff, part, projects, approval = null, actions = true) {
 
 // Korzinka ikkiga bo'linadi: «Bekor bo'lish sabablari» va «Sifatsiz lidlar» — alohida bo'limlar, har birida loyihalar
 const RSN_SUB = { lost: "gaplashildi, lekin sotib olmadi", bad: "haqiqiy mijoz emas yoki aloqa bo'lmadi" };
+// Korzinka loyiha bo'yicha: VIZART → bekor bo'lish sabablari + sifatsiz lidlar, keyin DIZIPRO … (ketma-ket to'ldiriladi)
 export function reasonsHtml(projects, { hint = '' } = {}) {
   const { reasons, reasonKinds } = state.me;
-  return Object.entries(reasonKinds).map(([kind, title]) => {
-    const has = projects.some((p) => Object.keys(p.reasons?.[kind] || {}).length);
-    return `<details class="extra rsn-sec rsn-${kind}" ${has || !hint ? 'open' : ''}><summary>${esc(title)} <span class="muted">— ${RSN_SUB[kind] || ''}${hint ? ` ${hint}` : ''}</span></summary>
-      <div class="reasons-in">${projects.map((p) => `<div class="rin" data-rid="${p.id}"><b>${dot(p.color)}${esc(p.name)}</b><div class="rin-grid">
+  const has = projects.some((p) => Object.values(p.reasons || {}).some((m) => Object.keys(m).length));
+  return `<details class="extra rsn-wrap" ${has || !hint ? 'open' : ''}><summary>Korzinka: bekor bo'lish sabablari va sifatsiz lidlar <span class="muted">— har loyiha bo'yicha${hint ? ` ${hint}` : ''}</span></summary>
+    <div class="reasons-in">${projects.map((p) => `<div class="rin rsn-proj" data-rid="${p.id}" style="--pc:${esc(p.color || '#4c86ff')}"><b>${dot(p.color)}${esc(p.name)}</b>
+      ${Object.entries(reasonKinds).map(([kind, title]) => `<div class="rsn-kind rsn-${kind}"><span class="rsn-title">${esc(title)} <span class="muted">— ${RSN_SUB[kind] || ''}</span></span><div class="rin-grid">
         ${[...new Set([...(p.reasonKeys?.[kind] || Object.keys(reasons[kind])), ...Object.keys(p.reasons?.[kind] || {})])].filter((r) => reasons[kind][r]).map((r) => `<label><span>${esc(reasons[kind][r])}</span><input class="cell-in" inputmode="numeric" data-kind="${kind}" data-reason="${r}" value="${p.reasons?.[kind]?.[r] ?? ''}" aria-label="${esc(p.name)} — ${esc(title)} — ${esc(reasons[kind][r])}"></label>`).join('')}
-      </div></div>`).join('')}</div>
-    </details>`;
-  }).join('');
+      </div></div>`).join('')}
+    </div>`).join('')}</div>
+  </details>`;
 }
 
 export function dateNav(date, onChange) {

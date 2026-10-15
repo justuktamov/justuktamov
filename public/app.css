@@ -1222,3 +1222,10 @@ input, select, textarea { color-scheme: light; }
 .approved-line { margin: 0; font-weight: 700; color: #1f7a3d; font-size: 13px; }
 .part-back { display: grid; gap: 4px; margin-bottom: 14px; padding: 12px 16px; border-radius: 18px; background: #fff4e5; border: 1px solid #f5c98a; }
 .part-back p { margin: 0; font-weight: 600; }
+/* Korzinka loyiha bo'yicha: loyiha kartasi ichida ikki guruh — rangi bilan ajralgan */
+.rsn-proj { border-left: 4px solid var(--pc); gap: 10px; }
+.rsn-proj > b { font-size: 16px; }
+.rsn-kind { --rc: #e5484d; --rc-ink: #b42318; display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; border-left: 4px solid var(--rc); background: color-mix(in srgb, var(--rc) 6%, #fff); }
+.rsn-kind.rsn-bad { --rc: #f59e0b; --rc-ink: #9a5b00; }
+.rsn-title { font-size: 13px; font-weight: 800; color: var(--rc-ink); }
+.rsn-title .muted { font-weight: 500; }
