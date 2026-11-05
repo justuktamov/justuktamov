@@ -232,7 +232,7 @@ async function tabTelegram(body) {
   body.innerHTML = `
     <div class="grid g2">
       <form class="card stack" id="setForm"><h2>Hisobot qayerga boradi</h2>
-        ${idList('sChat', 'Hisobot boradigan Telegram ID lar', "direktor, guruh yoki boshqa rahbarlar — har biri botga /id yozsa, raqam chiqadi", settings.report_chat_id)}
+        ${idList('sChat', 'Hisobot boradigan Telegram ID lar', "direktor, guruh yoki boshqa rahbarlar — har biri botga /id yozsa, raqam chiqadi. Oylik hisobot ham shu yerga: har oyning 1-kuni o'tgan oy uchun", settings.report_chat_id)}
         ${idList('sMyTg', 'Sizning Telegram ID laringiz', 'eslatma va direktor javobi keladigan ID lar (masalan, ish va shaxsiy akkaunt)', me.telegram_id)}
         <div class="fields">
           <label class="field">Eslatma<span class="hint">hisobot yuborilmagan bo'lsa</span>${selectHtml(timeOpts(settings.reminder_time ?? '11:00'), settings.reminder_time ?? '11:00', 'name="reminder_time" id="sRem"', 'Eslatma vaqti')}</label>

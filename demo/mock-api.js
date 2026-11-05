@@ -326,6 +326,7 @@ const routes = {
     if (!isMonth(month)) throw new HttpError(400, "Oy noto'g'ri (YYYY-MM)");
     return monthReview(month, projectParam(q), y);
   },
+  'POST /api/month-review/send': () => { needUser(); throw new HttpError(503, "Demoda Telegram bot ulanmagan — hisobot yuborib bo'lmaydi"); },
   'GET /api/export.csv': (_b, _p, q) => {
     needUser();
     const { from, to } = period(q);

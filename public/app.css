@@ -902,6 +902,7 @@ input, select, textarea { color-scheme: light; }
 .rv-proj { margin-top: 14px; max-width: 880px; }
 .rv-proj .dp-head { margin-bottom: 4px; }
 .rv-verdict { margin-top: 12px; }
+.rv-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 /* Dinamika: chapdan o'ngga bir tekis; bo'lim sarlavhalari kattaroq */
 .dyn-table th.n, .dyn-table td.n { text-align: left; }
 .dyn-table td.n .dd { min-width: 0; margin-left: 6px; text-align: left; }

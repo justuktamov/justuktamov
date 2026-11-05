@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { basename, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getDb, getSetting, setSetting, today, nowLocal, logEntry, splitIds, normalizeIds, projectReasons, normalizeReasonKeys, DIZIPRO_REASONS, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from './db.js';
-import { reportBundle, saveDraft, submitReport, listReports, reportText, getReport, saveAiAnalysis } from './reports.js';
+import { reportBundle, saveDraft, submitReport, listReports, reportText, getReport, saveAiAnalysis, monthReportMessages } from './reports.js';
 import { aiStatus, analyze, AiError } from './ai/index.js';
 import { buildAiInput, hashInput } from './ai/prompt.js';
 import { login, logout, userFromToken, changePassword, ensureUser, publicUser, createUser, setPassword } from './auth.js';
@@ -637,6 +637,19 @@ route('GET', '/api/month-review', async (req, res, _p, q) => {
   if (!isMonth(month)) throw new HttpError(400, "Oy noto'g'ri (YYYY-MM)");
   send(res, 200, monthReview(month, q.get('project') ? Number(q.get('project')) : null, yesterday));
 }, STAFF);
+// Oylik hisobotni hozir Telegramga yuborish (Dinamika → «Oy yakuni» → «Telegramga yuborish») — barcha loyihalar
+route('POST', '/api/month-review/send', async (req, res) => {
+  requireUser(req);
+  const b = await readBody(req);
+  if (!isMonth(b.month) || b.month > today().slice(0, 7)) throw new HttpError(400, "Oy noto'g'ri (YYYY-MM)");
+  if (!telegramStatus().enabled) throw new HttpError(503, "Telegram bot ulanmagan — hisobot yuborib bo'lmaydi");
+  if (!splitIds(getSetting('report_chat_id')).length) throw new HttpError(400, "Avval Sozlamalar → Telegram bo'limida hisobot boradigan Telegram ID ni kiriting");
+  try {
+    send(res, 200, await sendMonthReport(b.month));
+  } catch (e) {
+    throw new HttpError(502, e.message);
+  }
+});
 route('GET', '/api/export.csv', async (req, res, _p, q) => {
   requireUser(req);
   const { from, to } = period(q);
@@ -871,6 +884,26 @@ export function createApp() {
   });
 }
 
+// Oylik hisobot — kunlik hisobot boradigan chat(lar)ga (direktor / guruh). Hech kimga yetmasa — xato
+// (rejalashtiruvchi 10 daqiqadan keyin qayta uradi); bir qismiga yetsa — qolganlari failed ro'yxatida
+export async function sendMonthReport(month) {
+  const chats = splitIds(getSetting('report_chat_id'));
+  if (!chats.length || !telegramStatus().enabled) return { sent: 0, total: chats.length, failed: [] };
+  const msgs = monthReportMessages(monthReview(month, null, addDays(today(), -1)), { appUrl: process.env.APP_URL || '' });
+  const failed = [];
+  for (const c of chats) {
+    try { for (const m of msgs) await sendMessage(c, m); } catch (e) { failed.push({ id: c, error: e.message }); }
+  }
+  if (failed.length === chats.length) throw new Error(`Oylik hisobot yuborilmadi: ${failed.map((f) => `${f.id} — ${f.error}`).join('; ')}`);
+  return { sent: chats.length - failed.length, total: chats.length, failed };
+}
+
+// Avtomatik oylik hisobot kuni: oyning 1–3-kuni (1-kuni server o'chiq bo'lsa ham) — o'tgan oy; keyingi kunlari yo'q,
+// shuning uchun oy o'rtasidagi deploy eski oy hisobotini tasodifan yubormaydi
+export function monthReportDue(day) {
+  return Number(day.slice(8, 10)) <= 3 ? addDays(`${day.slice(0, 7)}-01`, -1).slice(0, 7) : null;
+}
+
 export async function sendPlanAlerts(d = today()) {
   const month = d.slice(0, 7);
   const key = `plan_alerts_${month}`;
@@ -953,6 +986,11 @@ function startScheduler() {
         if (sent()) return;
         for (const chat of splitIds(getSetting('report_chat_id'))) await sendMessage(chat, `⚠️ <i>PM hisobotni yubormadi — avtomatik hisobot</i>\n\n${reportText(d)}`);
       }],
+      // Oylik hisobot: oyning 1-kuni (kunlik avtomatik hisobot vaqtida) — o'tgan oy yakuni. Kalit — joriy oy: oyiga bir marta
+      ['last_month_report', getSetting('report_time') || '13:00', async () => {
+        const m = monthReportDue(today());
+        if (m) await sendMonthReport(m);
+      }, today().slice(0, 7)],
     ];
     for (const [key, at, fn, day = d] of jobs) {
       if (!at || hm < at) continue; // vaqt bo'sh — o'chirilgan

@@ -1,6 +1,7 @@
 // Oylar bo'yicha dinamika: tushum, xarajat, foyda, lid narxi, konversiya — oyma-oy qanday o'zgaryapti
 import {
   $, esc, api, state, shell, fmtN, fmtUsd, fmtUzs, fmtP, spinnerBlock, isStale, monthLabel, shortDate, addDays, chartBase, cssVar, openPeriodPicker, ICONS, prettyDate,
+  toast, isStaffUser,
 } from './core.js';
 import { dot, signed, M_IC } from './blocks.js';
 
@@ -85,10 +86,75 @@ function reviewCard(rv) {
     ? `<div class="plan-empty"><span>${esc(monthLabel(rv.month))} uchun reja kiritilmagan. Oy boshida reja qo'yilsa, shu yerda reja bilan fakt solishtiriladi.</span><a class="btn small primary" href="#/sozlamalar?tab=plans">Reja kiritish</a></div>`
     : `${rv.planTotal ? `<div class="rv-proj"><div class="dp-head"><b>Jami</b><span class="muted small">rejasi bor loyihalar</span></div>${planTable(rv.planTotal, false)}</div>` : ''}
       ${rv.plans.map((p) => `<div class="rv-proj"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b></div>${planTable(p.metrics, p.kind === 'auto')}${verdict(p.verdict)}</div>`).join('')}`;
-  return `<section class="card rv-card"><div class="card-head"><h2>Oy yakuni · ${esc(monthLabel(rv.month))}</h2>
+  return `<section class="card rv-card"><div class="card-head"><div><h2>Oy yakuni · ${esc(monthLabel(rv.month))}</h2>
       <span class="muted small">${rv.finished ? `${rv.days} kun — oy tugagan` : `hozircha ${rv.elapsed} / ${rv.days} kun · prognoz — joriy sur'at bo'yicha`}</span></div>
+      <div class="rv-actions"><button type="button" class="btn small" data-rv="sheets" title="Jadval nusxalanadi va yangi Google jadval ochiladi — A1 ga Ctrl+V">${ICONS.copy} Google Sheets'da ochish</button>
+        ${isStaffUser() ? '' : `<button type="button" class="btn small" data-rv="tg" title="Kunlik hisobot boradigan Telegram chatiga — barcha loyihalar">${ICONS.send} Telegramga yuborish</button>`}</div></div>
     <h3 class="rv-h">Lidlar va konversiya</h3>${leads}
     <h3 class="rv-h">Reja va fakt</h3>${plans}</section>`;
+}
+
+// Google Sheets uchun jadval: sonlar ajratgichsiz (jadvalda son bo'lib qoladi, qo'shsa bo'ladi), foizlar — «12.8%»
+function reviewSheet(rv) {
+  const num = (x) => (x == null ? '' : Math.round(x * 100) / 100);
+  const pc = (x) => (x == null ? '' : `${(x * 100).toFixed(1)}%`);
+  const head = (list) => list.map((v) => ({ v, b: true }));
+  const rows = [[{ v: `Oy yakuni — ${monthLabel(rv.month)}`, b: true }], [rv.finished ? `${rv.days} kun — oy tugagan` : `hozircha ${rv.elapsed} / ${rv.days} kun`], []];
+  rows.push([{ v: 'Lidlar va konversiya', b: true }],
+    head(['Loyiha', 'Umumiy lid', 'Sifatli', 'Sifatli %', 'Potensial', 'Potensial %', 'Sifatsiz', 'Sifatsiz %', 'Sotuv', 'Sifatli liddan konversiya', 'Umumiy liddan konversiya']));
+  const lead = (name, x) => [name, num(x.leads), num(x.qualified), pc(x.qualified_share), num(x.potential), pc(x.potential_share), num(x.unqualified), pc(x.unqualified_share), num(x.sales), pc(x.conv_qualified), pc(x.conv_total)];
+  for (const x of rv.rows) rows.push(lead(x.name, x));
+  if (rv.total) rows.push(head(lead('Jami', rv.total)));
+  rows.push([], [{ v: 'Reja va fakt', b: true }]);
+  if (rv.plans.length) {
+    rows.push(head(['Loyiha', "Ko'rsatkich", 'Reja', 'Fakt', 'Bajarildi', rv.finished ? 'Farq' : 'Rejagacha qoldi', ...(rv.finished ? [] : ['Prognoz'])]));
+    const planRows = (name, m, auto) => RV_PLAN.filter(([k]) => m[k]).map(([k, label]) => {
+      const x = m[k];
+      const val = (y) => (k === 'conv' ? pc(y) : num(y));
+      const diff = x.diff == null ? '' : rv.finished ? num(x.diff) : num(Math.max(-x.diff, 0));
+      const name2 = k === 'sales' && auto ? 'Xaridlar' : ['budget', 'cpl'].includes(k) ? `${label}, $` : label;
+      return [name, name2, val(x.plan), val(x.fact), pc(x.pct), diff, ...(rv.finished ? [] : [x.forecast != null ? num(x.forecast) : ''])];
+    });
+    if (rv.planTotal) rows.push(...planRows('Jami', rv.planTotal, false));
+    for (const p of rv.plans) rows.push(...planRows(p.name, p.metrics, p.kind === 'auto'));
+    rows.push([], [{ v: 'Xulosa', b: true }]);
+    for (const p of rv.plans) for (const v of p.verdict) rows.push([p.name, v.text]);
+  } else rows.push(['Bu oy uchun reja kiritilmagan']);
+  const cell = (c) => (c && typeof c === 'object' ? c : { v: c ?? '' });
+  return {
+    text: rows.map((r) => r.map((c) => String(cell(c).v).replace(/[\t\n]/g, ' ')).join('\t')).join('\n'),
+    html: `<meta charset="utf-8"><table>${rows.map((r) => `<tr>${r.map((c) => { const { v, b } = cell(c); return `<td>${b ? `<b>${esc(v)}</b>` : esc(v)}</td>`; }).join('')}</tr>`).join('')}</table>`,
+  };
+}
+
+// Nusxa «copy» hodisasi orqali — jadval (HTML) va oddiy matn birga. Sinxron: yangi oyna ochilishidan oldin, sahifa fokusda turganda
+function copyTable({ html, text }) {
+  let ok = false;
+  const onCopy = (e) => { e.clipboardData.setData('text/html', html); e.clipboardData.setData('text/plain', text); e.preventDefault(); ok = true; };
+  document.addEventListener('copy', onCopy);
+  try { document.execCommand('copy'); } catch { ok = false; } finally { document.removeEventListener('copy', onCopy); }
+  return ok;
+}
+
+function bindReview(box, rv) {
+  const card = rv && box.querySelector('.rv-card');
+  if (!card) return;
+  card.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-rv]');
+    if (!b) return;
+    if (b.dataset.rv === 'sheets') {
+      if (!copyTable(reviewSheet(rv))) { toast("Nusxa olinmadi — brauzer ruxsat bermadi. Qayta urinib ko'ring", true); return; }
+      window.open('https://sheets.new', '_blank', 'noopener');
+      toast("Jadval nusxalandi — yangi Google jadvalda A1 katakni bosib Ctrl+V (Mac: ⌘V) bosing");
+      return;
+    }
+    if (!window.confirm(`${monthLabel(rv.month)} oylik hisoboti (barcha loyihalar) kunlik hisobot boradigan Telegram chatiga yuborilsinmi?`)) return;
+    b.disabled = true;
+    try {
+      const r = await api('/api/month-review/send', { method: 'POST', body: { month: rv.month } });
+      toast(r.failed.length ? `Yuborildi: ${r.sent}/${r.total}. Yetmadi: ${r.failed.map((f) => f.id).join(', ')}` : `Telegramga yuborildi (${r.sent} ta chat)`, r.failed.length > 0);
+    } catch (err) { toast(err.message, true); } finally { b.disabled = false; }
+  });
 }
 
 // Turli uzunlikdagi oylar (va tugamagan joriy oy) kunlik sur'at bo'yicha solishtiriladi
@@ -321,7 +387,7 @@ export async function renderDynamics(inside = false) {
     return;
   }
   // Hafta/oy: hech bir kun kiritilmagan bo'lsa ham kunlar kartasi chiqadi (grafik va jadvalsiz)
-  if (!anyData) { box.innerHTML = rvHtml + projCards(); return; }
+  if (!anyData) { box.innerHTML = rvHtml + projCards(); bindReview(box, review); return; }
   box.innerHTML = `${rvHtml}${projCards()}<div class="card"><div class="card-head"><h2>Tushum va barcha xarajat</h2><span class="muted small">reklama + tannarx + doimiy xarajat, so'm</span></div>
       <div class="chart-box"><canvas aria-label="Oylar bo'yicha tushum va xarajat"></canvas></div></div>
     <div class="card mt"><div class="card-head"><h2>Ko'rsatkichlar</h2><span class="muted small">▲▼ — ${V[2] === 'day' ? 'oldingi kunga' : V[2] === 'week' ? 'oldingi haftaga' : 'o\'tgan oyga'} nisbatan${V[2] === 'day' ? '' : '; summalar kunlik sur\'atda solishtiriladi'}</span></div>
@@ -329,6 +395,7 @@ export async function renderDynamics(inside = false) {
       <tbody>${rows.map((r) => (r[0] === '§' ? `<tr class="dyn-sec"><td colspan="${months.length + 1}">${r[1]}</td></tr>` : `<tr><td>${r[1]}</td>${months.map((m, i) => cell(r, m, i)).join('')}</tr>`)).join('')}</tbody></table></div>
       ${months.at(-1).partial && V[2] !== 'day' ? `<p class="muted small">${esc(periodLabel(months.at(-1)))} hali tugamagan — ${months.at(-1).days} kunlik ma'lumot.</p>` : ''}</div>
     ${byProject}`;
+  bindReview(box, review);
 
   if (!window.Chart) return;
   const base = chartBase();

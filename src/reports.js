@@ -142,6 +142,45 @@ const usd = (x) => (x == null ? '—' : `$${x.toFixed(2)}`);
 const sum = (x) => n(x); // aniq summa, kiritilganidek
 export const REPORT_HEAD = 'PM hisoboti —';
 
+// ---------- Oylik hisobot (Telegram) ----------
+// Dinamika → «Oy yakuni» bilan bir xil: lidlar tarkibi va konversiya, reja ↔ fakt va xulosa.
+// Bloklar (sarlavha, har loyiha) xabarlarga bo'linadi — har xabar Telegram chegarasidan (4096) kichik, teglar buzilmaydi
+const MONTHS = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'];
+const monthName = (m) => `${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
+const p0 = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`);
+const VERDICT_ICON = { good: '✅', warning: '⚠️', critical: '❗', info: 'ℹ️' };
+const MSG_LIMIT = 4000;
+
+export function monthReportMessages(rv, { appUrl = '' } = {}) {
+  const blocks = [[
+    `<b>📊 Oylik hisobot — ${monthName(rv.month)}</b>`,
+    rv.finished ? `${rv.days} kun · oy yakuni` : `hozircha ${rv.elapsed} / ${rv.days} kun — oy tugamagan`,
+    ...(rv.finished && rv.last_day_entered === false ? [`⚠️ ${rv.to} raqamlari hali kiritilmagan — hisobot to'liq emas`] : []),
+  ].join('\n')];
+  const leadLine = (name, x) => `<b>${name}</b>: lid <b>${n(x.leads)}</b> — sifatli ${n(x.qualified)} (${p0(x.qualified_share)}) · potensial ${n(x.potential)} (${p0(x.potential_share)}) · sifatsiz ${n(x.unqualified)} (${p0(x.unqualified_share)})
+   sotuv <b>${n(x.sales)}</b> · konversiya: sifatli liddan <b>${p(x.conv_qualified)}</b>, umumiy liddan <b>${p(x.conv_total)}</b>`;
+  const leads = rv.rows.map((x) => leadLine(esc(x.name), x));
+  if (rv.total) leads.push(leadLine('Jami', rv.total));
+  blocks.push(...(leads.length ? leads : ["Bu oyda lidlar kiritilmagan."]).map((b, i) => (i ? b : `<b>👥 Lidlar va konversiya</b>\n${b}`)));
+  const ratio = (label, x, f) => (x?.fact != null ? `${label}: rejada ${f(x.plan)}, faktda ${f(x.fact)}` : null);
+  const plans = rv.plans.map((pl) => [
+    `<b>${esc(pl.name)}</b>`,
+    ...pl.verdict.map((v) => `${VERDICT_ICON[v.level] || '•'} ${esc(v.text)}`),
+    ...[[ratio('Konversiya', pl.metrics.conv, p), ratio('1 lid', pl.metrics.cpl, usd), ratio("o'rtacha chek", pl.metrics.avg_check, (x) => `${sum(x)} so'm`)].filter(Boolean)]
+      .filter((l) => l.length).map((l) => `   ${l.join(' · ')}`),
+  ].join('\n'));
+  blocks.push(...(plans.length ? plans : ["Bu oy uchun reja kiritilmagan (Sozlamalar → Oylik reja)."]).map((b, i) => (i ? b : `<b>🎯 Reja va fakt</b>\n${b}`)));
+  if (appUrl) blocks.push(`Batafsil: ${esc(appUrl.replace(/\/+$/, ''))}/#/dinamika`);
+
+  const out = [];
+  for (const b of blocks) {
+    const last = out.at(-1);
+    if (last != null && last.length + 2 + b.length <= MSG_LIMIT) out[out.length - 1] = `${last}\n\n${b}`;
+    else out.push(b.length <= MSG_LIMIT ? b : b.slice(0, MSG_LIMIT)); // bitta blok chegaradan oshmaydi (loyiha — bir necha qator)
+  }
+  return out;
+}
+
 export function reportText(date) {
   const b = reportBundle(date);
   const r = b.report || {};

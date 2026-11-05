@@ -716,7 +716,9 @@ export function monthReview(month, projectId = null, asOf = addDays(today(), -1)
   // Jami reja — bir nechta loyihada; avtovoronka aralashsa lid → sotuv nisbatlari ma'nosiz
   const mixed = plan.items.some((i) => i.kind === 'auto');
   const planTotal = plans.length > 1 ? planVsFact(plan.total, { auto: mixed, finished, verdict: false, derived: !mixed }).metrics : null;
-  return { month, from, to, days, elapsed, finished, rows: leadRows, total, plans, planTotal };
+  // Oyning oxirgi kuni raqamlari kiritilganmi (1-kuni yuboriladigan hisobot to'liqmi)
+  const last_day_entered = rows.some((r) => r.date === to);
+  return { month, from, to, days, elapsed, finished, last_day_entered, rows: leadRows, total, plans, planTotal };
 }
 
 // Reja ↔ fakt: 4 ta maqsad (byudjet, lid, sotuv, tushum) va rejadan kelib chiqadigan nisbatlar (konversiya, 1 lid narxi, o'rtacha chek)
