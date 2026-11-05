@@ -4,7 +4,7 @@
 import { store } from './fake-sqlite.js';
 import { today, nowLocal, normalizeIds, projectReasons, normalizeReasonKeys, DIZIPRO_REASONS, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from '../src/db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText } from '../src/reports.js';
-import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, monthly, estimateLag, parseRate, parseNum, dayRates } from '../src/metrics.js';
+import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, monthly, monthReview, estimateLag, parseRate, parseNum, dayRates } from '../src/metrics.js';
 import { generateDemo, DEMO_USER } from '../src/demo-data.js';
 import { SELLER_FIELDS, SELLER_KEYS, parseDuration, sellerStats } from '../src/sellers-calc.js';
 import { ROLES, PARTS, isStaff, userProjects, canSeeProject, canWriteField, missingFor, normalizeProjectIds } from '../src/roles.js';
@@ -104,7 +104,7 @@ const publicUser = ({ password, ...u }) => u;
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
 const json = (status, data) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
-const isMonth = (s) => /^\d{4}-\d{2}$/.test(String(s || ''));
+const isMonth = (s) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(s || ''));
 // Serverdagi num bilan bir xil: «450.000» — 450000 (parseNum)
 function num(v) {
   const x = parseNum(v);
@@ -121,7 +121,7 @@ function checkColor(v) {
 const DEMO_AI = { enabled: false, provider: null, label: null, model: null, reason: "Demoda AI tahlil yo'q — haqiqiy serverda OpenRouter kaliti bilan ishlaydi" };
 const needUser = () => { if (!me) throw new HttpError(401, 'Tizimga kiring'); return me; };
 // Targetolog va ROP chaqira oladigan yo'llar (qolganlari — faqat PM), serverdagi STAFF bilan bir xil
-const STAFF_ROUTES = new Set(['GET /api/summary', 'GET /api/monthly', 'GET /api/export.csv', 'GET /api/plans', 'GET /api/report', 'GET /api/report/preview', 'GET /api/reports','GET /api/sellers', 'POST /api/sellers', 'PUT /api/sellers/:id', 'GET /api/sellers/daily', 'PUT /api/sellers/daily', 'GET /api/sellers/stats', 'POST /api/login', 'POST /api/logout', 'GET /api/me', 'PUT /api/me', 'PUT /api/me/password', 'GET /api/projects', 'GET /api/daily', 'PUT /api/daily', 'PUT /api/rate', 'GET /api/history', 'POST /api/part/submit']);
+const STAFF_ROUTES = new Set(['GET /api/summary', 'GET /api/monthly', 'GET /api/month-review', 'GET /api/export.csv', 'GET /api/plans', 'GET /api/report', 'GET /api/report/preview', 'GET /api/reports','GET /api/sellers', 'POST /api/sellers', 'PUT /api/sellers/:id', 'GET /api/sellers/daily', 'PUT /api/sellers/daily', 'GET /api/sellers/stats', 'POST /api/login', 'POST /api/logout', 'GET /api/me', 'PUT /api/me', 'PUT /api/me/password', 'GET /api/projects', 'GET /api/daily', 'PUT /api/daily', 'PUT /api/rate', 'GET /api/history', 'POST /api/part/submit']);
 const sentAt = (date, uid) => (store.staffReports || []).find((r) => r.date === date && r.user_id === uid)?.submitted_at || null;
 const returnOf = (date, uid) => (sentAt(date, uid) ? null : (store.staffReturns || []).find((r) => r.date === date && r.user_id === uid) || null);
 const approvalsOf = (date) => Object.fromEntries((store.approvals || []).filter((a) => a.date === date).map((a) => [a.part, { approved_at: a.approved_at, by: store.users.find((u) => u.id === a.user_id)?.name || null }]));
@@ -318,6 +318,13 @@ const routes = {
     const months = Math.min(Math.max(Number(q.get('months')) || 6, 1), unit === 'day' ? 62 : 24);
     const y = addDays(TODAY, -1);
     return monthly({ months, projectId: projectParam(q), asOf: isDate(q.get('to')) && q.get('to') < y ? q.get('to') : y, unit });
+  },
+  'GET /api/month-review': (_b, _p, q) => {
+    needUser();
+    const y = addDays(TODAY, -1);
+    const month = q.get('month') || y.slice(0, 7);
+    if (!isMonth(month)) throw new HttpError(400, "Oy noto'g'ri (YYYY-MM)");
+    return monthReview(month, projectParam(q), y);
   },
   'GET /api/export.csv': (_b, _p, q) => {
     needUser();

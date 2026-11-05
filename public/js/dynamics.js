@@ -41,6 +41,56 @@ function periodLabel(m) {
   return monthLabel(m.month);
 }
 
+// ---------- Oy yakuni («Oy (kunma-kun)») ----------
+// Oy bo'yicha lidlar tarkibi va konversiya (sifatli liddan / umumiy liddan), oy boshidagi reja bilan fakt va xulosa
+// [kalit, nom, format, yaxshi tomoni: 1 — ko'p yaxshi, -1 — kam yaxshi, 0 — neytral]
+const RV_PLAN = [
+  ['budget', 'Reklama byudjeti', (x) => fmtUsd(x, 0), 0],
+  ['leads', 'Lidlar', fmtN, 1],
+  ['sales', 'Sotuvlar', fmtN, 1],
+  ['revenue', "Tushum, so'm", fmtUzs, 1],
+  ['conv', 'Konversiya (lid → sotuv)', (x) => fmtP(x), 1],
+  ['cpl', '1 lid narxi', (x) => fmtUsd(x), -1],
+  ['avg_check', "O'rtacha chek, so'm", fmtUzs, 1],
+];
+const RV_STATUS = { ahead: ['good', "Reja bo'yicha"], risk: ['warn', 'Xavf ostida'], behind: ['crit', 'Orqada'], early: ['info', 'Oy boshi'], ok: ['', "Me'yorida"], over: ['warn', 'Tez sarflanmoqda'] };
+const RV_LEVEL = { good: 'Yaxshi', warning: 'Diqqat', critical: 'Muammo', info: 'Izoh' };
+
+function reviewCard(rv) {
+  const share = (n, s) => `${fmtN(n)}${s != null && n ? ` <small class="muted">${fmtP(s, 0)}</small>` : ''}`;
+  const leadRow = (name, x, cls = '') => `<tr class="${cls}"><td>${name}</td><td class="n">${fmtN(x.leads)}</td><td class="n">${share(x.qualified, x.qualified_share)}</td>
+    <td class="n">${share(x.potential, x.potential_share)}</td><td class="n">${share(x.unqualified, x.unqualified_share)}</td><td class="n">${fmtN(x.sales)}</td>
+    <td class="n"><b>${fmtP(x.conv_qualified)}</b></td><td class="n"><b>${fmtP(x.conv_total)}</b></td></tr>`;
+  const leads = rv.rows.length ? `<div class="table-wrap"><table class="rv-table"><thead><tr><th>Loyiha</th><th class="n">Umumiy lid</th><th class="n">Sifatli</th><th class="n">Potensial</th><th class="n">Sifatsiz</th><th class="n">Sotuv</th>
+      <th class="n">Sifatli liddan konversiya</th><th class="n">Umumiy liddan konversiya</th></tr></thead>
+      <tbody>${rv.rows.map((x) => leadRow(`${dot(x.color)}${esc(x.name)}`, x)).join('')}${rv.total ? leadRow('Jami', rv.total, 'rv-total') : ''}</tbody></table></div>`
+    : '<p class="muted small">Bu oyda lidlar kiritilmagan.</p>';
+  // Oy tugagan: bajarilish foizi rangda; tugamagan: bugungacha kutilganga nisbatan holat va oy oxiriga prognoz
+  const planTable = (m, auto) => `<div class="table-wrap"><table class="rv-table"><thead><tr><th>Ko'rsatkich</th><th class="n">Reja</th><th class="n">Fakt</th><th class="n">Bajarildi</th><th class="n">${rv.finished ? 'Farq' : 'Rejagacha qoldi'}</th>${rv.finished ? '' : '<th class="n">Prognoz</th>'}</tr></thead>
+    <tbody>${RV_PLAN.filter(([k]) => m[k]).map(([k, label, fmt, good]) => {
+      const x = m[k];
+      let mark;
+      if (!rv.finished && x.status) { const [c, t] = RV_STATUS[x.status] || ['', '']; mark = `${fmtP(x.pct, 0)} <span class="pill ${c}">${t}</span>`; }
+      else {
+        const p = x.pct;
+        const c = p == null || !good ? '' : (good > 0 ? p >= 1 : p <= 1) ? 'good' : (good > 0 ? p >= 0.8 : p <= 1.2) ? 'warn' : 'crit';
+        mark = `<span class="pill ${c}">${fmtP(p, 0)}</span>`;
+      }
+      const diff = x.diff == null ? '' : !rv.finished ? (x.diff < 0 ? fmt(-x.diff) : '✓')
+        : `${x.diff > 0 ? '+' : x.diff < 0 ? '−' : ''}${fmt(Math.abs(x.diff))}`;
+      return `<tr><td>${k === 'sales' && auto ? 'Xaridlar' : label}</td><td class="n">${fmt(x.plan)}</td><td class="n"><b>${fmt(x.fact)}</b></td><td class="n">${mark}</td><td class="n">${diff}</td>${rv.finished ? '' : `<td class="n">${x.forecast != null ? fmt(x.forecast) : ''}</td>`}</tr>`;
+    }).join('')}</tbody></table></div>`;
+  const verdict = (list) => (list.length ? `<div class="plan-alerts rv-verdict">${list.map((v) => `<div class="insight ${v.level}"><span class="ic">${RV_LEVEL[v.level] || ''}</span><span>${esc(v.text)}</span></div>`).join('')}</div>` : '');
+  const plans = !rv.plans.length
+    ? `<div class="plan-empty"><span>${esc(monthLabel(rv.month))} uchun reja kiritilmagan. Oy boshida reja qo'yilsa, shu yerda reja bilan fakt solishtiriladi.</span><a class="btn small primary" href="#/sozlamalar?tab=plans">Reja kiritish</a></div>`
+    : `${rv.planTotal ? `<div class="rv-proj"><div class="dp-head"><b>Jami</b><span class="muted small">rejasi bor loyihalar</span></div>${planTable(rv.planTotal, false)}</div>` : ''}
+      ${rv.plans.map((p) => `<div class="rv-proj"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b></div>${planTable(p.metrics, p.kind === 'auto')}${verdict(p.verdict)}</div>`).join('')}`;
+  return `<section class="card rv-card"><div class="card-head"><h2>Oy yakuni · ${esc(monthLabel(rv.month))}</h2>
+      <span class="muted small">${rv.finished ? `${rv.days} kun — oy tugagan` : `hozircha ${rv.elapsed} / ${rv.days} kun · prognoz — joriy sur'at bo'yicha`}</span></div>
+    <h3 class="rv-h">Lidlar va konversiya</h3>${leads}
+    <h3 class="rv-h">Reja va fakt</h3>${plans}</section>`;
+}
+
 // Turli uzunlikdagi oylar (va tugamagan joriy oy) kunlik sur'at bo'yicha solishtiriladi
 function change(key, perDay, cur, prev) {
   const a = cur.totals[key], b = prev?.totals[key];
@@ -137,14 +187,19 @@ export async function renderDynamics(inside = false) {
     renderDynamics(true);
   };
   $('#dynProj').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { f.project = b.dataset.p; renderDynamics(true); } };
-  let data;
+  let data, review;
   const q = (o) => api(`/api/monthly?${new URLSearchParams({ ...o, ...(f.project ? { project: f.project } : {}) })}`);
+  // «Oy (kunma-kun)»: oy yakuni (lidlar, konversiya, reja ↔ fakt) — kunlar bilan parallel olinadi
+  const rvP = isMo ? api(`/api/month-review?${new URLSearchParams({ month: mFirst.slice(0, 7), ...(f.project ? { project: f.project } : {}) })}`) : null;
+  rvP?.catch(() => {});
   try {
     // Oylar: har bir belgilangan oy alohida olinadi (oralig'idagi oylar kerak emas)
     data = isMon ? (await Promise.all(f.mSel.map((m) => q({ unit: 'month', months: 1, to: mEnd(m) })))).flat()
       : isDays ? (await Promise.all(f.dList.map((d) => q({ unit: 'day', months: 1, to: d })))).flat()
       : await q({ unit: V[2], months: isWk ? Math.round((Date.parse(wkTo) - Date.parse(pStart)) / 864e5) + 1 : V[3], ...(isWk ? { to: wkTo } : isDay ? { to: dSel } : {}) });
+    review = rvP ? await rvP : null;
   } catch (e) { const el = $('#dyn'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const rvHtml = review ? reviewCard(review) : '';
   const box = $('#dyn');
   if (!box || isStale(rid)) return;
   // Hafta/oy/kun ko'rinishida kunlar doim ko'rsatiladi (bir kun kiritilgan bo'lsa ham); qolganlarida — birinchi ma'lumotli davrdan
@@ -266,8 +321,8 @@ export async function renderDynamics(inside = false) {
     return;
   }
   // Hafta/oy: hech bir kun kiritilmagan bo'lsa ham kunlar kartasi chiqadi (grafik va jadvalsiz)
-  if (!anyData) { box.innerHTML = projCards(); return; }
-  box.innerHTML = `${projCards()}<div class="card"><div class="card-head"><h2>Tushum va barcha xarajat</h2><span class="muted small">reklama + tannarx + doimiy xarajat, so'm</span></div>
+  if (!anyData) { box.innerHTML = rvHtml + projCards(); return; }
+  box.innerHTML = `${rvHtml}${projCards()}<div class="card"><div class="card-head"><h2>Tushum va barcha xarajat</h2><span class="muted small">reklama + tannarx + doimiy xarajat, so'm</span></div>
       <div class="chart-box"><canvas aria-label="Oylar bo'yicha tushum va xarajat"></canvas></div></div>
     <div class="card mt"><div class="card-head"><h2>Ko'rsatkichlar</h2><span class="muted small">▲▼ — ${V[2] === 'day' ? 'oldingi kunga' : V[2] === 'week' ? 'oldingi haftaga' : 'o\'tgan oyga'} nisbatan${V[2] === 'day' ? '' : '; summalar kunlik sur\'atda solishtiriladi'}</span></div>
       <div class="table-wrap"><table class="dyn-table"><thead><tr><th>Ko'rsatkich</th>${head}</tr></thead>

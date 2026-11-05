@@ -688,6 +688,111 @@ export function planAlerts(item, elapsed, days) {
   return { alerts, need, remaining };
 }
 
+// ---------- Oy yakuni ----------
+// Dinamika → «Oy (kunma-kun)»: oy bo'yicha lidlar tarkibi (sifatli / potensial / sifatsiz), sifatli va umumiy liddan konversiya,
+// oy boshida qo'yilgan reja bilan fakt va xulosa. Oy tugagan bo'lsa — yakuniy xulosa, tugamagan bo'lsa — bugungacha va prognoz
+export function monthReview(month, projectId = null, asOf = addDays(today(), -1)) {
+  const plan = planProgress(month, projectId, asOf);
+  const { from, to, days, elapsed } = plan;
+  const finished = elapsed >= days;
+  const rateOf = dayRates();
+  const { projects, rows } = elapsed ? loadRows(from, to, projectId) : { projects: [], rows: [] };
+  const leadStats = (t) => ({
+    leads: t.leads, qualified: t.qualified, potential: t.potential, unqualified: t.unqualified, sales: t.sales,
+    qualified_share: t.qualified_share, potential_share: t.potential_share, unqualified_share: t.unqualified_share,
+    conv_total: div(t.sales, t.leads), conv_qualified: div(t.sales, t.qualified),
+  });
+  // Lidlar — faqat sotuv bo'limi orqali ishlaydigan loyihalarda (avtovoronkada lid kuzatilmaydi)
+  const leadRows = projects.filter((p) => p.kind !== 'auto').map((p) => {
+    const t = sumRows(rows.filter((r) => r.project_id === p.id), rateOf);
+    return t.reported.leads ? { id: p.id, name: p.name, color: p.color, ...leadStats(t) } : null;
+  }).filter(Boolean);
+  const ids = new Set(leadRows.map((x) => x.id));
+  const total = leadRows.length > 1 ? leadStats(sumRows(rows.filter((r) => ids.has(r.project_id)), rateOf)) : null;
+  const plans = plan.items.map((i) => ({
+    project_id: i.project_id, name: i.name, color: i.color, kind: i.kind,
+    ...planVsFact(i.metrics, { auto: i.kind === 'auto', finished, lead: leadRows.find((x) => x.id === i.project_id) }),
+  }));
+  // Jami reja — bir nechta loyihada; avtovoronka aralashsa lid → sotuv nisbatlari ma'nosiz
+  const mixed = plan.items.some((i) => i.kind === 'auto');
+  const planTotal = plans.length > 1 ? planVsFact(plan.total, { auto: mixed, finished, verdict: false, derived: !mixed }).metrics : null;
+  return { month, from, to, days, elapsed, finished, rows: leadRows, total, plans, planTotal };
+}
+
+// Reja ↔ fakt: 4 ta maqsad (byudjet, lid, sotuv, tushum) va rejadan kelib chiqadigan nisbatlar (konversiya, 1 lid narxi, o'rtacha chek)
+function planVsFact(m, { auto, finished, lead = null, verdict = true, derived: withDerived = true }) {
+  const out = {};
+  for (const k of ['budget', 'leads', 'sales', 'revenue']) {
+    const x = m[k];
+    if (!x?.plan) continue;
+    out[k] = { plan: x.plan, fact: x.fact, pct: x.pct, diff: x.fact - x.plan, status: x.status,
+      ...(finished ? {} : { expected: x.expected, forecast: x.forecast, forecast_pct: x.forecast_pct }) };
+  }
+  const ratio = (a, b) => (out[a] && out[b] ? { plan: out[a].plan / out[b].plan, fact: div(out[a].fact, out[b].fact) } : null);
+  const derived = { conv: auto ? null : ratio('sales', 'leads'), cpl: auto ? null : ratio('budget', 'leads'), avg_check: ratio('revenue', 'sales') };
+  if (withDerived) for (const [k, v] of Object.entries(derived)) if (v) out[k] = { ...v, pct: div(v.fact, v.plan) };
+  return { metrics: out, verdict: verdict ? planVerdict(out, { auto, finished, lead }) : [] };
+}
+
+// Xulosa: har maqsad bajarildimi va bajarilmagan bo'lsa — nima sababdan (byudjet, lid narxi, sotuv bo'limi, o'rtacha chek)
+function planVerdict(m, { auto, finished, lead }) {
+  const lines = [];
+  const add = (level, text) => lines.push({ level, text });
+  const usd = (x) => `$${fmt(x)}`;
+  const U = { budget: usd, leads: fmt, sales: fmt, revenue: (x) => `${mln(x)} so'm` };
+  const NAME = { leads: 'Lid', sales: auto ? 'Xarid' : 'Sotuv', revenue: 'Tushum' };
+  const LEVEL = { ahead: 'good', risk: 'warning', behind: 'critical', early: 'info' };
+  const early = !finished && Object.values(m).some((x) => x.status === 'early');
+  // Oy tugagan: rejaning 95% i — bajarilgan hisoblanadi; tugamagan: bugungacha kutilganga nisbatan
+  const behind = (k) => m[k] && (finished ? m[k].pct < 0.95 : ['behind', 'risk'].includes(m[k].status));
+
+  for (const k of ['leads', 'sales', 'revenue']) {
+    const x = m[k];
+    if (!x) continue;
+    const u = U[k];
+    if (finished) {
+      const done = x.pct >= 1;
+      add(done ? 'good' : x.pct >= 0.8 ? 'warning' : 'critical',
+        `${NAME[k]} rejasi ${done ? 'bajarildi' : 'bajarilmadi'}: ${u(x.fact)} / ${u(x.plan)} (${pct0(x.pct)})${done ? '' : ` — ${u(x.plan - x.fact)} kam`}.`);
+    } else {
+      add(LEVEL[x.status] || 'info', `${NAME[k]}: ${u(x.fact)} / ${u(x.plan)} (${pct0(x.pct)}); bugungacha kutilgan ${u(x.expected)}, shu sur'atda oy oxiriga ~${u(x.forecast)} (${pct0(x.forecast_pct)}).`);
+    }
+  }
+  const b = m.budget;
+  if (b) {
+    if (finished) add(b.pct > 1.1 ? 'warning' : 'info', `Reklama byudjeti: ${usd(b.fact)} / ${usd(b.plan)} sarflandi (${pct0(b.pct)})${b.pct > 1.1 ? ' — rejadan oshib ketdi' : ''}.`);
+    else add(b.status === 'over' ? 'warning' : 'info', `Reklama: ${usd(b.fact)} sarflandi, bugungacha kutilgan ${usd(b.expected)}; shu sur'atda oy oxiriga ~${usd(b.forecast)} (reja ${usd(b.plan)}).`);
+  }
+  if (early) { add('info', "Oy boshi — xulosa uchun kamida 5 kunlik raqam kerak."); return lines; }
+
+  // Sabablar
+  const spentShare = b ? (finished ? b.pct : div(b.fact, b.expected)) : null;
+  if (!auto && behind('leads')) {
+    if (spentShare != null && spentShare < 0.85) add('critical', `Sabab: reklama byudjeti to'liq ishlatilmadi — ${usd(b.fact)} / ${usd(finished ? b.plan : b.expected)}. Pul bor edi, reklama kam berildi (targetolog).`);
+    else if (m.cpl?.fact && m.cpl.fact > m.cpl.plan * 1.15) add('critical', `Sabab: lid qimmat — rejada 1 lid $${m.cpl.plan.toFixed(2)}, faktda $${m.cpl.fact.toFixed(2)}. Kreativ va auditoriyani yangilash kerak (targetolog).`);
+    else add('warning', "Sabab: lid oqimi yetarli emas — byudjetni oshirish yoki yangi reklama kanali kerak.");
+  }
+  if (behind('sales')) {
+    const c = m.conv;
+    if (!auto && m.leads && !behind('leads') && c?.fact != null) {
+      add('critical', `${finished ? "Lid yetarli edi — sotuvda yo'qotildi" : "Lid yetarli — sotuvda yo'qotilmoqda"}: konversiya rejada ${pct(c.plan)}, faktda ${pct(c.fact)} (sotuv bo'limi).`);
+    } else if (!auto && behind('leads')) {
+      if (c?.fact != null && c.fact >= c.plan) add('info', `Sotuv kam, chunki lid kam. Konversiya esa rejadan yaxshi: rejada ${pct(c.plan)}, faktda ${pct(c.fact)} — lid soni tiklansa, sotuv rejasi ham bajariladi.`);
+      else if (c?.fact != null) add('warning', `Sotuv kam: lid ham kam, konversiya ham rejadan past — rejada ${pct(c.plan)}, faktda ${pct(c.fact)}.`);
+    }
+    if (!auto && lead?.qualified && lead.conv_qualified != null) {
+      add('info', `Sifatli lidlar ${pct0(lead.qualified_share ?? 0)} (${fmt(lead.qualified)} ta), sifatli liddan konversiya ${pct(lead.conv_qualified)}.`);
+    }
+  }
+  if (behind('revenue') && !behind('sales') && m.avg_check?.fact != null && m.avg_check.fact < m.avg_check.plan * 0.95) {
+    add('warning', `Sotuv soni yetarli, lekin o'rtacha chek kichik: rejada ${mln(m.avg_check.plan)}, faktda ${mln(m.avg_check.fact)} so'm.`);
+  }
+  if (!['leads', 'sales', 'revenue'].some(behind) && ['leads', 'sales', 'revenue'].some((k) => m[k])) {
+    add('good', finished ? "Oylik reja bajarildi." : "Reja bo'yicha ketyapti.");
+  }
+  return lines;
+}
+
 // ---------- Loyiha holati (7 kun) va byudjet taqsimoti ----------
 export const PROJECT_STATUS = {
   unprofitable: 'Zarar',

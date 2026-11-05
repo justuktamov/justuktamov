@@ -12,7 +12,7 @@ import { buildAiInput, hashInput } from './ai/prompt.js';
 import { login, logout, userFromToken, changePassword, ensureUser, publicUser, createUser, setPassword } from './auth.js';
 import { SELLER_FIELDS, SELLER_KEYS, parseDuration, sellerStats } from './sellers-calc.js';
 import { ROLES, PARTS, isStaff, userProjects, canSeeProject, canWriteField, missingFor, normalizeProjectIds } from './roles.js';
-import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, planProgress, monthly, estimateLag, parseRate, parseNum, dayRates } from './metrics.js';
+import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, planProgress, monthly, monthReview, estimateLag, parseRate, parseNum, dayRates } from './metrics.js';
 import { startPolling, telegramStatus, sendMessage, sendDocument } from './telegram.js';
 import { makeBackup, backupStatus, shareableCopy } from './backup.js';
 
@@ -43,7 +43,7 @@ class HttpError extends Error {
 }
 
 const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
-const isMonth = (s) => /^\d{4}-\d{2}$/.test(String(s || ''));
+const isMonth = (s) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(s || ''));
 
 function send(res, status, data, headers = {}) {
   const body = typeof data === 'string' ? data : JSON.stringify(data);
@@ -628,6 +628,14 @@ route('GET', '/api/monthly', async (req, res, _p, q) => {
   const yesterday = addDays(today(), -1);
   const asOf = isDate(q.get('to')) && q.get('to') < yesterday ? q.get('to') : yesterday;
   send(res, 200, monthly({ months, projectId: q.get('project') ? Number(q.get('project')) : null, unit, asOf }));
+}, STAFF);
+// Oy yakuni: lidlar tarkibi, sifatli va umumiy liddan konversiya, reja ↔ fakt va xulosa (joriy oy — kechagacha)
+route('GET', '/api/month-review', async (req, res, _p, q) => {
+  requireUser(req);
+  const yesterday = addDays(today(), -1);
+  const month = q.get('month') || yesterday.slice(0, 7);
+  if (!isMonth(month)) throw new HttpError(400, "Oy noto'g'ri (YYYY-MM)");
+  send(res, 200, monthReview(month, q.get('project') ? Number(q.get('project')) : null, yesterday));
 }, STAFF);
 route('GET', '/api/export.csv', async (req, res, _p, q) => {
   requireUser(req);
