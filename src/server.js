@@ -156,6 +156,8 @@ route('GET', '/api/me', async (req, res) => {
   send(res, 200, {
     user, today: today(), reportDay: addDays(today(), -1), planFields: PLAN_FIELDS, kinds: PROJECT_KINDS, reasons: REASONS, reasonKinds: REASON_KINDS, channels: CHANNELS, channelFields: CHANNEL_FIELDS,
     reportStatus: getDb().prepare('SELECT status FROM daily_reports WHERE date = ?').get(addDays(today(), -1))?.status || null,
+    // Birinchi kiritilgan kun — doskadagi «Hammasi» shu kundan kechagacha (raqam bo'lmasa — null)
+    firstDay: getDb().prepare('SELECT MIN(date) AS d FROM daily').get()?.d || null,
     roles: ROLES,
     version: APP_VERSION,
     // Xodim: kechagi qismini yuborganmi

@@ -517,11 +517,13 @@ export const TIMES = Array.from({ length: 36 }, (_, i) => { const m = 6 * 60 + i
 
 // ---------- Davr filtri ----------
 // Raqamlar kechagi kun uchun kiritiladi — hamma davrlar kechadan orqaga hisoblanadi
-const PERIODS = [['y', 'Kecha'], ['y2', 'Kechadan oldin'], ['y3', '3 kun oldin'], ['7', 'Hafta'], ['month', 'Oy'], ['custom', 'Oraliq']];
+// «Hammasi» — kiritish boshlangan birinchi kundan kechagacha, hech qanday filtrsiz
+const PERIODS = [['y', 'Kecha'], ['y2', 'Kechadan oldin'], ['y3', '3 kun oldin'], ['7', 'Hafta'], ['month', 'Oy'], ['custom', 'Oraliq'], ['all', 'Hammasi']];
 export function computePeriod() {
   const t = state.me.reportDay;
   if (!PERIODS.some(([v]) => v === state.period)) state.period = 'y';
   if (state.period === 'custom' && state.from && state.to) return { from: state.from, to: state.to };
+  if (state.period === 'all') return { from: state.me.firstDay && state.me.firstDay < t ? state.me.firstDay : t, to: t };
   if (state.period === 'month') return { from: `${t.slice(0, 8)}01`, to: t };
   if (state.period === 'y') return { from: t, to: t };
   if (state.period === 'y2') { const d = addDays(t, -1); return { from: d, to: d }; }
@@ -533,6 +535,7 @@ export function filtersHtml() {
   const { from, to } = computePeriod();
   return `<div class="filters">
     <div class="seg" id="periodSeg" role="group" aria-label="Davr">${opts.map(([v, l]) => `<button data-v="${v}" class="${state.period === v ? 'on' : ''}">${l}</button>`).join('')}</div>
+    ${state.period === 'all' ? `<span class="muted small period-span" title="Birinchi kiritilgan kundan kechagacha">${shortDate(from)}.${from.slice(2, 4)} — ${shortDate(to)}.${to.slice(2, 4)}</span>` : ''}
     ${state.period === 'custom' ? `<button type="button" class="date-btn range-btn" id="fRange" aria-haspopup="dialog" aria-label="Oraliq: ${prettyDate(from)} — ${prettyDate(to)}">${ICONS.cal}<span>${from === to ? shortDate(from) : `${shortDate(from)} — ${shortDate(to)}`}</span></button>` : ''}
   </div>`;
 }

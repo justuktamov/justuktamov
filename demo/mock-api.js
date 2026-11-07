@@ -177,6 +177,7 @@ const routes = {
   'POST /api/logout': () => { me = null; return { ok: true }; },
   'GET /api/me': () => ({
     user: publicUser(needUser()), today: TODAY, reportDay: addDays(TODAY, -1), planFields: PLAN_FIELDS, kinds: PROJECT_KINDS, reasons: REASONS, reasonKinds: REASON_KINDS, channels: CHANNELS, channelFields: CHANNEL_FIELDS,
+    firstDay: store.daily.reduce((m, r) => (!m || r.date < m ? r.date : m), null),
     reportStatus: store.reports.find((r) => r.date === addDays(TODAY, -1))?.status || null,
     roles: ROLES,
     partSent: isStaff(me) ? sentAt(addDays(TODAY, -1), me.id) : null,
