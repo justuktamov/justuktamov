@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { AiError } from './errors.js';
 import { RESULT_SCHEMA } from './prompt.js';
 
-export async function complete({ apiKey, model, effort, system, user, timeoutMs, schema = null }) {
+export async function complete({ apiKey, model, effort, system, user, timeoutMs }) {
   // Kalit berilmasa SDK o'zi ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN dan oladi
   const client = new Anthropic({ ...(apiKey ? { apiKey } : {}), timeout: timeoutMs, maxRetries: 1 });
   let response;
@@ -14,7 +14,7 @@ export async function complete({ apiKey, model, effort, system, user, timeoutMs,
       // Xavfsizlik filtri rad etsa — so'rov server tomonida boshqa modelda qayta bajariladi
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
-      output_config: { effort: effort || 'high', format: { type: 'json_schema', schema: schema || RESULT_SCHEMA } },
+      output_config: { effort: effort || 'high', format: { type: 'json_schema', schema: RESULT_SCHEMA } },
       system,
       messages: [{ role: 'user', content: user }],
     });

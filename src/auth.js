@@ -18,10 +18,10 @@ export function verifyPassword(password, stored) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-export function createUser({ name, login, password, telegram_id = null, role = 'pm', projects = null, access = null }) {
+export function createUser({ name, login, password, telegram_id = null, role = 'pm', projects = null }) {
   const info = getDb()
-    .prepare('INSERT INTO users (name, login, password_hash, role, telegram_id, projects, access) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .run(name, login.trim().toLowerCase(), hashPassword(password), role, telegram_id, projects, access);
+    .prepare('INSERT INTO users (name, login, password_hash, role, telegram_id, projects) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(name, login.trim().toLowerCase(), hashPassword(password), role, telegram_id, projects);
   return Number(info.lastInsertRowid);
 }
 
@@ -72,7 +72,7 @@ export function userFromToken(token) {
 }
 
 export function publicUser(u) {
-  return { id: u.id, name: u.name, login: u.login, telegram_id: u.telegram_id, role: u.role || 'pm', projects: u.projects || null, access: u.access ?? null };
+  return { id: u.id, name: u.name, login: u.login, telegram_id: u.telegram_id, role: u.role || 'pm', projects: u.projects || null };
 }
 
 // Birinchi ishga tushirish: proekt menejer uchun login yaratiladi

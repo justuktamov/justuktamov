@@ -5,119 +5,39 @@ import {
 
 const STATUS_PILL = { unprofitable: 'crit', sales_issue: 'crit', creative: 'warn', needs_leads: 'info', scale: 'lime', good: 'good', nodata: '' };
 
+// Lid holatlari jadvali (sotuv bo'limi orqali) — shu tartibda
+export const LEAD_ST = ['st_nopickup', 'st_callback', 'st_thinking', 'potential', 'st_video', 'st_later', 'sales'];
+
 export const STEPS = [
   { key: 'target', title: 'Target', head: "Targetologdan so'rang",
-    hint: "Dollar kursi va har loyiha raqamlari. Lid bo'sh qolsa — sayt + bot qo'shiladi.",
+    hint: "Avval shu kunning dollar kursini, keyin har bir loyiha bo'yicha raqamlarni yozing. Lid — targetolog reklama kabinetidan aytgani (sotuv bo'limi lidlari 2-qadamda alohida). Ko'rish va klik — faqat target. Bloger va Telegram kanallarga to'lov bo'lmagan kun bo'sh qoldiriladi.",
     ask: ['Har bir loyihaga nechta lid tushdi (avtovoronkada — botga nechta start)? Shundan nechtasi saytdan (web), nechtasi Telegram botdan?', 'Qaysi loyihaga targetga qancha pul sarflandi ($)?', 'Blogerlarga va Telegram kanallarga reklama uchun qancha to\'landi ($)?', "Nechta ko'rish va nechta klik bo'ldi?", 'Kecha nechta yangi kreativ chiqdi?',
       'Qaysi kreativ yaxshi ishladi, qaysi biri ishlamadi?', "Reklamada muammo bo'ldimi (akkaunt, moderatsiya, to'lov)?"],
-    fields: [['spend', 'Target', 'Xarajat, $'], ['spend_blogger', 'Bloger', 'Xarajat, $'], ['spend_posts', 'TG kanal', 'Xarajat, $'],
-      ['impressions', "Ko'rish", 'Reklama'], ['clicks', 'Klik', 'Reklama'],
-      ['target_leads', 'Jami', 'Lid'], ['tl_web', 'Sayt', 'Lid'], ['tl_bot', 'Bot', 'Lid'], ['new_creatives', 'Yangi', 'Kreativ']],
+    fields: [['target_leads', 'Lid'], ['tl_web', 'Saytdan (web)'], ['tl_bot', 'Telegram botdan'], ['spend', 'Target, $'], ['spend_blogger', 'Blogerga, $'], ['spend_posts', 'TG kanallarga, $'], ['impressions', "Ko'rish"], ['clicks', 'Klik'], ['new_creatives', 'Yangi kreativ']],
     required: ['spend', 'clicks'],
     texts: [['creative_best', 'Yaxshi ishlagan kreativ', 'nomi yoki havola'], ['creative_worst', 'Ishlamayotgan kreativ', 'nomi yoki havola'], ['note_target', 'Muammo', "akkaunt, moderatsiya, to'lov…"]] },
   { key: 'sales', title: 'Sotuv', head: "Sotuv va tushgan pul",
-    hint: "Lidlar, holati, sotuv va tushum. Jami lid bo'sh qolsa — qismlari qo'shiladi.",
+    hint: "Sifatli — sotib olishga tayyor. Potensial — qiziqdi, keyinroq olishi mumkin. Sifatsiz — maqsadli emas yoki javob bermadi. Avtovoronka raqamlari botdan / to'lov tizimidan olinadi.",
     ask: ['Har bir loyihaga nechta lid tushdi? Nechta qo\'ng\'iroq qilindi?', 'Nechtasi sifatli, nechtasi sifatsiz, nechtasi potensial?', "Lidlar holati: nechtasi ko'tarmadi, nechtasi bilan qayta aloqa, nechtasi o'ylab ko'radi, nechtasi potensial, nechtasi video ko'rishi kerak, nechtasi keyinroq o'qiydi, nechtasi sotildi?", 'Instagram direktdan va Telegram admin lichkasidan nechta lid keldi?', "Nechta sotuv bo'ldi va qancha pul tushdi?",
       'Sifatsizlar nega sifatsiz, sotib olmaganlar nega olmadi (har sababdan nechta)?'],
     askAuto: ['Avtovoronka: botga nechta odam kirdi (start), nechtasi sotib oldi, qancha pul tushdi?'],
-    // Lid holatlari — kartada o'z guruhida, ROP aytgan tartibda: ko'tarmadi → … → sotildi
-    fields: [['leads', 'Jami', 'Lidlar'], ['calls', "Qo'ng'iroq", 'Lidlar'], ['qualified', 'Sifatli', 'Lidlar'], ['unqualified', 'Sifatsiz', 'Lidlar'],
-      ['st_nopickup', "Ko'tarmadi", 'Lid holati'], ['st_callback', 'Qayta aloqa', 'Lid holati'], ['st_thinking', "O'ylab ko'radi", 'Lid holati'], ['potential', 'Potensial', 'Lid holati'], ['st_video', 'Video kerak', 'Lid holati'], ['st_later', 'Keyinroq', 'Lid holati'],
-      ['sales', 'Sotildi', 'Natija'], ['revenue', "Tushum, so'm", 'Natija']],
+    // Lid holatlari (LEAD_ST) — alohida jadvalda, ROP aytgan tartibda: ko'tarmadi → … → sotildi
+    fields: [['leads', 'Umumiy lid'], ['calls', "Qo'ng'iroq"], ['qualified', 'Sifatli'], ['unqualified', 'Sifatsiz'], ['revenue', "Tushgan pul, so'm"],
+      ['st_nopickup', "Ko'tarmadi"], ['st_callback', 'Qayta aloqa'], ['st_thinking', "O'ylab ko'radi"], ['potential', 'Potensial'], ['st_video', "Video ko'rishi kerak"], ['st_later', "Keyinroq o'qiydi"], ['sales', 'Sotildi']],
     required: ['leads', 'sales', 'revenue'],
-    autoFields: [['starts', 'Bot start'], ['sales', 'Xarid'], ['revenue', "Tushum, so'm"]],
+    autoFields: [['starts', 'Bot start'], ['sales', 'Xarid'], ['revenue', "Tushgan pul, so'm"]],
     autoRequired: ['sales', 'revenue'],
     texts: [['note_sales', 'ROP izohi', "nega sotib olmayapti, nima xalaqit beryapti…"]] },
   { key: 'check', title: 'Tahlil', head: 'Tahlil qiling va taklif yozing',
-    hint: "Tizim muammoni topdi va taklif yozdi — kerak bo'lsa o'zgartiring." },
+    hint: "Har bir loyihada tizim muammoni topdi va taklif yozdi. Kerak bo'lsa taklifni o'zgartiring." },
   { key: 'send', title: 'Yuborish', head: 'Direktorga yuboring',
-    hint: 'Direktor shu xabarni Telegramda oladi va javob yozadi.' },
+    hint: 'Direktor Telegramda aynan shu xabarni oladi va javob (reply) qilib yechim yozadi — javob sizga keladi.' },
 ];
 
 const STAFF_HEAD = {
-  target: ['Target hisoboti — tekshiring', "To'g'ri bo'lsa — «Tasdiqlash», xato bo'lsa — «Qaytarish»."],
-  sales: ['Sotuv hisoboti — tekshiring', "To'g'ri bo'lsa — «Tasdiqlash», xato bo'lsa — «Qaytarish»."],
+  target: ['Targetolog hisoboti — tekshiring va tasdiqlang', "Target raqamlarini va dollar kursini targetolog kiritadi — siz faqat tekshirasiz. Hammasi to'g'ri bo'lsa — «Tasdiqlash». Xato bo'lsa — «Qaytarish» bilan izoh yozing: targetolog tuzatib qayta yuboradi. Yubormagan bo'lsa — «Eslatish»."],
+  sales: ['ROP hisoboti — tekshiring va tasdiqlang', "Lidlar, holatlar, sabablar, sotuv va tushumni ROP kiritadi — siz faqat tekshirasiz: jami lid va qismlari mosmi, tushum to'g'rimi. To'g'ri bo'lsa — «Tasdiqlash», xato bo'lsa — «Qaytarish» (izoh bilan)."],
 };
-// Maydonning to'liq nomi (guruh bilan): «Xarajat: Target, $», «Lid: Sayt»
-export const fieldLabel = ([, l, g]) => (g ? `${g.replace(/, \$$/, '')}: ${l}${/\$$/.test(g) ? ', $' : ''}` : l);
-// Lichkadan kelgan lidlar (jami lid ichida) — sotuv kartasida alohida guruh
-export const SRC_FIELDS = [['src_ig', 'Instagram', 'Lichkadan'], ['src_tg', 'Telegram', 'Lichkadan']];
-
-// ---------- Kiritish kartalari ----------
-// Har loyiha — bitta karta: maydonlar rangli guruhlarda (Xarajat · Reklama · Lid …), yorlig'i katak ustida,
-// tepada — yozish paytida hisob (1 lid narxi, CTR, konversiya) va holat (✓ tayyor / ≠ qismlari ko'p)
-const TONE = { 'Xarajat, $': 'violet', Reklama: 'sky', Lid: 'lime', Lidlar: 'lime', Kreativ: 'coral', 'Lid holati': 'amber', Natija: 'mint', Lichkadan: 'sky', Avtovoronka: 'violet' };
-const numOf = (x) => (x == null || x === '' ? null : typeof x === 'number' ? x : parseNum(x));
-const sumOf = (xs) => (xs.some((x) => x != null) ? xs.reduce((a, x) => a + (x || 0), 0) : null);
-// Kartadagi qiymat (yozilayotgani); kartada bo'lmagan maydon — saqlangan qiymat
-const cardVal = (card, p) => (f) => { const el = card?.querySelector(`input[name="${f}"]`); return el ? numOf(el.value.replace(/\s/g, '')) : numOf(p.row[f]); };
-
-function cardCalc(kind, p, v) {
-  const out = [];
-  if (kind === 'target') {
-    const spend = sumOf(['spend', 'spend_blogger', 'spend_posts'].map(v));
-    const leads = v('target_leads') ?? sumOf(['tl_web', 'tl_bot'].map(v));
-    const imp = v('impressions'), clk = v('clicks');
-    if (spend && leads) out.push(['1 lid', fmtUsd(spend / leads)]);
-    if (imp && clk != null) out.push(['CTR', fmtP(clk / imp, 1)]);
-    if (spend && clk) out.push(['1 klik', fmtUsd(spend / clk)]);
-  } else if (kind === 'sales') {
-    const leads = v('leads') ?? sumOf(['qualified', 'potential', 'unqualified'].map(v));
-    const sales = v('sales'), rev = v('revenue');
-    if (numOf(p.row.spend) && leads) out.push(['1 lid', cplText(numOf(p.row.spend), leads)]);
-    if (leads && sales != null) out.push(['Konversiya', fmtP(sales / leads, 1)]);
-    if (sales && rev) { const c = rev / sales; out.push(["O'rtacha chek", c >= 1e6 ? `${fmtN(c / 1e6, 1)} mln` : `${fmtN(c / 1000)} ming`]); }
-  } else if (kind === 'auto') {
-    const st = v('starts'), sales = v('sales');
-    if (numOf(p.row.spend) && st) out.push(['1 start', cplText(numOf(p.row.spend), st)]);
-    if (st && sales != null) out.push(['Konversiya', fmtP(sales / st, 1)]);
-  }
-  return out.map(([l, x]) => `<span class="calc-chip">${l} <b>${x}</b></span>`).join('');
-}
-function cardState(kind, v, required) {
-  const [total, parts] = kind === 'target' ? [v('target_leads'), ['tl_web', 'tl_bot']] : kind === 'sales' ? [v('leads'), ['qualified', 'potential', 'unqualified']] : [null, []];
-  const sum = sumOf(parts.map(v));
-  if (total != null && sum != null && sum > total) return `<span class="pill warn" title="Qismlari jamidan ko'p">≠ ${fmtN(sum)}</span>`;
-  // Jami bo'sh, qismlari bor — saqlashda qo'shiladi, shuning uchun to'ldirilgan hisoblanadi
-  const got = (f) => (v(f) == null && (f === 'leads' || f === 'target_leads') ? sum : v(f));
-  return required.length && required.every((f) => got(f) != null) ? `<span class="pc-ok">${ICONS.check} Tayyor</span>` : '';
-}
-// fields: [[maydon, yorliq, guruh]]; guruhsizlar — fallback guruhida
-export function entryCards(projects, fields, { kind, required = [], fallback = '' } = {}) {
-  const groups = [];
-  for (const fd of fields) { const g = fd[2] || fallback; const last = groups.at(-1); if (last && last[0] === g) last[1].push(fd); else groups.push([g, [fd]]); }
-  return `<div class="pcards">${projects.map((p) => {
-    const v = (f) => numOf(p.row[f]);
-    const empty = fields.every(([f]) => p.row[f] == null || p.row[f] === '');
-    return `<article class="pcard ${empty ? 'is-empty' : ''}" data-id="${p.id}" data-card="${kind}" data-req="${required.join(',')}" style="--pc:${esc(p.color || '#4c86ff')}">
-      <header class="pc-head"><b class="pc-name">${esc(p.name)}</b><span class="pc-none">kiritilmagan</span><span class="pc-calc" data-calc>${cardCalc(kind, p, v)}</span><span class="pc-state" data-state>${cardState(kind, v, required)}</span></header>
-      <div class="pc-body">${groups.map(([g, fs]) => `<fieldset class="pod t-${TONE[g] || 'violet'}" style="--n:${fs.length}"><legend>${esc(g)}</legend>
-        <div class="pod-in">${fs.map((fd) => { const [f, l] = fd; return `<label class="pin ${f === 'revenue' ? 'wide' : ''}"><span>${esc(l)}</span><input class="cell-in" inputmode="decimal" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${esc(fieldLabel([f, l, fd[2] || fallback]))}"></label>`; }).join('')}</div></fieldset>`).join('')}</div>
-    </article>`;
-  }).join('')}</div>`;
-}
-// Yozish paytida: karta hisobi va holati yangilanadi; Enter — keyingi katak
-export function bindCards(box, projects, onLast) {
-  box.addEventListener('input', (e) => {
-    const card = e.target.closest('[data-card]');
-    if (!card) return;
-    const p = projects.find((x) => String(x.id) === card.dataset.id);
-    const v = cardVal(card, p);
-    $('[data-calc]', card).innerHTML = cardCalc(card.dataset.card, p, v);
-    $('[data-state]', card).innerHTML = cardState(card.dataset.card, v, card.dataset.req ? card.dataset.req.split(',') : []);
-  });
-  box.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' || !e.target.matches('.pin input')) return;
-    e.preventDefault();
-    const all = $$('.pin input:not([readonly])', box);
-    const next = all[all.indexOf(e.target) + 1];
-    (next || onLast?.())?.focus();
-  });
-}
-// Ko'rish rejimi: bo'sh kataklarda «—»
-export function readOnlyCards(root) {
-  root.querySelectorAll('.pin input').forEach((el) => { el.readOnly = true; el.tabIndex = -1; el.placeholder = '—'; });
-}
 // Xodimlar (targetolog, ROP) — o'z qismini yuborganmi; PM eslatma yubora oladi
 const PART_ICON = { target: '🎯', rop: '📞' };
 function staffBox(staff, part, projects, approval = null, actions = true) {
@@ -129,16 +49,16 @@ function staffBox(staff, part, projects, approval = null, actions = true) {
       ${x.submitted_at ? `<span class="pill good">✓ ${esc(String(x.submitted_at).slice(11, 16))} da yubordi</span>${actions ? `<button type="button" class="btn small ghost" data-return="${x.id}" data-name="${esc(x.name)}">↩ Qaytarish</button>` : ''}`
         : `<span class="pill warn">${x.returned ? `Qaytarilgan — tuzatyapti` : 'Hali yubormadi'}</span>${!actions ? '' : x.telegram ? `<button type="button" class="btn small" data-remind="${x.id}">Eslatish</button>` : '<span class="muted small" title="Telegram ID kiritilmagan">eslatma — Telegram ID yo\'q</span>'}`}
       ${x.returned && !x.submitted_at && x.returned.note ? `<span class="muted small ret-note">↩ ${esc(x.returned.note)}</span>` : ''}</div>`).join('')}
-    ${approval ? `<p class="approved-line">✓ ${actions ? 'Siz tasdiqladingiz' : `PM tasdiqladi${approval.by ? ` (${esc(approval.by)})` : ''}`} · ${esc(String(approval.approved_at).slice(11, 16))}</p>` : (actions ? '' : `<p class="muted small">PM hali tasdiqlamagan</p>`)}</div>`;
+    ${approval ? `<p class="approved-line">✓ ${actions ? 'Siz tasdiqladingiz' : `PM tasdiqladi${approval.by ? ` (${esc(approval.by)})` : ''}`} · ${esc(String(approval.approved_at).slice(11, 16))}</p>` : `<p class="muted small">${actions ? "Ular kiritgan raqamlar quyida — faqat ko'rish uchun." : 'PM hali tasdiqlamagan.'}</p>`}</div>`;
 }
 
 // Korzinka ikkiga bo'linadi: «Bekor bo'lish sabablari» va «Sifatsiz lidlar» — alohida bo'limlar, har birida loyihalar
-const RSN_SUB = { lost: 'gaplashildi, olmadi', bad: "mijoz emas yoki aloqa yo'q" };
+const RSN_SUB = { lost: "gaplashildi, lekin sotib olmadi", bad: "haqiqiy mijoz emas yoki aloqa bo'lmadi" };
 // Korzinka loyiha bo'yicha: VIZART → bekor bo'lish sabablari + sifatsiz lidlar, keyin DIZIPRO … (ketma-ket to'ldiriladi)
 export function reasonsHtml(projects, { hint = '' } = {}) {
   const { reasons, reasonKinds } = state.me;
   const has = projects.some((p) => Object.values(p.reasons || {}).some((m) => Object.keys(m).length));
-  return `<details class="extra rsn-wrap" ${has || !hint ? 'open' : ''}><summary>Sabablar <span class="muted">— nega olmadi va nega sifatsiz</span></summary>
+  return `<details class="extra rsn-wrap" ${has || !hint ? 'open' : ''}><summary>Korzinka: bekor bo'lish sabablari va sifatsiz lidlar <span class="muted">— har loyiha bo'yicha${hint ? ` ${hint}` : ''}</span></summary>
     <div class="reasons-in">${projects.map((p) => `<div class="rin rsn-proj" data-rid="${p.id}" style="--pc:${esc(p.color || '#4c86ff')}"><b>${dot(p.color)}${esc(p.name)}</b>
       ${Object.entries(reasonKinds).map(([kind, title]) => `<div class="rsn-kind rsn-${kind}"><span class="rsn-title">${esc(title)} <span class="muted">— ${RSN_SUB[kind] || ''}</span></span><div class="rin-grid">
         ${[...new Set([...(p.reasonKeys?.[kind] || Object.keys(reasons[kind])), ...Object.keys(p.reasons?.[kind] || {})])].filter((r) => reasons[kind][r]).map((r) => `<label><span>${esc(reasons[kind][r])}</span><input class="cell-in" inputmode="numeric" data-kind="${kind}" data-reason="${r}" value="${p.reasons?.[kind]?.[r] ?? ''}" aria-label="${esc(p.name)} — ${esc(title)} — ${esc(reasons[kind][r])}"></label>`).join('')}
@@ -201,10 +121,11 @@ export async function renderToday({ rolled = null } = {}) {
     state.pmStep = null;
     if (location.hash !== reportHash(d)) location.hash = reportHash(d); else renderToday();
   };
+  const first = String(state.me.user.name || '').split(' ')[0];
   // Targetolog va ROP ham shu sahifani ko'radi (tahlil uchun) — faqat ko'rish: tasdiqlash va yuborish PM da
   const viewer = isStaffUser();
-  shell(`<div class="page-head"><div><h1>Kunlik hisobot</h1>
-      <div class="sub">${date === state.me.reportDay ? 'Kecha · ' : ''}${dayLabel(date)}${viewer ? ' · faqat ko\'rish' : ''}</div></div>${dateNav(date, go)}</div>
+  shell(`<div class="page-head"><div><h1>${date === state.me.reportDay ? `Salom, <span class="grad">${esc(first)}</span>` : `<span class="grad">${dayLabel(date)}</span>`}</h1>
+      <div class="sub">${viewer ? `${date === state.me.reportDay ? `Kechagi (${dayLabel(date)})` : 'Shu kun'} umumiy hisoboti — PM tekshirib direktorga yuboradi, siz ko'rasiz` : date === state.me.reportDay ? `Kechagi (${dayLabel(date)}) hisobotni 4 qadamda tayyorlaymiz` : 'Shu kun hisoboti'}</div></div>${dateNav(date, go)}</div>
     <div id="pm">${spinnerBlock()}</div>`);
   const rid = state.renderId;
   let daily, bundle;
@@ -262,13 +183,15 @@ export async function renderToday({ rolled = null } = {}) {
     const byStaff = (daily.staff || []).some((x) => x.role === (sales ? 'rop' : 'target'));
     return `<section class="card step ${byStaff || viewer ? 'ro-mode' : ''}" ${byStaff ? `data-ro="${sales ? 'rop' : 'target'}"` : ''}>
       <div class="step-top">
-        <div class="step-head"><span class="eyebrow">${i + 1}-qadam</span><h2>${viewer ? (sales ? 'Sotuv hisoboti' : 'Target hisoboti') : byStaff ? STAFF_HEAD[s.key][0] : s.head}</h2>${viewer ? '' : `<p>${byStaff ? STAFF_HEAD[s.key][1] : s.hint}</p>`}</div>
+        <div class="step-head"><span class="eyebrow">${i + 1}-qadam</span><h2>${viewer ? (sales ? 'ROP hisoboti' : 'Targetolog hisoboti') : byStaff ? STAFF_HEAD[s.key][0] : s.head}</h2><p>${viewer ? `${sales ? 'ROP' : 'Targetolog'} kiritgan raqamlar — faqat ko'rish uchun. O'z raqamlaringizni chap menyudagi «${state.me.user.role === 'target' ? 'Target kiritish' : 'Sotuv kiritish'}» bo'limida kiritasiz.` : byStaff ? STAFF_HEAD[s.key][1] : s.hint}</p></div>
         ${staffBox(daily.staff, i === 0 ? 'target' : 'rop', daily.projects, daily.approvals?.[i === 0 ? 'target' : 'rop'], !viewer) || (viewer ? '' : `<div class="ask"><b>So'raladigan savollar</b><ol>${askList(s, daily.projects).map((q) => `<li>${esc(q)}</li>`).join('')}</ol>
-          <button class="btn small" data-copy-ask>${ICONS.copy} Nusxalash</button></div>`)}
+          <button class="btn small" data-copy-ask>${ICONS.copy} Nusxalash — Telegramda yuborish uchun</button></div>`)}
       </div>
       ${i === 0 ? rateBlock() : ''}
-      ${leadsP.length ? `${sales && autoP.length ? "<h3 class=\"tbl-title\">Sotuv bo'limi orqali</h3>" : ''}${entryCards(leadsP, sales ? [...s.fields, ...SRC_FIELDS] : s.fields, { kind: sales ? 'sales' : 'target', required: s.required })}` : ''}
-      ${autoP.length ? `<h3 class="tbl-title">Avtovoronka</h3>${entryCards(autoP, s.autoFields, { kind: sales ? 'auto' : 'target', required: s.autoRequired, fallback: 'Avtovoronka' })}` : ''}
+      ${leadsP.length ? `${sales && autoP.length ? "<h3 class=\"tbl-title\">Sotuv bo'limi orqali</h3>" : ''}${numTable(leadsP, sales ? s.fields.filter(([f]) => !LEAD_ST.includes(f)) : s.fields, s.required, sales ? 'cpl' : null)}` : ''}
+      ${sales && leadsP.length ? `<h3 class="tbl-title">Lidlar holati <span class="muted small">— sotuv bo'limi orqali, nechta</span></h3>${numTable(leadsP, LEAD_ST.map((f) => s.fields.find(([x]) => x === f)), [], null)}` : ''}
+      ${autoP.length ? `<h3 class="tbl-title">Avtovoronka <span class="muted small">— botdan va to'lov tizimidan</span></h3>${numTable(autoP, s.autoFields, s.autoRequired, 'cps')}` : ''}
+      ${sales && leadsP.length ? sourcesBlock(leadsP) : ''}
       ${textP.length ? `<details class="extra" ${textP.some((p) => s.texts.some(([f]) => p.row[f])) ? 'open' : ''}><summary>${sales ? 'ROP izohlari' : 'Kreativlar va muammolar'} <span class="muted">(ixtiyoriy)</span></summary>
         <div class="table-wrap"><table class="grid-entry text-entry" style="--cols:1"><thead><tr><th>Loyiha</th>${s.texts.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead>
         <tbody>${textP.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
@@ -276,14 +199,14 @@ export async function renderToday({ rolled = null } = {}) {
       </details>` : ''}
       ${sales && leadsP.length ? reasonsBlock(leadsP) : ''}
       ${sales && !byStaff ? channelsEntry(daily.projects) : ''}
-      ${viewer ? viewFoot() : byStaff ? approveFoot(sales ? 'rop' : 'target') : `<div class="step-foot"><span class="muted small">Kulrang raqam — oldingi kun</span><span class="spacer"></span>
+      ${viewer ? viewFoot() : byStaff ? approveFoot(sales ? 'rop' : 'target') : `<div class="step-foot"><span class="muted small">${sales ? "Jami lid bo'sh qolsa — uch turi qo'shiladi." : 'Kulrang raqam — kechagi qiymat. Enter — keyingi qator.'}</span><span class="spacer"></span>
         <button class="btn ghost" data-skip>O'tkazib yuborish</button><button class="btn primary" data-save>Saqlash va davom etish →</button></div>`}
     </section>`;
   }
 
   // Targetolog / ROP uchun: faqat keyingi qadamga o'tish
   function viewFoot(back = false) {
-    return `<div class="step-foot">${back ? '<button class="btn ghost" data-back>← Orqaga</button>' : ''}<span class="muted small">Faqat ko'rish</span><span class="spacer"></span>${back ? '' : '<button class="btn primary" data-next>Keyingi →</button>'}</div>`;
+    return `<div class="step-foot">${back ? '<button class="btn ghost" data-back>← Orqaga</button>' : ''}<span class="muted small">Faqat ko'rish uchun — tasdiqlash va direktorga yuborish PM da.</span><span class="spacer"></span>${back ? '' : '<button class="btn primary" data-next>Keyingi →</button>'}</div>`;
   }
 
   // Xodim kiritgan qism: PM faqat tasdiqlaydi (yoki tasdiqni bekor qiladi) va keyingi qadamga o'tadi
@@ -291,7 +214,7 @@ export async function renderToday({ rolled = null } = {}) {
     const ok = daily.approvals?.[part];
     const list = (daily.staff || []).filter((x) => x.role === part);
     const waiting = list.filter((x) => !x.submitted_at).length;
-    return `<div class="step-foot"><span class="muted small">${waiting ? `${waiting} ta xodim hali yubormagan` : 'Hamma yubordi'}</span><span class="spacer"></span>
+    return `<div class="step-foot"><span class="muted small">${waiting ? `${waiting} ta xodim hali yubormagan — yuborgach tekshirib tasdiqlang.` : 'Hamma yubordi. Raqamlarni tekshiring.'}</span><span class="spacer"></span>
       ${ok ? `<button class="btn ghost" data-unapprove="${part}">Tasdiqni bekor qilish</button><button class="btn primary" data-next>Davom etish →</button>`
         : `<button class="btn ghost" data-next>Keyinroq →</button><button class="btn primary" data-approve="${part}" ${waiting === list.length ? 'disabled title="Hali hech kim yubormagan"' : ''}>✓ Tasdiqlash va davom etish</button>`}</div>`;
   }
@@ -299,16 +222,34 @@ export async function renderToday({ rolled = null } = {}) {
   // Shu kunning dollar kursi — har hisobotda PM o'zi yozadi; faqat shu kun hisobiga ta'sir qiladi
   function rateBlock() {
     const r = daily.rate || {};
-    return `<div class="rate-in ${r.value == null ? 'need' : ''}" title="Shu kun reklamasi so'mga shu kurs bilan o'tadi">
-      <label for="dRate"><b>Dollar kursi</b></label>
-      <input id="dRate" class="cell-in" inputmode="decimal" value="${r.value ?? ''}" placeholder="${fmtN(r.prev || 12650)}" aria-label="Dollar kursi, so'm"><span class="muted">so'm</span>
-      ${r.value == null ? '<span class="need-tag">kiritilmagan</span>' : ''}
+    return `<div class="rate-in ${r.value == null ? 'need' : ''}">
+      <label for="dRate"><b>Dollar kursi</b><span class="muted small">${esc(dayLabel(date))} uchun, so'm</span></label>
+      <input id="dRate" class="cell-in" inputmode="decimal" value="${r.value ?? ''}" placeholder="masalan, ${fmtN(r.prev || 12650)}" aria-label="Dollar kursi, so'm">
+      <span class="muted small">${r.value == null ? '<b class="need-tag">Kiritilmagan</b> — kurssiz hisobot yuborilmaydi. ' : ''}Shu kunning reklama xarajati so'mga shu kurs bilan o'tadi, boshqa kunlarga ta'sir qilmaydi.</span>
     </div>`;
+  }
+
+  // calc: jonli hisob — 1 lid narxi (cpl) yoki 1 start narxi (cps)
+  function numTable(projects, fields, required, calc) {
+    return `<div class="table-wrap"><table class="grid-entry ${fields.length > 4 ? 'wide' : ''} ${fields.length > 7 ? 'xwide' : ''}" style="--cols:${fields.length % 3 ? 2 : 3}" ${calc ? `data-calc="${calc}"` : ''}><thead><tr><th>Loyiha</th>${fields.map(([, l]) => `<th class="n">${l}</th>`).join('')}${calc ? `<th class="n">${calc === 'cpl' ? '1 lid' : '1 start'}</th>` : ''}<th></th></tr></thead>
+      <tbody>${projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
+        ${fields.map(([f, l]) => `<td class="n" data-label="${f === 'target_leads' ? 'Lid (target)' : l}"><input class="cell-in" inputmode="decimal" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${f === 'target_leads' ? 'Lid (targetolog)' : l}" ${f === 'target_leads' ? `title="Targetolog aytgan lid${p.kind === 'auto' ? ' (avtovoronkada — reklama kabinetidagi start)' : ''}; sotuv bo'limi lidlari — 2-qadamda"` : ''}></td>`).join('')}
+        ${calc ? `<td class="n calc" data-label="${calc === 'cpl' ? '1 lid narxi' : '1 start narxi'}" data-cpl>${cplText(p.row.spend, calc === 'cpl' ? p.row.leads : p.row.starts)}</td>` : ''}
+        <td data-state>${filled(p.row, required) ? '<span class="pill good">✓</span>' : ''}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
   // Korzinka — ROP har sababdan nechta ekanini aytadi (ikki alohida bo'lim)
   function reasonsBlock(projects) {
     return reasonsHtml(projects, { hint: '(ROP sanab beradi)' });
+  }
+
+  // Lichkadan kelgan lidlar: Instagram direkt va Telegram admin lichkasi — faqat soni (jami lid ichida)
+  function sourcesBlock(projects) {
+    const SRC = [['src_ig', 'Instagram direktdan'], ['src_tg', 'Telegram lichkadan']];
+    return `<h3 class="tbl-title">Lichkadan kelgan lidlar <span class="muted small">— Instagram direkt va Telegram admin lichkasi, nechta (jami lid ichida)</span></h3>
+      <div class="table-wrap"><table class="grid-entry grid-mini" style="--cols:2"><thead><tr><th>Loyiha</th>${SRC.map(([, l]) => `<th class="n">${l}</th>`).join('')}</tr></thead>
+      <tbody>${projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
+        ${SRC.map(([f, l]) => `<td class="n" data-label="${l}"><input class="cell-in" inputmode="numeric" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
 
   // Kanallar bo'yicha: Telegram Ads, Instagram, bloger… — qaysi kanal sifatli lid va arzon mijoz beradi
@@ -466,8 +407,25 @@ export async function renderToday({ rolled = null } = {}) {
     box.querySelectorAll('.check textarea').forEach((t) => { fit(t); t.addEventListener('input', () => fit(t)); });
     const copyAsk = box.querySelector('[data-copy-ask]');
     if (copyAsk) copyAsk.onclick = () => copyText(askText(cur, daily.projects));
-    // Kartalar: 1 lid narxi, konversiya va holat — yozish paytida
-    bindCards(box, daily.projects, () => box.querySelector('[data-save]'));
+    // Sotuv qadami: lid narxi va lid turlari yig'indisi yozish paytida
+    // Lid turlari bir nechta jadvalda (potensial — «Lidlar holati» da): qiymat shu loyihaning har qanday qatoridan olinadi
+    box.addEventListener('input', (e) => {
+      const row = e.target.closest('tr[data-id]');
+      const tr = row && box.querySelector(`table[data-calc] tr[data-id="${row.dataset.id}"]`);
+      if (!tr) return;
+      const tbl = tr.closest('table');
+      const p = daily.projects.find((x) => String(x.id) === tr.dataset.id);
+      const v = (f) => { const el = box.querySelector(`tr[data-id="${p.id}"] input[name="${f}"]`); return !el || el.value.trim() === '' ? null : parseNum(el.value); };
+      if (tbl.dataset.calc === 'cps') { $('[data-cpl]', tr).textContent = cplText(p.row.spend, v('starts')); return; }
+      {
+        const parts = ['qualified', 'potential', 'unqualified'].map(v);
+        const total = v('leads') ?? (parts.some((x) => x != null) ? parts.reduce((a, x) => a + (x || 0), 0) : null);
+        $('[data-cpl]', tr).textContent = cplText(p.row.spend, total);
+        const sumParts = parts.reduce((a, x) => a + (x || 0), 0);
+        $('[data-state]', tr).innerHTML = v('leads') != null && parts.some((x) => x != null) && sumParts !== v('leads')
+          ? `<span class="pill warn" title="Sifatli + potensial + sifatsiz = ${sumParts}">≠ ${sumParts}</span>` : '';
+      }
+    });
     box.querySelectorAll('[data-step-go]').forEach((b) => { b.onclick = () => toStep(b.dataset.stepGo); });
     box.querySelectorAll('[data-remind]').forEach((b) => {
       b.onclick = async () => {
@@ -511,7 +469,6 @@ export async function renderToday({ rolled = null } = {}) {
     if (skip) skip.onclick = next;
     // Xodim qismi: faqat ko'rish — kataklar o'zgartirilmaydi
     box.querySelectorAll('.ro-mode input, .ro-mode textarea').forEach((el) => { el.readOnly = true; el.tabIndex = -1; });
-    box.querySelectorAll('.ro-mode').forEach(readOnlyCards);
     const nx = box.querySelector('[data-next]');
     if (nx) nx.onclick = next;
     box.querySelectorAll('[data-approve], [data-unapprove]').forEach((b) => {
@@ -620,13 +577,13 @@ export async function renderToday({ rolled = null } = {}) {
     if (step === 'target' || step === 'sales') {
       // Bir loyihaning raqam va izoh maydonlari — bitta so'rovda
       const byProject = {};
-      for (const el of box.querySelectorAll('[data-id] input[name]')) {
-        const p = daily.projects.find((x) => String(x.id) === el.closest('[data-id]').dataset.id);
+      for (const el of box.querySelectorAll('tr[data-id] input[name]')) {
+        const p = daily.projects.find((x) => String(x.id) === el.closest('tr').dataset.id);
         if (inVal(el) !== String(p.row[el.name] ?? '')) (byProject[p.id] ||= {})[el.name] = inVal(el);
       }
       if (step === 'sales') {
         for (const p of daily.projects.filter((x) => x.kind !== 'auto')) {
-          const val = (f) => { const el = box.querySelector(`[data-id="${p.id}"] input[name="${f}"]`); return el ? inVal(el) : ''; };
+          const val = (f) => { const el = box.querySelector(`tr[data-id="${p.id}"] input[name="${f}"]`); return el ? inVal(el) : ''; };
           const parts = ['qualified', 'potential', 'unqualified'].map(val).filter(Boolean);
           if (!val('leads') && parts.length) (byProject[p.id] ||= {}).leads = String(parts.reduce((a, x) => a + (parseNum(x) || 0), 0));
         }

@@ -226,6 +226,7 @@ label.field, div.field { color: var(--text-2); }
 /* ---------- Kartalar ---------- */
 .card, .kpi, .proj { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
 .sub-card { background: var(--surface-2); border: 0; border-radius: 20px; box-shadow: none; }
+.proj-card { align-content: start; }
 .card-head h2, .card-head h3 { letter-spacing: -.02em; }
 .kpi .label { color: var(--text-3); }
 .kpi .value { font-weight: 800; letter-spacing: -.035em; }
@@ -430,6 +431,7 @@ th { color: var(--text-3); font-weight: 700; }
 .sl-table tbody td:first-child { background: #fff; font-weight: 600; }
 .sl-table tbody td:not(:first-child) { background: #fff; }
 .sl-table td.sl-best { background: var(--lime-soft) !important; color: #3d5800; }
+.user-card .chips { margin-top: 8px; }
 .dp-card, .rv-card { border-top: 0; box-shadow: inset 0 4px 0 var(--pc); }
 .dp-card { background: #fff; }
 .wd-card { border: 0; background: var(--surface-2); border-radius: 18px; }
@@ -514,138 +516,3 @@ th { color: var(--text-3); font-weight: 700; }
 
 /* Asosiy uslubdagi och gradiyentlarni bosib o'tish (bir xil aniqlikda — keyingisi yutadi) */
 .m-hero.ad, .m-hero.rev, .m-hero.profit, .m-hero.loss { background: var(--mh-bg); border-color: transparent; }
-
-/* ---------- Yangi tuzilma: menyu guruhlari, o'z bo'limi, nazorat kartalari ---------- */
-:root { --teal: #14b8a6; --teal-2: #5ee6cf; }
-@media (min-width: 861px) {
-  .sidebar > .logo { padding-bottom: 12px; }
-  .sidebar > .nav-label { width: auto; text-align: left; padding: 14px 12px 6px; font-size: 10.5px; letter-spacing: .1em; color: var(--text-3); }
-  .sidebar .nav a.own .ic { box-shadow: none; }
-  .sidebar .nav a.own:not(.active) { background: rgba(255, 255, 255, .7); color: var(--text); box-shadow: inset 3px 0 0 var(--violet); }
-}
-@media (min-width: 861px) and (max-height: 1000px) { .side-card p, .side-card::after { display: none; } .side-card { padding: 12px 14px; gap: 6px; } .side-card .sc-ic { width: 28px; height: 28px; } }
-@media (min-width: 861px) and (max-height: 860px) { .side-card { display: none; } }
-.m-sheet-in { border-radius: 26px 26px 0 0; }
-.m-sheet .nav a.active { background: var(--violet-soft); color: var(--violet-ink); }
-.m-sheet .nav a .ic { background: var(--violet-soft); color: var(--violet); }
-.view-note { background: var(--violet-soft); border-radius: 18px; }
-.view-note svg { color: var(--violet); }
-.demo-as-wrap .sel-btn { background: var(--surface-2); border-color: transparent; }
-
-/* Nazorat: kartalar — o'z rangida (tushum binafsha, xarajat marjon, foyda laym, 1 mijoz osmon-ko'k, ROMI zumrad) */
-.kpis.ctl-kpis .kpi:nth-child(1) { background: linear-gradient(135deg, var(--violet-2), var(--violet)); box-shadow: 0 14px 28px -18px var(--violet); }
-.kpis.ctl-kpis .kpi:nth-child(2) { background: linear-gradient(135deg, var(--coral-2), var(--coral)); box-shadow: 0 14px 28px -18px var(--coral); }
-.kpis.ctl-kpis .kpi:nth-child(4) { background: linear-gradient(135deg, var(--sky-2), var(--sky)); box-shadow: 0 14px 28px -18px var(--sky); }
-.kpis.ctl-kpis .kpi:nth-child(5) { background: linear-gradient(135deg, var(--teal-2), var(--teal)); box-shadow: 0 14px 28px -18px var(--teal); }
-.kpis .kpi .delta.flat { background: rgba(255, 255, 255, .92); color: var(--text-2); }
-.verdict { border-radius: 24px; }
-.verdict.crit { background: linear-gradient(135deg, var(--rose-soft), #fff6f7); box-shadow: inset 0 0 0 1px #ffd4dc; }
-.verdict.warn { background: linear-gradient(135deg, #fff6e3, #fffaf0); box-shadow: inset 0 0 0 1px #fde3b0; }
-.verdict.good { background: linear-gradient(135deg, var(--lime-soft), #fbfee9); box-shadow: inset 0 0 0 1px #e6f6a8; }
-.verdict .v-ic { box-shadow: 0 8px 18px -10px rgba(60, 36, 160, .4); }
-.owner { background: var(--surface-2); border: 0; border-radius: 22px; }
-.owner.good { box-shadow: inset 0 4px 0 var(--mint); }
-.owner.warn { box-shadow: inset 0 4px 0 var(--amber); }
-.owner.crit { box-shadow: inset 0 4px 0 var(--rose); }
-.owner .o-ic { background: #fff; color: var(--violet); }
-.o-score { --c: var(--mint); }
-.owner.warn .o-score { --c: var(--amber); } .owner.crit .o-score { --c: var(--rose); }
-.iss { border-radius: 14px; }
-.iss.crit .iss-dot { background: var(--rose); } .iss.warn .iss-dot { background: var(--amber); } .iss-dot { background: var(--violet); }
-.cac-bar i { background: var(--mint); } .cac-bar.over i { background: var(--rose); } .cac-bar.low i { background: var(--violet); }
-.cac-bar em { background: var(--violet-ink); }
-.fc-cell { background: var(--surface-2); border-radius: 18px; }
-.fc-best { background: var(--lime-soft); border-radius: 18px; }
-.fc-in input[type="range"] { accent-color: var(--violet); }
-.disc-bar .ok { background: var(--mint); } .disc-bar .late { background: var(--amber); } .disc-bar .miss { background: var(--rose); }
-.adv-list li { background: var(--surface-2); border-radius: 16px; }
-.ai-box { background: var(--violet-soft); border-radius: 18px; }
-
-/* Moliya va marketing */
-.pl-row { background: var(--surface-2); border-radius: 16px; }
-.pl-in > span i { background: var(--violet); } .pl-ad > span i { background: var(--coral); } .pl-mk > span i { background: #ffb547; }
-.pl-var > span i { background: #b8b3cc; } .pl-opex > span i { background: var(--sky); }
-.pl-total.pos { background: linear-gradient(135deg, var(--lime-2), var(--lime)); }
-.pl-total.pos b, .pl-total.pos span { color: var(--lime-ink); }
-.pl-total.pos small { color: rgba(26, 34, 0, .6); }
-.pl-total.neg { background: linear-gradient(135deg, var(--rose-2), var(--rose)); }
-.pl-total.neg b, .pl-total.neg span, .pl-total.neg small { color: #fff; }
-.cost-stack { height: 20px; }
-.cs-ad { background: var(--coral); } .cs-mk { background: #ffb547; } .cs-var { background: #b8b3cc; } .cs-opex { background: var(--sky); }
-.cat-bar > i > i { background: linear-gradient(90deg, var(--violet-2), var(--violet)); }
-.cat-bars.opex .cat-bar > i > i { background: linear-gradient(90deg, var(--sky-2), var(--sky)); }
-.exp-act .btn.confirm { background: var(--rose-soft); color: var(--rose-ink); }
-.acc-yes { background: var(--lime-soft); color: #4a6800; }
-
-/* ---------- Dinamika jadvali va kiritish — demo ranglari ---------- */
-.wt-card { border-top: 0; box-shadow: inset 0 4px 0 var(--pc); }
-table.wt tbody th { background: #fff; }
-table.wt .wt-sum { background: var(--violet-soft); color: var(--violet-ink); }
-table.wt tr.wt-revenue td { color: var(--text); }
-table.wt td.neg-c { background: var(--rose-soft); color: var(--rose-ink); }
-table.wt td.pos-c { color: #0a8f4e; }
-table.wt .wt-sum.neg-c { background: var(--rose-soft); color: var(--rose-ink); }
-table.wt .wt-sum.pos-c { background: var(--lime-soft); color: #3d5800; }
-.wm-cell { border-radius: 14px; }
-.wm-cell.neg { background: var(--rose-soft); }
-.wm-rev { color: var(--violet-ink); }
-.wm-legend .l-rev::before { background: var(--violet); } .wm-legend .l-ad::before { background: var(--coral); }
-.wt-total { background: var(--violet-soft); border-radius: 16px; }
-.rate-in { border-radius: 16px; }
-.rate-in.need { background: #fff4dc; }
-
-/* ---------- Kabinet — demo ranglari ---------- */
-.task { border: 0; background: #fff; box-shadow: 0 0 0 1px var(--border); border-radius: 22px; }
-.task:hover { box-shadow: 0 0 0 1px var(--violet-2), 0 16px 30px -18px rgba(80, 50, 200, .45); }
-.task .t-ic { background: var(--violet-soft); color: var(--violet); }
-.task .t-go { color: var(--violet); }
-.task.warn { box-shadow: inset 4px 0 0 var(--amber), 0 0 0 1px var(--border); }
-.task.good { box-shadow: inset 4px 0 0 var(--mint), 0 0 0 1px var(--border); }
-.task.warn .t-ic { background: #fff4dc; color: #b45309; } .task.good .t-ic { background: var(--lime-soft); color: #4a6800; }
-.kab-kpis .kpi:nth-child(1) { background: linear-gradient(135deg, var(--violet-2), var(--violet)); box-shadow: 0 14px 28px -18px var(--violet); }
-.kab-kpis .kpi:nth-child(2) { background: linear-gradient(135deg, var(--coral-2), var(--coral)); box-shadow: 0 14px 28px -18px var(--coral); }
-.kab-kpis .kpi:nth-child(4) { background: linear-gradient(135deg, var(--sky-2), var(--sky)); box-shadow: 0 14px 28px -18px var(--sky); }
-.kab-verdict { border-radius: 16px; }
-.kab-verdict.crit { background: var(--rose-soft); color: var(--rose-ink); } .kab-verdict.warn { background: #fff4dc; } .kab-verdict.good { background: var(--lime-soft); }
-.tm { border-radius: 18px; }
-.prio-list li { border-radius: 16px; }
-.prio-list li::before { background: var(--violet); color: #fff; }
-.pr-bar i { background: linear-gradient(90deg, var(--lime-2), #9fd11a); }
-.pr-imp, .imp { color: #3d7a00; }
-.pr-who { background: var(--violet-soft); color: var(--violet-ink); }
-.al-row { border-radius: 16px; }
-.al-profit { background: var(--lime-soft); }
-
-.kab-mine .o-score { --c: var(--mint); } .kab-mine.warn .o-score { --c: var(--amber); } .kab-mine.crit .o-score { --c: var(--rose); }
-
-/* ---------- O'ng panel — demo ranglari ---------- */
-.drawer-bg { background: rgba(40, 24, 120, .22); backdrop-filter: blur(3px); }
-.drawer { background: #fff; border-radius: 28px; box-shadow: -30px 0 70px -30px rgba(80, 50, 200, .55); }
-.drawer-head h2 { color: var(--text); }
-.drawer-x { border-color: var(--border); }
-.drawer-x:hover { background: var(--violet-soft); color: var(--violet); }
-.drawer-foot { border-top-color: var(--border); }
-.drawer-foot .btn.primary { border-radius: 999px; }
-.in-big input { background: var(--surface-2); }
-table.click-list tbody tr:hover td { background: var(--violet-soft); }
-
-/* ---------- Kartalar, reyting, lenta — demo ranglari ---------- */
-.pcard { border: 0; background: #fff; box-shadow: 0 0 0 1px var(--border), 0 14px 30px -26px rgba(80, 50, 200, .45); border-radius: 24px; }
-.pod { border-radius: 18px; }
-.pod.t-violet { --tc: var(--violet); --tb: var(--violet-soft); }
-.pod.t-sky { --tc: var(--sky); --tb: #eaf3ff; }
-.pod.t-lime { --tc: #4a6800; --tb: var(--lime-soft); }
-.pod.t-coral { --tc: var(--coral); --tb: #fff0e6; }
-.pod.t-amber { --tc: #b45309; --tb: #fff4dc; }
-.pod.t-mint { --tc: #0f8a5f; --tb: #e4f8ef; }
-.pin .cell-in { background: #fff; }
-.calc-chip { background: var(--surface-2); }
-.pc-ok { background: var(--lime-soft); color: #3d5800; }
-.lb-card { border-top: 0; box-shadow: 0 0 0 1px var(--border), 0 14px 30px -26px rgba(80, 50, 200, .45); }
-.lb-list li { background: var(--surface-2); }
-.lb-conv.top { background: linear-gradient(135deg, var(--violet-2), var(--violet)); }
-.b-sale { background: var(--violet); } .b-wip { background: #b9a9ff; } .b-canc { background: var(--coral); } .b-unq { background: #dcd8ec; }
-.lb-sum .lb-tc { background: var(--violet-soft); color: var(--violet-ink); }
-.lb-sum .lb-tc b { color: var(--violet-ink); }
-.feed-it:hover { background: var(--violet-soft); }
-.feed-act .btn.confirm { background: var(--rose-soft); color: var(--rose-ink); }

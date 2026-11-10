@@ -2,16 +2,15 @@
 // Hisob-kitoblar serverdagi kod bilan bir xil (metrics.js, reports.js).
 // Kiritilgan ma'lumotlar shu brauzerning localStorage xotirasida saqlanadi.
 import { store } from './fake-sqlite.js';
-import { today, nowLocal, normalizeIds, projectReasons, normalizeReasonKeys, DIZIPRO_REASONS, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS, EXPENSE_KINDS, EXPENSE_CATS } from '../src/db.js';
+import { today, nowLocal, normalizeIds, projectReasons, normalizeReasonKeys, DIZIPRO_REASONS, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from '../src/db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText } from '../src/reports.js';
 import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, monthly, monthReview, estimateLag, parseRate, parseNum, dayRates } from '../src/metrics.js';
 import { generateDemo, DEMO_USER } from '../src/demo-data.js';
 import { SELLER_FIELDS, SELLER_KEYS, parseDuration, sellerStats } from '../src/sellers-calc.js';
-import { ROLES, PARTS, SECTIONS, isStaff, userAccess, userParts, canEdit, normalizeAccess, userProjects, canSeeProject, canWriteField, missingFor, normalizeProjectIds } from '../src/roles.js';
-import { control } from '../src/control.js';
+import { ROLES, PARTS, isStaff, userProjects, canSeeProject, canWriteField, missingFor, normalizeProjectIds } from '../src/roles.js';
 
 const TODAY = today();
-const SAVE_KEY = 'analitika-demo-v29';
+const SAVE_KEY = 'analitika-demo-v28';
 let me = null;
 
 function seed() {
@@ -27,34 +26,23 @@ function seed() {
     project_notes: JSON.stringify(r.project_notes), submitted_at: `${r.date} 19:30:00`,
     reviewed_at: `${r.date} 21:05:00`, director_comment: r.director_comment, updated_at: `${r.date} 19:30:00`,
   }));
-  for (let k = 4; k <= 30; k += 1) {
-    const d = addDays(TODAY, -1 - k);
-    if (k === 9 || store.reports.some((r) => r.date === d)) continue;
-    store.reports.push({ date: d, author_id: 1, status: 'reviewed', summary: k % 3 ? "Kun rejadagidek o'tdi." : "STARPAY o'smoqda, VIZART lid narxi qimmat — kreativ almashtirildi.", tomorrow: null,
-      project_notes: '{}', submitted_at: k === 12 ? `${addDays(d, 1)} 15:40:00` : `${addDays(d, 1)} 11:${String(10 + (k * 7) % 45).padStart(2, '0')}:00`, reviewed_at: `${addDays(d, 1)} 18:00:00`, director_comment: 'Qabul qilindi.', updated_at: `${addDays(d, 1)} 11:00:00` });
-  }
   store.settings = { usd_rate: '12800', report_time: '13:00', reminder_time: '11:00', report_chat_id: '123456789' };
   // Xodimlar: PM, targetolog va ROP (hamma loyihalar). Oldingi kunlar yuborilgan va tasdiqlangan
-  const since = `${addDays(TODAY, -120)} 09:00:00`;
   store.users = [
-    { id: 1, name: DEMO_USER.name, login: DEMO_USER.login, password: DEMO_USER.password, telegram_id: null, role: 'pm', projects: null, access: null, active: 1, created_at: since },
-    { id: 2, name: 'Aziz', login: 'aziz', password: 'demo1234', telegram_id: '111222333', role: 'target', projects: null, access: null, active: 1, created_at: since },
-    { id: 3, name: 'Malika', login: 'malika', password: 'demo1234', telegram_id: '444555666', role: 'rop', projects: null, access: null, active: 1, created_at: since },
-    { id: 4, name: 'Jasur', login: 'jasur', password: 'demo1234', telegram_id: null, role: 'marketing', projects: null, access: null, active: 1, created_at: since },
-    { id: 5, name: 'Nodira', login: 'nodira', password: 'demo1234', telegram_id: null, role: 'finance', projects: null, access: null, active: 1, created_at: since },
-    { id: 6, name: 'Rustam', login: 'rustam', password: 'demo1234', telegram_id: null, role: 'director', projects: null, access: null, active: 1, created_at: since },
+    { id: 1, name: DEMO_USER.name, login: DEMO_USER.login, password: DEMO_USER.password, telegram_id: null, role: 'pm', projects: null, active: 1 },
+    { id: 2, name: 'Aziz', login: 'aziz', password: 'demo1234', telegram_id: '111222333', role: 'target', projects: null, active: 1 },
+    { id: 3, name: 'Malika', login: 'malika', password: 'demo1234', telegram_id: '444555666', role: 'rop', projects: null, active: 1 },
   ];
   store.meId = 1;
   seedSellers();
-  seedExpenses();
   const y = addDays(TODAY, -1);
   store.staffReports = [];
   store.approvals = [];
   store.staffReturns = [];
   for (let i = 1; i <= 14; i += 1) {
     const d = addDays(y, -i);
-    if (i !== 6) store.staffReports.push({ date: d, user_id: 2, part: 'target', submitted_at: i % 5 === 3 ? `${addDays(d, 1)} 13:${String(10 + i).padStart(2, '0')}:00` : `${addDays(d, 1)} 09:${String(10 + (i * 7) % 40).padStart(2, '0')}:00` });
-    store.staffReports.push({ date: d, user_id: 3, part: 'rop', submitted_at: i === 4 ? `${addDays(d, 1)} 14:20:00` : `${addDays(d, 1)} 10:${String(5 + (i * 11) % 50).padStart(2, '0')}:00` });
+    store.staffReports.push({ date: d, user_id: 2, part: 'target', submitted_at: `${addDays(d, 1)} 09:${String(10 + (i * 7) % 40).padStart(2, '0')}:00` });
+    store.staffReports.push({ date: d, user_id: 3, part: 'rop', submitted_at: `${addDays(d, 1)} 10:${String(5 + (i * 11) % 50).padStart(2, '0')}:00` });
     for (const part of ['target', 'rop']) store.approvals.push({ date: d, part, user_id: 1, approved_at: `${addDays(d, 1)} 11:20:00` });
   }
   // Kecha: targetolog kiritib yuborgan (kursi bilan), ROP — hali yo'q: PM tekshirib tasdiqlashini ko'rsatish uchun
@@ -88,57 +76,6 @@ function seedSellers() {
   }
 }
 
-// Marketing va operatsion xarajatlar (oxirgi 3 oy): har loyiha va kompaniya umumiy.
-// Joriy oyda VIZART uchun operatsion xarajat hali kiritilmagan — «taxmin» holati ham ko'rinsin
-function seedExpenses() {
-  const ids = Object.fromEntries(store.projects.map((p) => [p.name, p.id]));
-  const list = [];
-  let n = 0;
-  const add = (kind, date, project, category, amount, note, currency = 'uzs') => {
-    if (date > TODAY) return;
-    n += 1;
-    list.push({ id: n, kind, date, project_id: project ? ids[project] ?? null : null, category, amount, currency, note, user_id: kind === 'marketing' ? 4 : 5, created_at: `${date} 15:${String(10 + (n % 40)).padStart(2, '0')}:00` });
-  };
-  const thisMonth = TODAY.slice(0, 7);
-  for (let k = 2; k >= 0; k -= 1) {
-    let m = thisMonth;
-    for (let i = 0; i < k; i++) m = addDays(`${m}-01`, -1).slice(0, 7);
-    const d = (day) => `${m}-${String(day).padStart(2, '0')}`;
-    const cur = k === 0;
-    // Operatsion (moliyachi)
-    add('opex', d(2), null, 'rent', 8_000_000, 'Ofis ijarasi');
-    add('opex', d(3), null, 'software', 120, 'AmoCRM, Google Workspace', 'usd');
-    add('opex', d(5), 'STARPAY', 'salary', 9_500_000, 'Operator va dizayner');
-    add('opex', d(5), 'STARPAY', 'bonus', 2_000_000, 'KPI bonus');
-    add('opex', d(5), 'DIZIPRO', 'salary', 12_000_000, "Sotuv bo'limi (3 kishi)");
-    add('opex', d(5), 'DIZIPRO', 'teachers', 9_000_000, 'Mentorlar');
-    add('opex', d(5), 'SELFENG', 'salary', 21_000_000, 'Sotuv va kurator');
-    add('opex', d(5), 'SELFENG', 'teachers', 16_000_000, "O'qituvchilar");
-    if (!cur) {
-      add('opex', d(5), 'VIZART', 'salary', 17_000_000, "Sotuv bo'limi");
-      add('opex', d(5), 'VIZART', 'teachers', 11_000_000, 'Ustozlar');
-      add('opex', d(20), null, 'tax', 3_500_000, 'Aylanmadan soliq');
-      add('opex', d(12), null, 'utilities', 1_200_000, 'Internet, elektr');
-    }
-    // Marketing (marketing rahbari)
-    add('marketing', d(4), 'STARPAY', 'content', 2_500_000, 'Reels uchun 6 ta video');
-    add('marketing', d(7), 'STARPAY', 'smm', 4_000_000, 'SMM menejer (oylik)');
-    add('marketing', d(8), 'VIZART', 'content', 3_000_000, 'Ustoz bilan intervyu, 4 video');
-    add('marketing', d(9), 'VIZART', 'smm', 3_500_000, 'SMM va dizayn');
-    add('marketing', d(6), 'DIZIPRO', 'content', 2_000_000, '3D render namunalari');
-    add('marketing', d(6), 'DIZIPRO', 'smm', 3_000_000, 'SMM menejer');
-    add('marketing', d(9), 'SELFENG', 'smm', 2_500_000, 'Kontent-reja va dizayn');
-    add('marketing', d(10), null, 'tools', 60, 'Canva, CapCut Pro', 'usd');
-    if (k === 1) {
-      add('marketing', d(15), 'VIZART', 'events', 6_500_000, 'Ochiq dars — zal va kofe-brek');
-      add('marketing', d(18), null, 'offline', 3_000_000, 'Banner va flayerlar');
-      add('marketing', d(21), 'DIZIPRO', 'gifts', 1_200_000, 'Bitiruvchilarga sovg\'a');
-    }
-    if (k === 2) add('marketing', d(14), 'STARPAY', 'agency', 5_000_000, 'Brend-kontent agentligi');
-  }
-  store.expenses = list;
-}
-
 function load() {
   try {
     const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
@@ -153,7 +90,6 @@ function save() {
 load();
 // Eski saqlangan demoda xodimlar bo'lmasa — qo'shiladi
 if (!store.sellers) seedSellers();
-if (!store.expenses) seedExpenses();
 if (!store.users?.length) { const keep = store.user; seed(); if (keep) Object.assign(store.users[0], keep, { role: 'pm' }); }
 
 const nextId = (list) => list.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1;
@@ -185,15 +121,14 @@ function checkColor(v) {
 const DEMO_AI = { enabled: false, provider: null, label: null, model: null, reason: "Demoda AI tahlil yo'q — haqiqiy serverda OpenRouter kaliti bilan ishlaydi" };
 const needUser = () => { if (!me) throw new HttpError(401, 'Tizimga kiring'); return me; };
 // Targetolog va ROP chaqira oladigan yo'llar (qolganlari — faqat PM), serverdagi STAFF bilan bir xil
-const STAFF_ROUTES = new Set(['GET /api/control', 'POST /api/control/ai', 'GET /api/expenses', 'POST /api/expenses', 'PUT /api/expenses/:id', 'DELETE /api/expenses/:id', 'GET /api/summary', 'GET /api/monthly', 'GET /api/month-review', 'GET /api/export.csv', 'GET /api/plans', 'GET /api/report', 'GET /api/report/preview', 'GET /api/reports','GET /api/sellers', 'POST /api/sellers', 'PUT /api/sellers/:id', 'GET /api/sellers/daily', 'PUT /api/sellers/daily', 'GET /api/sellers/stats', 'POST /api/login', 'POST /api/logout', 'GET /api/me', 'PUT /api/me', 'PUT /api/me/password', 'GET /api/projects', 'GET /api/daily', 'PUT /api/daily', 'PUT /api/rate', 'GET /api/history', 'POST /api/part/submit']);
+const STAFF_ROUTES = new Set(['GET /api/summary', 'GET /api/monthly', 'GET /api/month-review', 'GET /api/export.csv', 'GET /api/plans', 'GET /api/report', 'GET /api/report/preview', 'GET /api/reports','GET /api/sellers', 'POST /api/sellers', 'PUT /api/sellers/:id', 'GET /api/sellers/daily', 'PUT /api/sellers/daily', 'GET /api/sellers/stats', 'POST /api/login', 'POST /api/logout', 'GET /api/me', 'PUT /api/me', 'PUT /api/me/password', 'GET /api/projects', 'GET /api/daily', 'PUT /api/daily', 'PUT /api/rate', 'GET /api/history', 'POST /api/part/submit']);
 const sentAt = (date, uid) => (store.staffReports || []).find((r) => r.date === date && r.user_id === uid)?.submitted_at || null;
 const returnOf = (date, uid) => (sentAt(date, uid) ? null : (store.staffReturns || []).find((r) => r.date === date && r.user_id === uid) || null);
 const approvalsOf = (date) => Object.fromEntries((store.approvals || []).filter((a) => a.date === date).map((a) => [a.part, { approved_at: a.approved_at, by: store.users.find((u) => u.id === a.user_id)?.name || null }]));
-// Kunlik qism (target / rop) kiritish ruxsati borlar — serverdagi staffList bilan bir xil
-const staffList = (date) => store.users.filter((u) => u.active && isStaff(u)).flatMap((u) => userParts(u).map((part) => ({
-  id: u.id, name: u.name, role: part, user_role: u.role, projects: userProjects(u), telegram: Boolean(u.telegram_id), submitted_at: sentAt(date, u.id), returned: returnOf(date, u.id),
-}))).sort((a, b) => (a.role === b.role ? a.name.localeCompare(b.name) : a.role === 'target' ? -1 : 1));
-const userOut = (u) => ({ ...publicUser(u), projects: userProjects(u), access: userAccess(u), access_default: u.access == null });
+const staffList = (date) => store.users.filter((u) => u.active && isStaff(u)).sort((a, b) => (a.role < b.role ? 1 : -1)).map((u) => ({
+  id: u.id, name: u.name, role: u.role, projects: userProjects(u), telegram: Boolean(u.telegram_id), submitted_at: sentAt(date, u.id), returned: returnOf(date, u.id),
+}));
+const userOut = (u) => ({ ...publicUser(u), projects: userProjects(u) });
 function period(q) {
   const to = isDate(q.get('to')) ? q.get('to') : TODAY;
   const from = isDate(q.get('from')) ? q.get('from') : addDays(to, -6);
@@ -245,11 +180,7 @@ const routes = {
     firstDay: store.daily.reduce((m, r) => (!m || r.date < m ? r.date : m), null),
     reportStatus: store.reports.find((r) => r.date === addDays(TODAY, -1))?.status || null,
     roles: ROLES,
-    sections: SECTIONS,
-    access: userAccess(me),
-    parts: userParts(me),
-    expenseCats: EXPENSE_CATS,
-    partSent: userParts(me).length ? sentAt(addDays(TODAY, -1), me.id) : null,
+    partSent: isStaff(me) ? sentAt(addDays(TODAY, -1), me.id) : null,
     telegram: { enabled: true, bot: 'demo_bot', reportChat: Boolean(store.settings.report_chat_id) },
   }),
   'PUT /api/me': (b) => {
@@ -300,8 +231,8 @@ const routes = {
     const rateOf = dayRates();
     return {
       date,
-      mine: userParts(me).length ? { part: userParts(me)[0], parts: userParts(me), submitted_at: sentAt(date, me.id), returned: returnOf(date, me.id) } : null,
-      editable: isStaff(me) ? (userParts(me).length ? projects.filter((p) => canSeeProject(me, p.id)).map((p) => p.id) : []) : null,
+      mine: isStaff(me) ? { part: me.role, submitted_at: sentAt(date, me.id), returned: returnOf(date, me.id) } : null,
+      editable: isStaff(me) ? projects.filter((p) => canSeeProject(me, p.id)).map((p) => p.id) : null,
       staff: staffList(date),
       approvals: approvalsOf(date),
       rate: { value: rateOf.entered(date), prev: rateOf(addDays(date, -1)) },
@@ -324,8 +255,8 @@ const routes = {
     if (!project || !canSeeProject(me, project.id)) throw new HttpError(404, 'Loyiha topilmadi');
     if (isStaff(me)) {
       const bad = Object.keys(b.values || {}).find((f) => (FIELDS[f] || TEXT_FIELDS[f]) && !canWriteField(me, f));
-      if (bad) throw new HttpError(403, `«${FIELDS[bad] || TEXT_FIELDS[bad]}» — kiritish uchun ruxsat yo'q (PM ruxsat beradi)`);
-      if (b.reasons && Object.keys(b.reasons).length && !canEdit(me, 'rop')) throw new HttpError(403, "Sabablarni sotuv hisobotiga ruxsati bor xodim kiritadi");
+      if (bad) throw new HttpError(403, `«${FIELDS[bad] || TEXT_FIELDS[bad]}» — ${ROLES[me.role].toLowerCase()} kiritmaydi`);
+      if (b.reasons && Object.keys(b.reasons).length && !PARTS[me.role].reasons) throw new HttpError(403, 'Sabablarni ROP kiritadi');
       if (b.channels && Object.keys(b.channels).length) throw new HttpError(403, "Kanallar bo'yicha raqamlarni PM kiritadi");
     }
     let row = store.daily.find((r) => r.project_id === project.id && r.date === b.date);
@@ -370,7 +301,7 @@ const routes = {
   },
   'PUT /api/rate': (b) => {
     needUser();
-    if (isStaff(me) && !canEdit(me, 'target')) throw new HttpError(403, 'Dollar kursini target hisobotiga ruxsati bor xodim yoki PM kiritadi');
+    if (isStaff(me) && !PARTS[me.role].rate) throw new HttpError(403, 'Dollar kursini targetolog yoki PM kiritadi');
     if (!isDate(b.date) || b.date > TODAY) throw new HttpError(400, "Sana noto'g'ri");
     const was = (store.rates || []).find((r) => r.date === b.date)?.usd_rate;
     const rate = b.usd_rate === '' || b.usd_rate == null ? null : parseRate(b.usd_rate);
@@ -446,21 +377,19 @@ const routes = {
   'GET /api/history': (_b, _p, q) => { needUser(); return (store.log || []).filter((r) => r.date === q.get('date') && true).reverse(); },
   'POST /api/part/submit': (b) => {
     needUser();
-    const part = b.part || userParts(me)[0];
-    if (!isStaff(me)) throw new HttpError(403, 'PM xodim qismini tasdiqlaydi — yubormaydi');
-    if (!part || !userParts(me).includes(part)) throw new HttpError(403, "Bu hisobotni yuborish uchun ruxsat yo'q — PM ruxsat beradi");
+    if (!isStaff(me)) throw new HttpError(403, 'Bu tugma targetolog va ROP uchun');
     if (!isDate(b.date) || b.date > TODAY) throw new HttpError(400, "Sana noto'g'ri");
     const { projects: all, rows } = loadRows(b.date, b.date, null, { activeOnly: true });
     const projects = all.filter((p) => canSeeProject(me, p.id));
-    if (PARTS[part].rate && dayRates().entered(b.date) == null) throw new HttpError(400, 'Shu kun uchun dollar kursini kiriting');
-    const miss = missingFor(part, projects, (id) => rows.find((r) => r.project_id === id));
+    if (PARTS[me.role].rate && dayRates().entered(b.date) == null) throw new HttpError(400, 'Shu kun uchun dollar kursini kiriting');
+    const miss = missingFor(me.role, projects, (id) => rows.find((r) => r.project_id === id));
     if (miss.length) throw new HttpError(400, `To'ldirilmagan: ${miss.map((m) => `${m.project} — ${m.fields.map((f) => FIELDS[f]).join(', ')}`).join('; ')}`);
     const resend = Boolean(sentAt(b.date, me.id));
     const at = nowLocal();
     store.staffReports = store.staffReports.filter((r) => !(r.date === b.date && r.user_id === me.id));
-    store.staffReports.push({ date: b.date, user_id: me.id, part, submitted_at: at });
-    store.approvals = (store.approvals || []).filter((a) => !(a.date === b.date && a.part === part));
-    logDemo(b.date, null, PARTS[part].title, null, resend ? 'qayta yuborildi' : 'yuborildi');
+    store.staffReports.push({ date: b.date, user_id: me.id, part: me.role, submitted_at: at });
+    store.approvals = (store.approvals || []).filter((a) => !(a.date === b.date && a.part === me.role));
+    logDemo(b.date, null, PARTS[me.role].title, null, resend ? 'qayta yuborildi' : 'yuborildi');
     return { submitted_at: at, resend };
   },
   'POST /api/part/approve': (b) => {
@@ -474,14 +403,13 @@ const routes = {
   'POST /api/part/return': (b) => {
     needUser();
     const s = store.users.find((u) => u.id === Number(b.user_id) && isStaff(u));
-    if (!s || !userParts(s).length) throw new HttpError(404, 'Xodim topilmadi');
-    const part = userParts(s).includes(b.part) ? b.part : userParts(s)[0];
+    if (!s) throw new HttpError(404, 'Xodim topilmadi');
     const note = String(b.note ?? '').trim().slice(0, 500) || null;
     store.staffReports = store.staffReports.filter((r) => !(r.date === b.date && r.user_id === s.id));
-    store.approvals = (store.approvals || []).filter((a) => !(a.date === b.date && a.part === part));
+    store.approvals = (store.approvals || []).filter((a) => !(a.date === b.date && a.part === s.role));
     store.staffReturns = (store.staffReturns || []).filter((r) => !(r.date === b.date && r.user_id === s.id));
     store.staffReturns.push({ date: b.date, user_id: s.id, note, at: nowLocal() });
-    logDemo(b.date, null, PARTS[part].title, null, `${s.name} ga qaytarildi${note ? `: ${note}` : ''}`);
+    logDemo(b.date, null, PARTS[s.role].title, null, `${s.name} ga qaytarildi${note ? `: ${note}` : ''}`);
     return { ok: true, notified: false };
   },
   'POST /api/part/remind': (b) => {
@@ -553,7 +481,7 @@ const routes = {
     needUser();
     const f = userFields({ role: 'target', ...b });
     if (String(b.password || '').length < 6) throw new HttpError(400, "Parol kamida 6 belgi bo'lsin");
-    const u = { id: nextId(store.users), name: f.name, login: f.login, password: String(b.password), telegram_id: f.tg, role: f.role, projects: f.projects, access: f.access, active: 1, created_at: nowLocal() };
+    const u = { id: nextId(store.users), name: f.name, login: f.login, password: String(b.password), telegram_id: f.tg, role: f.role, projects: f.projects, active: 1 };
     store.users.push(u);
     return userOut(u);
   },
@@ -563,62 +491,11 @@ const routes = {
     if (!u) throw new HttpError(404, 'Xodim topilmadi');
     const f = userFields(b, u);
     const active = b.active === undefined ? u.active : (b.active ? 1 : 0);
-    if (u.id === me.id && (!active || !['pm', 'director'].includes(f.role))) throw new HttpError(400, "O'zingizni o'chirib yoki boshqaruvdan chiqarib bo'lmaydi");
+    if (u.id === me.id && (!active || f.role !== 'pm')) throw new HttpError(400, "O'zingizni o'chirib yoki rolingizni o'zgartirib bo'lmaydi");
     if (b.password && String(b.password).length < 6) throw new HttpError(400, "Parol kamida 6 belgi bo'lsin");
-    Object.assign(u, { name: f.name, login: f.login, role: f.role, telegram_id: f.tg, projects: f.projects, access: f.access, active }, b.password ? { password: String(b.password) } : {});
+    Object.assign(u, { name: f.name, login: f.login, role: f.role, telegram_id: f.tg, projects: f.projects, active }, b.password ? { password: String(b.password) } : {});
     return userOut(u);
   },
-  'GET /api/expenses': (_b, _p, q) => {
-    needUser();
-    const { from, to } = period(q);
-    const kind = EXPENSE_KINDS[q.get('kind')] ? q.get('kind') : null;
-    const rateOf = dayRates();
-    const items = (store.expenses || []).filter((e) => e.date >= from && e.date <= to && (!kind || e.kind === kind))
-      .sort((a, b) => (a.date === b.date ? b.id - a.id : a.date < b.date ? 1 : -1))
-      .map((e) => ({ ...e, uzs: e.amount * (e.currency === 'usd' ? rateOf(e.date) : 1), project: store.projects.find((p) => p.id === e.project_id)?.name || null, by: store.users.find((u) => u.id === e.user_id)?.name || null, label: EXPENSE_CATS[e.kind]?.[e.category] || e.category }));
-    return { from, to, kind, cats: EXPENSE_CATS, items };
-  },
-  'POST /api/expenses': (b) => {
-    needUser();
-    const f = expenseFields(b);
-    expenseAccess(f.kind);
-    const e = { id: nextId(store.expenses || []), ...f, user_id: me.id, created_at: nowLocal() };
-    (store.expenses ||= []).push(e);
-    logDemo(f.date, store.projects.find((p) => p.id === f.project_id)?.name || null, EXPENSE_CATS[f.kind][f.category], null, `${f.amount} ${f.currency}`);
-    return e;
-  },
-  'PUT /api/expenses/:id': (b, { id }) => {
-    needUser();
-    const cur = (store.expenses || []).find((e) => e.id === Number(id));
-    if (!cur) throw new HttpError(404, 'Xarajat topilmadi');
-    expenseAccess(cur.kind);
-    const f = expenseFields(b, cur);
-    expenseAccess(f.kind);
-    Object.assign(cur, f);
-    return cur;
-  },
-  'DELETE /api/expenses/:id': (_b, { id }) => {
-    needUser();
-    const cur = (store.expenses || []).find((e) => e.id === Number(id));
-    if (!cur) throw new HttpError(404, 'Xarajat topilmadi');
-    expenseAccess(cur.kind);
-    store.expenses = store.expenses.filter((e) => e.id !== cur.id);
-    return { ok: true };
-  },
-  'GET /api/control': (_b, _p, q) => {
-    needUser();
-    const { from, to } = period(q);
-    const ctx = {
-      users: store.users.filter((u) => u.active),
-      staffReports: store.staffReports || [],
-      reports: store.reports.map((r) => ({ date: r.date, status: r.status, submitted_at: r.submitted_at })),
-      sellerRows: (store.sellerDaily || []).filter((r) => r.date >= from && r.date <= to),
-      sellers: store.sellers || [],
-      settings: { staff_deadline: store.settings.staff_deadline || '12:00', report_time: store.settings.report_time || '13:00' },
-    };
-    return { ...control({ from, to, today: TODAY }, ctx), ai: DEMO_AI };
-  },
-  'POST /api/control/ai': () => { needUser(); throw new HttpError(503, DEMO_AI.reason); },
   // usd_rate — eski umumiy kurs (kunlik kursdan oldingi kunlar hisobi uchun), sozlamalarda ko'rsatilmaydi
   'GET /api/settings': () => { needUser(); const { usd_rate: _legacy, ...rest } = store.settings; return { ...rest, telegram: { enabled: false, running: false, bot: null }, ai: DEMO_AI }; },
   'PUT /api/settings': (b) => {
@@ -630,31 +507,8 @@ const routes = {
   },
 };
 
-// Xarajatlar — serverdagi tekshiruv bilan bir xil
-const EXPENSE_SECTION = { marketing: 'marketing', opex: 'finance' };
-function expenseAccess(kind) {
-  if (!canEdit(me, EXPENSE_SECTION[kind])) throw new HttpError(403, `«${SECTIONS[EXPENSE_SECTION[kind]]}» ga kiritish uchun ruxsat yo'q — PM ruxsat beradi`);
-}
-function expenseFields(b, cur = {}) {
-  const kind = b.kind === undefined ? cur.kind : b.kind;
-  if (!EXPENSE_KINDS[kind]) throw new HttpError(400, "Xarajat turi noto'g'ri");
-  const date = b.date === undefined ? cur.date : b.date;
-  if (!isDate(date) || date > TODAY) throw new HttpError(400, "Sana noto'g'ri");
-  const category = b.category === undefined ? cur.category : b.category;
-  if (!EXPENSE_CATS[kind][category]) throw new HttpError(400, "Xarajat moddasi noto'g'ri");
-  const amount = b.amount === undefined ? cur.amount : num(b.amount);
-  if (!amount) throw new HttpError(400, 'Summani kiriting');
-  const currency = b.currency === undefined ? cur.currency || 'uzs' : b.currency;
-  if (!['uzs', 'usd'].includes(currency)) throw new HttpError(400, "Valyuta noto'g'ri");
-  let projectId = b.project_id === undefined ? cur.project_id ?? null : b.project_id;
-  if (projectId === '' || projectId === 0) projectId = null;
-  if (projectId != null && !store.projects.some((p) => p.id === Number(projectId))) throw new HttpError(404, 'Loyiha topilmadi');
-  const note = b.note === undefined ? cur.note ?? null : String(b.note ?? '').trim().slice(0, 300) || null;
-  return { kind, date, category, amount, currency, project_id: projectId == null ? null : Number(projectId), note };
-}
-
 // Sotuv xodimlari — serverdagi bilan bir xil
-const sellerUser = () => { needUser(); if (isStaff(me) && !canEdit(me, 'sellers')) throw new HttpError(403, "Sotuv xodimlari raqamlarini kiritish uchun ruxsat yo'q — PM ruxsat beradi"); };
+const sellerUser = () => { needUser(); if (isStaff(me) && me.role !== 'rop') throw new HttpError(403, "Sotuv xodimlari bo'limi — ROP va PM uchun"); };
 const sellerProjects = (all = false) => store.projects.filter((p) => p.active && p.kind !== 'auto' && (all || canSeeProject(me, p.id))).sort((a, b) => (a.sort_order ?? a.id) - (b.sort_order ?? b.id)).map((p) => ({ id: p.id, name: p.name, color: p.color }));
 const sellerOut = (x) => ({ id: x.id, name: x.name, active: x.active, projects: userProjects(x) });
 function sellerFields(b, cur = {}) {
@@ -675,10 +529,7 @@ function userFields(b, cur = {}) {
   if (store.users.some((x) => x.login === login && x.id !== cur.id)) throw new HttpError(409, `«${login}» logini band`);
   const tg = b.telegram_id === undefined ? cur.telegram_id ?? null : wrap(() => normalizeIds(b.telegram_id));
   const projects = b.projects === undefined ? cur.projects ?? null : wrap(() => normalizeProjectIds(b.projects, new Set(store.projects.map((p) => p.id))));
-  let access = b.access === undefined ? (role !== cur.role ? null : cur.access ?? null) : null;
-  if (b.access !== undefined && b.access !== null) access = wrap(() => normalizeAccess(b.access));
-  const admin = ['pm', 'director'].includes(role);
-  return { name, role, login, tg, projects: admin ? null : projects, access: admin ? null : access };
+  return { name, role, login, tg, projects: role === 'pm' ? null : projects };
 }
 
 const compiled = Object.entries(routes).map(([k, fn]) => {
@@ -694,7 +545,7 @@ window.fetch = async (input, opts = {}) => {
   try {
     const r = compiled.find((x) => x.method === method && x.re.test(url.pathname));
     if (!r) throw new HttpError(404, 'Topilmadi');
-    if (isStaff(me) && !STAFF_ROUTES.has(r.key)) throw new HttpError(403, "Bu bo'lim faqat PM va direktor uchun");
+    if (isStaff(me) && !STAFF_ROUTES.has(r.key)) throw new HttpError(403, "Bu bo'lim faqat proekt menejer uchun");
     const body = opts.body ? JSON.parse(opts.body) : {};
     const out = await r.fn(body, url.pathname.match(r.re).groups || {}, url.searchParams);
     if (method !== 'GET') save();
@@ -718,7 +569,7 @@ window.__demoDownload = async (filename, text) => {
 };
 window.__demoReset = () => {
   try { localStorage.removeItem(SAVE_KEY); } catch { /* */ }
-  location.hash = '#/kabinet';
+  location.hash = '#/';
   location.reload();
 };
 
@@ -728,7 +579,7 @@ window.__demoAs = (role) => {
   if (!u) return;
   store.meId = u.id;
   save();
-  location.hash = '#/kabinet';
+  location.hash = '#/';
   location.reload();
 };
 

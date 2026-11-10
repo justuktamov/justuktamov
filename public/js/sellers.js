@@ -1,13 +1,12 @@
 // Sotuv xodimlari (operatorlar): ROP har kuni har xodimning natijasini kiritadi; oylik jadval — kim qanday ishlayapti
 import {
   $, $$, esc, api, state, shell, addDays, fmtN, fmtP, toast, spinnerBlock, isStale, monthLabel, shortDate, dayLabel, parseNum,
-  canEditSection, isAdminUser, viewNote, openDrawer, ICONS, initials,
 } from './core.js';
 import { dateNav } from './pm.js';
 
 const FIELDS = [
-  ['leads', 'Lidlar'], ['qualified', 'Sifatli'], ['sales', 'Sotuv'],
-  ['cancelled', 'Bekor'], ['unqualified', 'Sifatsiz'], ['call_sec', "Qo'ng'iroq vaqti"],
+  ['leads', 'Umumiy lidlar soni'], ['qualified', 'Sifatli lid soni'], ['sales', 'Sotuv'],
+  ['cancelled', "Bekor bo'ldi"], ['unqualified', 'Sifatsiz lidlar'], ['call_sec', 'Call duration'],
 ];
 // Hisobot jadvalidagi son ustunlari (call duration — alohida, oxirida)
 const NUM = FIELDS.filter(([k]) => k !== 'call_sec');
@@ -21,23 +20,19 @@ export function fmtDuration(sec) {
   return `${Math.floor(t / 3600)}:${String(Math.floor((t % 3600) / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
 }
 const conv = (a, b) => (b > 0 ? a / b : null);
-// Sotuvchi avatari rangi — ismdan (har sahifada bir xil)
-const AVA = ['#7357ff', '#ff7a3d', '#3b8cff', '#14b8a6', '#f59e0b', '#f43f5e', '#8b5cf6', '#22a06b'];
-const avaColor = (name) => { let h = 2166136261; for (const ch of String(name)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return AVA[(h >>> 0) % AVA.length]; };
 
 export async function renderSellers() {
   state.leaveGuard = null;
   state.isDirty = null;
-  const edit = canEditSection('sellers');
-  const f = (state.sellers ||= { tab: edit && !isAdminUser() ? 'entry' : 'report', period: 'month', month: 0, date: null });
-  // Kiritish va ro'yxat — «Sotuv xodimlari» ruxsati borlar (ROP) va PM; qolganlar faqat hisobotni ko'radi
-  const TABS = edit ? ALL_TABS : ALL_TABS.slice(0, 1);
+  const f = (state.sellers ||= { tab: state.me.user.role === 'rop' ? 'entry' : 'report', period: 'month', month: 0, date: null });
+  // Kiritish va ro'yxat — ROP va PM; targetolog faqat hisobotni ko'radi
+  const TABS = state.me.user.role === 'target' ? ALL_TABS.slice(0, 1) : ALL_TABS;
   const q = new URLSearchParams(location.hash.split('?')[1] || '');
   if (TABS.some(([k]) => k === q.get('tab'))) f.tab = q.get('tab');
   if (!TABS.some(([k]) => k === f.tab)) f.tab = 'report';
   shell(`<div class="page-head"><div><h1><span class="grad">Sotuv xodimlari</span></h1>
-      <div class="sub">Har sotuvchi: lid, sotuv, konversiya</div></div></div>
-    ${viewNote('sellers')}<div class="tabs" id="slTabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-k="${k}" class="${f.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div class="sub">Har bir sotuvchi qanday ishlayapti: nechta lid oldi, nechtasi bilan gaplashdi, nechta sotdi, qancha vaqt qo'ng'iroq qildi</div></div></div>
+    <div class="tabs" id="slTabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-k="${k}" class="${f.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
     <div id="sl">${spinnerBlock()}</div>`);
   $('#slTabs').onclick = async (e) => {
     const k = e.target.dataset.k;
@@ -67,37 +62,22 @@ async function tabReport(box, f, rid) {
   if (isStale(rid)) return;
   const bar = `<div class="sl-bar"><div class="seg" id="slPer">${[['day', 'Kecha'], ['week', '7 kun'], ['month', 'Oy']].map(([k, l]) => `<button data-p="${k}" class="${f.period === k ? 'on' : ''}">${l}</button>`).join('')}</div>
     ${f.period === 'month' ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-mm="1" aria-label="Oldingi oy">‹</button><b>${esc(monthLabel(mFirst.slice(0, 7)))}</b><button type="button" class="btn small icon" data-mm="-1" aria-label="Keyingi oy" ${f.month ? '' : 'disabled'}>›</button></span>` : `<b class="sl-when">${esc(label)}</b>`}</div>`;
-  // Reyting: konversiya bo'yicha tartib; chiziq — lidlar tarkibi (sotuv · jarayonda · bekor · sifatsiz), uzunligi — lid soni
-  const board = (p) => {
-    const rows = [...p.rows].sort((x, y) => (y.conv ?? -1) - (x.conv ?? -1) || (y.sales || 0) - (x.sales || 0));
-    const maxL = Math.max(1, ...rows.map((r) => r.leads || 0));
-    const mix = (r) => {
-      const L = r.leads || 0, sold = r.sales || 0, canc = r.cancelled || 0, unq = r.unqualified || 0;
-      const wip = Math.max(0, (r.qualified || 0) - sold - canc);
-      const rest = Math.max(0, L - sold - canc - unq - wip);
-      const seg = (n, c, t) => (n > 0 ? `<i class="${c}" style="flex:${n}" title="${t}: ${fmtN(n)}"></i>` : '');
-      return `<div class="lb-bar" style="width:${Math.max(6, (L / maxL) * 100)}%">${seg(sold, 'b-sale', 'Sotuv')}${seg(wip, 'b-wip', 'Jarayonda')}${seg(canc, 'b-canc', 'Bekor')}${seg(unq, 'b-unq', 'Sifatsiz')}${seg(rest, 'b-rest', 'Belgilanmagan')}</div>
-        <small class="lb-sub">${fmtN(r.qualified || 0)} sifatli · ${fmtN(canc)} bekor · ${fmtN(unq)} sifatsiz</small>`;
-    };
-    const t = p.total;
-    return `<section class="card lb-card" style="--pc:${esc(p.color || '#4c86ff')}">
-      <header class="lb-head"><b class="lb-proj">${dot(p.color)}${esc(p.name)}</b>
-        <div class="lb-sum"><span><b>${fmtN(t.leads)}</b> lid</span><span><b>${fmtN(t.sales)}</b> sotuv</span><span class="lb-tc"><b>${t.conv == null ? '—' : fmtP(t.conv, 1)}</b> konversiya</span>${t.call_sec ? `<span><b>${fmtDuration(t.call_sec)}</b> qo'ng'iroq</span>` : ''}</div></header>
-      <div class="lb-cols"><span>#</span><span>Sotuvchi</span><span>Lidlar tarkibi</span><span class="n">Lid</span><span class="n">Sotuv</span><span class="n">Konversiya</span><span class="n" title="Sotuv ÷ sifatli lidlar">Sifatlidan</span><span class="n">Qo'ng'iroq</span></div>
-      <ol class="lb-list">${rows.map((r, i) => `<li class="${r.active ? '' : 'off'}">
-        <span class="lb-rank ${r.conv > 0 && i < 3 ? `m${i + 1}` : ''}">${i + 1}</span>
-        <span class="lb-name"><span class="lb-ava" style="--ac:${avaColor(r.name)}">${esc(initials(r.name))}</span><b>${esc(r.name)}</b>${r.active ? '' : '<small>arxiv</small>'}</span>
-        <span class="lb-track">${mix(r)}</span>
-        <span class="n lb-num" data-l="lid">${fmtN(r.leads)}</span>
-        <span class="n lb-num" data-l="sotuv"><b>${fmtN(r.sales)}</b></span>
-        <span class="n"><em class="lb-conv ${i === 0 && r.conv > 0 ? 'top' : ''}">${r.conv == null ? '—' : fmtP(r.conv, 1)}</em></span>
-        <span class="n lb-q" data-l="sifatlidan">${r.conv_q == null ? '—' : fmtP(r.conv_q, 1)}</span>
-        <span class="n lb-call" data-l="qo'ng'iroq">${fmtDuration(r.call_sec) || '—'}</span></li>`).join('')}</ol>
-    </section>`;
+  const table = (p) => {
+    const best = Math.max(...p.rows.map((r) => r.conv ?? -1));
+    const bestQ = Math.max(...p.rows.map((r) => r.conv_q ?? -1));
+    const cells = (r, tot) => `${NUM.map(([k]) => `<td class="n">${fmtN(r[k])}</td>`).join('')}
+      <td class="n ${!tot && r.conv === best && best > 0 ? 'sl-best' : ''}">${r.conv == null ? '—' : fmtP(r.conv, 1)}</td>
+      <td class="n ${!tot && r.conv_q === bestQ && bestQ > 0 ? 'sl-best' : ''}">${r.conv_q == null ? '—' : fmtP(r.conv_q, 1)}</td>
+      <td class="n mono">${fmtDuration(r.call_sec)}</td>`;
+    return `<section class="card sl-card" style="--pc:${esc(p.color || '#4c86ff')}">
+      <div class="sl-head"><span class="sl-month">${esc(label)}</span><b>${dot(p.color)}${esc(p.name)}</b></div>
+      <div class="table-wrap"><table class="sl-table"><thead><tr><th>Xodimlar</th>${NUM.map(([, l]) => `<th class="n">${l}</th>`).join('')}<th class="n">Konversiya umumiy</th><th class="n">Konversiya sifatli</th><th class="n">Call duration</th></tr></thead>
+      <tbody>${p.rows.map((r) => `<tr class="${r.active ? '' : 'off'}"><td><b>${esc(r.name)}</b>${r.active ? '' : ' <span class="muted small">(arxiv)</span>'}</td>${cells(r)}</tr>`).join('')}</tbody>
+      <tfoot><tr><td>Jami</td>${cells(p.total, true)}</tr></tfoot></table></div></section>`;
   };
-  const legend = `<div class="lb-legend"><span><i class="b-sale"></i>Sotuv</span><span><i class="b-wip"></i>Jarayonda</span><span><i class="b-canc"></i>Bekor</span><span><i class="b-unq"></i>Sifatsiz</span></div>`;
-  box.innerHTML = bar.replace(/<\/div>$/, `${data.projects.length ? legend : ''}</div>`) + (data.projects.length ? data.projects.map(board).join('')
-    : `<div class="card empty">Bu davr uchun sotuv xodimlari raqamlari kiritilmagan. ${edit ? '«Kunlik kiritish» bo\'limida kiriting.' : ''}</div>`);
+  box.innerHTML = bar + (data.projects.length ? data.projects.map(table).join('')
+    : `<div class="card empty">Bu davr uchun sotuv xodimlari raqamlari kiritilmagan. ${state.me.user.role === 'rop' || !['target', 'rop'].includes(state.me.user.role) ? '«Kunlik kiritish» bo\'limida kiriting.' : ''}</div>`)
+    + '<p class="muted small">Konversiya umumiy = sotuv ÷ umumiy lidlar; konversiya sifatli = sotuv ÷ sifatli lidlar. Eng yuqori konversiya yashil bilan belgilangan.</p>';
   $('#slPer').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { f.period = b.dataset.p; renderSellers(); } };
   $$('[data-mm]', box).forEach((b) => { b.onclick = () => { f.month = Math.max(0, f.month + Number(b.dataset.mm)); renderSellers(); }; });
 }
@@ -116,7 +96,7 @@ async function tabEntry(box, f, rid) {
   const rowOf = (sid, pid) => d.rows.find((r) => r.seller_id === sid && r.project_id === pid) || {};
   const val = (r, k) => (k === 'call_sec' ? fmtDuration(r[k]) : r[k] ?? '');
   const inProject = (s, pid) => !s.projects.length || s.projects.includes(pid) || d.rows.some((r) => r.seller_id === s.id && r.project_id === pid);
-  box.innerHTML = `<div class="sl-bar">${nav}<span class="muted small">Qo'ng'iroq vaqti: 2:15:30 yoki daqiqa</span></div>
+  box.innerHTML = `<div class="sl-bar">${nav}<span class="muted small">Har bir sotuvchi bo'yicha ${esc(dayLabel(date))} raqamlari. Call duration — soat:daqiqa:soniya (masalan 2:15:30) yoki faqat daqiqa.</span></div>
     ${d.projects.map((p) => {
       const sellers = d.sellers.filter((s) => inProject(s, p.id));
       const rop = d.rop[p.id];
@@ -130,7 +110,7 @@ async function tabEntry(box, f, rid) {
           : '<p class="muted small">Bu loyihaga xodim biriktirilmagan.</p>'}
       </section>`;
     }).join('')}
-    <div class="step-foot"><span class="muted small"></span><span class="spacer"></span><button class="btn primary" data-save>Saqlash</button></div>`;
+    <div class="step-foot"><span class="muted small">Enter — keyingi qator.</span><span class="spacer"></span><button class="btn primary" data-save>Saqlash</button></div>`;
 
   const num = (el) => (el.value.trim() === '' ? null : parseNum(el.value));
   const dur = (s) => { const m = String(s).trim().match(/^(\d+)(?::([0-5]?\d))?(?::([0-5]?\d))?$/); if (!m) return 0; return m[3] != null ? m[1] * 3600 + m[2] * 60 + Number(m[3]) : m[2] != null ? m[1] * 60 + Number(m[2]) : m[1] * 60; };
@@ -186,55 +166,38 @@ async function tabEntry(box, f, rid) {
   };
 }
 
-// ---------- Xodimlar ro'yxati: ixcham jadval; qo'shish va tuzatish — o'ng panelda ----------
+// ---------- Xodimlar ro'yxati: qo'shish, loyihalar, arxiv ----------
 async function tabList(box, rid) {
   const [list, projects] = await Promise.all([api('/api/sellers'), api('/api/projects')]);
   if (isStale(rid)) return;
   const sp = projects.filter((p) => p.active && p.kind !== 'auto');
-  const name = (id) => projects.find((p) => p.id === id);
-  box.innerHTML = `<div class="card"><div class="card-head"><h3>Sotuvchilar</h3><button type="button" class="btn primary" data-new>${ICONS.plus} Yangi sotuvchi</button></div>
-    <p class="muted small" style="margin:0 0 12px">Sotuvchilar tizimga kirmaydi — raqamlarini ROP kiritadi.</p>
-    ${list.length ? `<div class="table-wrap"><table class="click-list"><thead><tr><th>Ism</th><th>Loyihalari</th><th></th></tr></thead>
-      <tbody>${list.map((s) => `<tr data-id="${s.id}" class="${s.active ? '' : 'off'}" tabindex="0"><td><b>${esc(s.name)}</b>${s.active ? '' : ' <span class="pill">Arxivda</span>'}</td>
-        <td class="wrap">${(s.projects || []).length ? s.projects.map((id) => name(id)).filter(Boolean).map((p) => `<span class="sl-proj">${dot(p.color)}${esc(p.name)}</span>`).join('') : '<span class="muted small">Hamma sotuv loyihalari</span>'}</td>
-        <td class="exp-act"><button type="button" class="btn small ghost" data-edit title="Tuzatish">${ICONS.edit}</button></td></tr>`).join('')}</tbody></table></div>`
-      : '<div class="empty">Hali sotuvchi yo\'q</div>'}</div>`;
-  const drawer = (sl) => {
-    const isNew = !sl;
-    const sel = sl?.projects || [];
-    openDrawer({
-      title: isNew ? 'Yangi sotuvchi' : sl.name,
-      sub: isNew ? '' : sl.active ? '' : 'Arxivda',
-      submit: isNew ? `${ICONS.plus} Qo'shish` : `${ICONS.check} Saqlash`,
-      actions: isNew ? '' : `<button type="button" class="btn ghost" data-toggle>${sl.active ? 'Arxivlash' : 'Qaytarish'}</button>`,
-      body: `<label class="field">Ism<input data-f="name" value="${esc(sl?.name || '')}" maxlength="60" placeholder="Masalan: Barno"></label>
-        <div class="field"><span class="f-l">Loyihalari <span class="hint">tanlanmasa — hamma sotuv loyihalari</span></span>
-          <div class="chips">${sp.map((p) => `<button type="button" class="chip ${sel.includes(p.id) ? 'on' : ''}" data-pid="${p.id}" aria-pressed="${sel.includes(p.id)}">${dot(p.color)}${esc(p.name)}</button>`).join('')}</div></div>`,
-      onOpen(form, close) {
-        form.addEventListener('click', (e) => {
-          const chip = e.target.closest('[data-pid]');
-          if (chip) { chip.classList.toggle('on'); chip.setAttribute('aria-pressed', chip.classList.contains('on')); return; }
-          if (e.target.closest('[data-toggle]')) {
-            api(`/api/sellers/${sl.id}`, { method: 'PUT', body: { active: !sl.active } })
-              .then(() => { toast(sl.active ? `${sl.name} arxivlandi` : `${sl.name} qaytarildi`); close(); renderSellers(); })
-              .catch((err) => toast(err.message, true));
-          }
-        });
-      },
-      async onSubmit(form) {
-        const body = { name: $('[data-f="name"]', form).value.trim(), projects: $$('[data-pid].on', form).map((x) => Number(x.dataset.pid)) };
-        if (!body.name) { toast('Ismini yozing', true); return false; }
-        await api(isNew ? '/api/sellers' : `/api/sellers/${sl.id}`, { method: isNew ? 'POST' : 'PUT', body });
-        toast(isNew ? "Qo'shildi" : 'Saqlandi');
-      },
-      onSaved: () => renderSellers(),
-    });
-  };
-  $('[data-new]', box).onclick = () => drawer(null);
-  const open = (e) => {
-    const tr = e.target.closest('tr[data-id]');
-    if (tr) drawer(list.find((x) => String(x.id) === tr.dataset.id));
-  };
-  $('tbody', box)?.addEventListener('click', open);
-  $('tbody', box)?.addEventListener('keydown', (e) => { if (e.key === 'Enter') open(e); });
+  const chips = (sel = []) => `<div class="chips">${sp.map((p) => `<button type="button" class="chip ${sel.includes(p.id) ? 'on' : ''}" data-pid="${p.id}" aria-pressed="${sel.includes(p.id)}">${dot(p.color)}${esc(p.name)}</button>`).join('')}</div>`;
+  const row = (s) => `<div class="card sl-person ${s.active === 0 ? 'off' : ''}" data-id="${s.id ?? ''}">
+      <label class="field">${s.id ? 'Ism' : 'Yangi xodim'}<input data-f="name" value="${esc(s.name || '')}" maxlength="60" placeholder="Masalan, Barno"></label>
+      <div class="field">Loyihalari <span class="hint">tanlanmasa — hamma sotuv loyihalari</span>${chips(s.projects || [])}</div>
+      <div class="row">${s.id ? `<button class="btn small ghost" data-a="toggle">${s.active ? 'Arxivlash' : 'Qaytarish'}</button>` : ''}<button class="btn small primary" data-a="save">${s.id ? 'Saqlash' : "Qo'shish"}</button></div>
+    </div>`;
+  box.innerHTML = `<p class="muted small" style="margin:0 0 12px">Sotuvchilar tizimga kirmaydi — ularning raqamlarini ROP kiritadi. Ishdan ketgan xodimni arxivlang: eski oylar hisobotida qoladi.</p>
+    <div class="sl-people">${row({ active: 1 })}${list.map(row).join('')}</div>`;
+  box.addEventListener('click', async (e) => {
+    const chip = e.target.closest('[data-pid]');
+    if (chip) { chip.classList.toggle('on'); chip.setAttribute('aria-pressed', chip.classList.contains('on')); return; }
+    const b = e.target.closest('[data-a]');
+    if (!b) return;
+    const c = b.closest('[data-id]');
+    const id = c.dataset.id;
+    b.disabled = true;
+    try {
+      if (b.dataset.a === 'toggle') {
+        const s = list.find((x) => String(x.id) === id);
+        await api(`/api/sellers/${id}`, { method: 'PUT', body: { active: !s.active } });
+        toast(s.active ? `${s.name} arxivlandi` : `${s.name} qaytarildi`);
+      } else {
+        const body = { name: $('[data-f="name"]', c).value, projects: $$('[data-pid].on', c).map((x) => Number(x.dataset.pid)) };
+        await api(id ? `/api/sellers/${id}` : '/api/sellers', { method: id ? 'PUT' : 'POST', body });
+        toast(id ? 'Saqlandi' : "Qo'shildi");
+      }
+      renderSellers();
+    } catch (err) { toast(err.message, true); b.disabled = false; }
+  });
 }
