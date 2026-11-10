@@ -1,11 +1,36 @@
-// Rollar: kim qaysi raqamlarni kiritadi. Server ham, brauzer demosi ham shu qoidalardan foydalanadi.
-//   pm      — proekt menejer: hammasini ko'radi, tekshiradi, tuzatadi va direktorga yuboradi; xodimlarni qo'shadi
-//   target  — targetolog: o'z loyihalari bo'yicha target raqamlari (xarajat, ko'rish, klik, lidlar va manbasi)
-//   rop     — sotuv bo'limi rahbari: lidlar sifati, holati, sabablar, sotuv va tushum
+// Rollar va ruxsatlar. Server ham, brauzer demosi ham shu qoidalardan foydalanadi.
+//   pm        — proekt menejer: hammasini ko'radi, tekshiradi, direktorga yuboradi; xodim qo'shadi va RUXSAT beradi
+//   director  — direktor: hamma narsani ko'radi (nazorat, moliya, javobgarlik), o'zi kiritmaydi
+//   target    — targetolog: target raqamlari (xarajat, ko'rish, klik, lidlar va manbasi)
+//   rop       — sotuv bo'limi rahbari: lidlar sifati, holati, sabablar, sotuv va tushum; sotuv xodimlari
+//   marketing — marketing rahbari: marketing xarajatlari (kontent, SMM, tadbir, offline reklama…)
+//   finance   — moliyachi: operatsion xarajatlar (ish haqi, ijara, soliq…)
+// Hamma hamma bo'limni KO'RADI (statistika ochiq). Bo'limga KIRITISH — faqat PM ruxsat bergan bo'lsa
 export const ROLES = {
   pm: 'Proekt menejer',
+  director: 'Direktor',
   target: 'Targetolog',
   rop: "Sotuv bo'limi rahbari (ROP)",
+  marketing: 'Marketing rahbari',
+  finance: 'Moliyachi',
+};
+
+// Kiritish bo'limlari — PM har xodimga qaysi biriga ruxsat berishini belgilaydi
+export const SECTIONS = {
+  target: 'Target hisoboti',
+  rop: 'Sotuv hisoboti (ROP)',
+  sellers: 'Sotuv xodimlari',
+  marketing: 'Marketing xarajatlari',
+  finance: 'Moliya (operatsion xarajatlar)',
+};
+// Yangi xodimga rolga qarab beriladigan ruxsat (PM keyin o'zgartiradi)
+export const ROLE_ACCESS = {
+  pm: Object.keys(SECTIONS),
+  director: [],
+  target: ['target'],
+  rop: ['rop', 'sellers'],
+  marketing: ['marketing'],
+  finance: ['finance'],
 };
 
 // Har rol kiritadigan maydonlar (daily jadvali). Avtovoronkada (bot) bot start, xarid va tushum — ROP qismida
@@ -30,7 +55,30 @@ export const PARTS = {
   },
 };
 
-export const isStaff = (u) => Boolean(u && PARTS[u.role]);
+// PM — boshqaruvchi (hammasini kiritadi va ruxsat beradi); qolganlar — xodim (faqat ruxsat berilgan bo'limiga)
+export const isPm = (u) => Boolean(u) && (u.role || 'pm') === 'pm';
+export const isStaff = (u) => Boolean(u) && !isPm(u);
+
+// Saqlangan ruxsat: «target,sellers»; null — rolga qarab (ROLE_ACCESS); '' — hech qaysi
+export function parseAccess(v) {
+  return String(v ?? '').split(',').map((x) => x.trim()).filter((x) => SECTIONS[x]);
+}
+export function userAccess(u) {
+  if (!u) return [];
+  if (isPm(u)) return Object.keys(SECTIONS);
+  if (u.access == null) return [...(ROLE_ACCESS[u.role] || [])];
+  return parseAccess(u.access);
+}
+export const canEdit = (u, section) => userAccess(u).includes(section);
+// Kunlik hisobot qismlari (target / rop) — shu xodim qaysilarini yuboradi
+export const userParts = (u) => (isPm(u) ? [] : userAccess(u).filter((s) => PARTS[s]));
+// Saqlash uchun: ro'yxat → «target,rop» ('' — hech qaysi)
+export function normalizeAccess(v) {
+  const list = Array.isArray(v) ? v : String(v ?? '').split(',');
+  const bad = list.map((x) => String(x).trim()).filter(Boolean).find((x) => !SECTIONS[x]);
+  if (bad) { const e = new Error(`Noma'lum bo'lim: ${bad}`); e.status = 400; throw e; }
+  return [...new Set(list.map((x) => String(x).trim()).filter(Boolean))].join(',');
+}
 
 // Foydalanuvchiga biriktirilgan loyihalar: bo'sh — hammasi
 export function userProjects(u) {
@@ -42,11 +90,10 @@ export function canSeeProject(u, projectId) {
   return !list.length || list.includes(Number(projectId));
 }
 
-// Xodim shu maydonni yoza oladimi (PM — hammasini)
+// Xodim shu maydonni yoza oladimi: ruxsat berilgan qism(lar)ning maydoni bo'lsa (PM — hammasini)
 export function canWriteField(u, field) {
-  if (!isStaff(u)) return true;
-  const p = PARTS[u.role];
-  return p.fields.includes(field) || p.texts.includes(field);
+  if (isPm(u)) return true;
+  return userParts(u).some((part) => PARTS[part].fields.includes(field) || PARTS[part].texts.includes(field));
 }
 
 // Yuborishdan oldin: qaysi loyihada qaysi majburiy raqam yo'q — [{ project, fields: [...] }]

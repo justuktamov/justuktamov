@@ -516,3 +516,65 @@ th { color: var(--text-3); font-weight: 700; }
 
 /* Asosiy uslubdagi och gradiyentlarni bosib o'tish (bir xil aniqlikda — keyingisi yutadi) */
 .m-hero.ad, .m-hero.rev, .m-hero.profit, .m-hero.loss { background: var(--mh-bg); border-color: transparent; }
+
+/* ---------- Yangi tuzilma: menyu guruhlari, o'z bo'limi, nazorat kartalari ---------- */
+:root { --teal: #14b8a6; --teal-2: #5ee6cf; }
+@media (min-width: 861px) {
+  .sidebar > .logo { padding-bottom: 12px; }
+  .sidebar > .nav-label { width: auto; text-align: left; padding: 14px 12px 6px; font-size: 10.5px; letter-spacing: .1em; color: var(--text-3); }
+  .sidebar .nav a.own .ic { box-shadow: none; }
+  .sidebar .nav a.own:not(.active) { background: rgba(255, 255, 255, .7); color: var(--text); box-shadow: inset 3px 0 0 var(--violet); }
+}
+@media (min-width: 861px) and (max-height: 1000px) { .side-card p, .side-card::after { display: none; } .side-card { padding: 12px 14px; gap: 6px; } .side-card .sc-ic { width: 28px; height: 28px; } }
+@media (min-width: 861px) and (max-height: 860px) { .side-card { display: none; } }
+.m-sheet-in { border-radius: 26px 26px 0 0; }
+.m-sheet .nav a.active { background: var(--violet-soft); color: var(--violet-ink); }
+.m-sheet .nav a .ic { background: var(--violet-soft); color: var(--violet); }
+.view-note { background: var(--violet-soft); border-radius: 18px; }
+.view-note svg { color: var(--violet); }
+.demo-as-wrap .sel-btn { background: var(--surface-2); border-color: transparent; }
+
+/* Nazorat: kartalar — o'z rangida (tushum binafsha, xarajat marjon, foyda laym, 1 mijoz osmon-ko'k, ROMI zumrad) */
+.kpis.ctl-kpis .kpi:nth-child(1) { background: linear-gradient(135deg, var(--violet-2), var(--violet)); box-shadow: 0 14px 28px -18px var(--violet); }
+.kpis.ctl-kpis .kpi:nth-child(2) { background: linear-gradient(135deg, var(--coral-2), var(--coral)); box-shadow: 0 14px 28px -18px var(--coral); }
+.kpis.ctl-kpis .kpi:nth-child(4) { background: linear-gradient(135deg, var(--sky-2), var(--sky)); box-shadow: 0 14px 28px -18px var(--sky); }
+.kpis.ctl-kpis .kpi:nth-child(5) { background: linear-gradient(135deg, var(--teal-2), var(--teal)); box-shadow: 0 14px 28px -18px var(--teal); }
+.kpis .kpi .delta.flat { background: rgba(255, 255, 255, .92); color: var(--text-2); }
+.verdict { border-radius: 24px; }
+.verdict.crit { background: linear-gradient(135deg, var(--rose-soft), #fff6f7); box-shadow: inset 0 0 0 1px #ffd4dc; }
+.verdict.warn { background: linear-gradient(135deg, #fff6e3, #fffaf0); box-shadow: inset 0 0 0 1px #fde3b0; }
+.verdict.good { background: linear-gradient(135deg, var(--lime-soft), #fbfee9); box-shadow: inset 0 0 0 1px #e6f6a8; }
+.verdict .v-ic { box-shadow: 0 8px 18px -10px rgba(60, 36, 160, .4); }
+.owner { background: var(--surface-2); border: 0; border-radius: 22px; }
+.owner.good { box-shadow: inset 0 4px 0 var(--mint); }
+.owner.warn { box-shadow: inset 0 4px 0 var(--amber); }
+.owner.crit { box-shadow: inset 0 4px 0 var(--rose); }
+.owner .o-ic { background: #fff; color: var(--violet); }
+.o-score { --c: var(--mint); }
+.owner.warn .o-score { --c: var(--amber); } .owner.crit .o-score { --c: var(--rose); }
+.iss { border-radius: 14px; }
+.iss.crit .iss-dot { background: var(--rose); } .iss.warn .iss-dot { background: var(--amber); } .iss-dot { background: var(--violet); }
+.cac-bar i { background: var(--mint); } .cac-bar.over i { background: var(--rose); } .cac-bar.low i { background: var(--violet); }
+.cac-bar em { background: var(--violet-ink); }
+.fc-cell { background: var(--surface-2); border-radius: 18px; }
+.fc-best { background: var(--lime-soft); border-radius: 18px; }
+.fc-in input[type="range"] { accent-color: var(--violet); }
+.disc-bar .ok { background: var(--mint); } .disc-bar .late { background: var(--amber); } .disc-bar .miss { background: var(--rose); }
+.adv-list li { background: var(--surface-2); border-radius: 16px; }
+.ai-box { background: var(--violet-soft); border-radius: 18px; }
+
+/* Moliya va marketing */
+.pl-row { background: var(--surface-2); border-radius: 16px; }
+.pl-in > span i { background: var(--violet); } .pl-ad > span i { background: var(--coral); } .pl-mk > span i { background: #ffb547; }
+.pl-var > span i { background: #b8b3cc; } .pl-opex > span i { background: var(--sky); }
+.pl-total.pos { background: linear-gradient(135deg, var(--lime-2), var(--lime)); }
+.pl-total.pos b, .pl-total.pos span { color: var(--lime-ink); }
+.pl-total.pos small { color: rgba(26, 34, 0, .6); }
+.pl-total.neg { background: linear-gradient(135deg, var(--rose-2), var(--rose)); }
+.pl-total.neg b, .pl-total.neg span, .pl-total.neg small { color: #fff; }
+.cost-stack { height: 20px; }
+.cs-ad { background: var(--coral); } .cs-mk { background: #ffb547; } .cs-var { background: #b8b3cc; } .cs-opex { background: var(--sky); }
+.cat-bar > i > i { background: linear-gradient(90deg, var(--violet-2), var(--violet)); }
+.cat-bars.opex .cat-bar > i > i { background: linear-gradient(90deg, var(--sky-2), var(--sky)); }
+.exp-act .btn.confirm { background: var(--rose-soft); color: var(--rose-ink); }
+.acc-yes { background: var(--lime-soft); color: #4a6800; }

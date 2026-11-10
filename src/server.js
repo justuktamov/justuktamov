@@ -5,13 +5,14 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { basename, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getDb, getSetting, setSetting, today, nowLocal, logEntry, splitIds, normalizeIds, projectReasons, normalizeReasonKeys, DIZIPRO_REASONS, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS } from './db.js';
+import { getDb, getSetting, setSetting, today, nowLocal, logEntry, splitIds, normalizeIds, projectReasons, normalizeReasonKeys, DIZIPRO_REASONS, FIELDS, TEXT_FIELDS, PLAN_FIELDS, PROJECT_KINDS, REASONS, REASON_KINDS, CHANNELS, CHANNEL_FIELDS, EXPENSE_KINDS, EXPENSE_CATS } from './db.js';
 import { reportBundle, saveDraft, submitReport, listReports, reportText, getReport, saveAiAnalysis, monthReportMessages } from './reports.js';
-import { aiStatus, analyze, AiError } from './ai/index.js';
+import { aiStatus, analyze, advise, AiError } from './ai/index.js';
 import { buildAiInput, hashInput } from './ai/prompt.js';
 import { login, logout, userFromToken, changePassword, ensureUser, publicUser, createUser, setPassword } from './auth.js';
 import { SELLER_FIELDS, SELLER_KEYS, parseDuration, sellerStats } from './sellers-calc.js';
-import { ROLES, PARTS, isStaff, userProjects, canSeeProject, canWriteField, missingFor, normalizeProjectIds } from './roles.js';
+import { ROLES, PARTS, SECTIONS, isStaff, isPm, userAccess, userParts, canEdit, normalizeAccess, userProjects, canSeeProject, canWriteField, missingFor, normalizeProjectIds } from './roles.js';
+import { control, controlAiInput } from './control.js';
 import { summary, loadRows, loadReasons, loadChannels, addDays, toCsv, monthBounds, sumRows, planProgress, monthly, monthReview, estimateLag, parseRate, parseNum, dayRates } from './metrics.js';
 import { startPolling, telegramStatus, sendMessage, sendDocument } from './telegram.js';
 import { makeBackup, backupStatus, shareableCopy } from './backup.js';
@@ -109,8 +110,9 @@ function num(v) {
 }
 
 const routes = [];
-// staff: true — targetolog va ROP ham chaqira oladi: hamma ko'radigan sahifalar (doska, dinamika, hisobotlar) va o'z kiritishi.
-// Qolganlari (tasdiqlash, direktorga yuborish, sozlamalar, xodimlar) — faqat PM
+// staff: true — PM dan boshqalar ham (direktor, targetolog, ROP, marketing, moliya) chaqira oladi: hamma ko'radigan sahifalar
+// (doska, nazorat, moliya, dinamika, hisobotlar) va o'z bo'limiga kiritish (ruxsat — har route ichida canEdit bilan).
+// Qolganlari (tasdiqlash, direktorga yuborish, sozlamalar, xodimlar va ruxsatlar) — faqat PM
 const route = (method, path, fn, { staff = false } = {}) => routes.push({ method, re: new RegExp(`^${path.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), fn, staff });
 const STAFF = { staff: true };
 
@@ -119,10 +121,11 @@ function staffList(date) {
   const db = getDb();
   const sent = new Map(db.prepare('SELECT user_id, submitted_at FROM staff_reports WHERE date = ?').all(date).map((r) => [r.user_id, r.submitted_at]));
   const back = new Map(db.prepare('SELECT user_id, note, at FROM staff_returns WHERE date = ?').all(date).map((r) => [r.user_id, r]));
-  return db.prepare("SELECT * FROM users WHERE active = 1 AND role IN ('target', 'rop') ORDER BY role DESC, name").all().map((u) => ({
-    id: u.id, name: u.name, role: u.role, projects: userProjects(u), telegram: Boolean(u.telegram_id), submitted_at: sent.get(u.id) || null,
+  // Kunlik qism (target / rop) kiritish ruxsati borlar; role — qaysi qism (ikkalasiga ruxsati bo'lsa — ikki qator)
+  return db.prepare("SELECT * FROM users WHERE active = 1 AND role != 'pm' ORDER BY name").all().flatMap((u) => userParts(u).map((part) => ({
+    id: u.id, name: u.name, role: part, user_role: u.role, projects: userProjects(u), telegram: Boolean(u.telegram_id), submitted_at: sent.get(u.id) || null,
     returned: sent.has(u.id) ? null : back.get(u.id) || null,
-  }));
+  }))).sort((a, b) => (a.role === b.role ? a.name.localeCompare(b.name) : a.role === 'target' ? -1 : 1));
 }
 // PM tasdig'i: { target: { approved_at, by }, rop: … }
 function approvals(date) {
@@ -159,9 +162,14 @@ route('GET', '/api/me', async (req, res) => {
     // Birinchi kiritilgan kun — doskadagi «Hammasi» shu kundan kechagacha (raqam bo'lmasa — null)
     firstDay: getDb().prepare('SELECT MIN(date) AS d FROM daily').get()?.d || null,
     roles: ROLES,
+    sections: SECTIONS,
+    // Qaysi bo'limlarga kiritish ruxsati bor (PM — hammasi) va qaysi kunlik qismlarni yuboradi
+    access: userAccess(user),
+    parts: userParts(user),
+    expenseCats: EXPENSE_CATS,
     version: APP_VERSION,
     // Xodim: kechagi qismini yuborganmi
-    partSent: isStaff(user) ? getDb().prepare('SELECT submitted_at FROM staff_reports WHERE date = ? AND user_id = ?').get(addDays(today(), -1), user.id)?.submitted_at || null : null,
+    partSent: userParts(user).length ? getDb().prepare('SELECT submitted_at FROM staff_reports WHERE date = ? AND user_id = ?').get(addDays(today(), -1), user.id)?.submitted_at || null : null,
     telegram: { enabled: tg.enabled, bot: tg.bot, reportChat: Boolean(getSetting('report_chat_id')) },
   });
 }, STAFF);
@@ -276,8 +284,9 @@ route('GET', '/api/daily', async (req, res, _p, q) => {
   send(res, 200, {
     date,
     // Xodim: o'z qismini yuborgan vaqti; PM: barcha xodimlar holati
-    mine: isStaff(user) ? { part: user.role, submitted_at: getDb().prepare('SELECT submitted_at FROM staff_reports WHERE date = ? AND user_id = ?').get(date, user.id)?.submitted_at || null, returned: myReturn(date, user.id) } : null,
-    editable: isStaff(user) ? projects.filter((p) => canSeeProject(user, p.id)).map((p) => p.id) : null,
+    mine: userParts(user).length ? { part: userParts(user)[0], parts: userParts(user), submitted_at: getDb().prepare('SELECT submitted_at FROM staff_reports WHERE date = ? AND user_id = ?').get(date, user.id)?.submitted_at || null, returned: myReturn(date, user.id) } : null,
+    // Qaysi loyihalarga kirita oladi: PM — hammasi (null); qism ruxsati bo'lmasa — hech qaysi (faqat ko'radi)
+    editable: isStaff(user) ? (userParts(user).length ? projects.filter((p) => canSeeProject(user, p.id)).map((p) => p.id) : []) : null,
     staff: staffList(date),
     approvals: approvals(date),
     // value — shu kun uchun kiritilgan kurs (yo'q bo'lsa null), prev — kiritilmasa hisobda ishlatiladigan kurs (oldingi kunniki)
@@ -303,8 +312,8 @@ route('PUT', '/api/daily', async (req, res) => {
   // Xodim faqat o'z qismini yozadi: targetolog — target raqamlari, ROP — sotuv raqamlari va sabablar; kanallar — PM
   if (isStaff(u)) {
     const bad = Object.keys(b.values || {}).find((f) => (FIELDS[f] || TEXT_FIELDS[f]) && !canWriteField(u, f));
-    if (bad) throw new HttpError(403, `«${FIELDS[bad] || TEXT_FIELDS[bad]}» — ${ROLES[u.role].toLowerCase()} kiritmaydi`);
-    if (b.reasons && Object.keys(b.reasons).length && !PARTS[u.role].reasons) throw new HttpError(403, 'Sabablarni ROP kiritadi');
+    if (bad) throw new HttpError(403, `«${FIELDS[bad] || TEXT_FIELDS[bad]}» — kiritish uchun ruxsat yo'q (PM ruxsat beradi)`);
+    if (b.reasons && Object.keys(b.reasons).length && !canEdit(u, 'rop')) throw new HttpError(403, "Sabablarni sotuv hisobotiga ruxsati bor xodim kiritadi");
     if (b.channels && Object.keys(b.channels).length) throw new HttpError(403, "Kanallar bo'yicha raqamlarni PM kiritadi");
   }
   const db = getDb();
@@ -368,7 +377,7 @@ route('PUT', '/api/daily', async (req, res) => {
 // Shu kunning dollar kursi (1-qadam): faqat shu kun hisobiga ta'sir qiladi; bo'sh qiymat — o'chiradi
 route('PUT', '/api/rate', async (req, res) => {
   const u = requireUser(req);
-  if (isStaff(u) && !PARTS[u.role].rate) throw new HttpError(403, 'Dollar kursini targetolog yoki PM kiritadi');
+  if (isStaff(u) && !canEdit(u, 'target')) throw new HttpError(403, 'Dollar kursini target hisobotiga ruxsati bor xodim yoki PM kiritadi');
   const b = await readBody(req);
   if (!isDate(b.date) || b.date > today()) throw new HttpError(400, "Sana noto'g'ri");
   const db = getDb();
@@ -391,11 +400,11 @@ route('PUT', '/api/rate', async (req, res) => {
 const n0 = (x) => Math.round(x || 0).toLocaleString('ru-RU').replace(/,/g, ' ');
 const escTg = (x) => String(x ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
 // PM ga Telegramda qisqa xabar: kim, qaysi kun, asosiy raqamlar
-function partText(u, date, projects, rowOf, resend) {
-  const lines = [`${u.role === 'target' ? '🎯' : '📞'} <b>${escTg(u.name)}</b> — ${escTg(PARTS[u.role].title.toLowerCase())} ${resend ? '<b>tuzatildi</b>' : 'yuborildi'} (${date})`];
+function partText(u, part, date, projects, rowOf, resend) {
+  const lines = [`${part === 'target' ? '🎯' : '📞'} <b>${escTg(u.name)}</b> — ${escTg(PARTS[part].title.toLowerCase())} ${resend ? '<b>tuzatildi</b>' : 'yuborildi'} (${date})`];
   for (const p of projects) {
     const r = rowOf(p.id) || {};
-    if (u.role === 'target') {
+    if (part === 'target') {
       const src = [r.tl_web != null ? `web ${n0(r.tl_web)}` : '', r.tl_bot != null ? `bot ${n0(r.tl_bot)}` : ''].filter(Boolean).join(', ');
       lines.push(`• <b>${escTg(p.name)}</b>: $${n0(r.spend)} · ko'rish ${n0(r.impressions)} · klik ${n0(r.clicks)} · lid ${n0(r.target_leads)}${src ? ` (${src})` : ''}`);
     } else if (p.kind === 'auto') {
@@ -408,24 +417,26 @@ function partText(u, date, projects, rowOf, resend) {
 }
 route('POST', '/api/part/submit', async (req, res) => {
   const u = requireUser(req);
-  if (!isStaff(u)) throw new HttpError(403, 'Bu tugma targetolog va ROP uchun');
   const b = await readBody(req);
+  const part = b.part || userParts(u)[0];
+  if (!isStaff(u)) throw new HttpError(403, 'PM xodim qismini tasdiqlaydi — yubormaydi');
+  if (!part || !userParts(u).includes(part)) throw new HttpError(403, "Bu hisobotni yuborish uchun ruxsat yo'q — PM ruxsat beradi");
   if (!isDate(b.date) || b.date > today()) throw new HttpError(400, "Sana noto'g'ri");
   const { projects: all, rows } = loadRows(b.date, b.date, null, { activeOnly: true });
   const projects = all.filter((p) => canSeeProject(u, p.id));
   const rowOf = (id) => rows.find((r) => r.project_id === id);
-  if (PARTS[u.role].rate && dayRates().entered(b.date) == null) throw new HttpError(400, 'Shu kun uchun dollar kursini kiriting');
-  const miss = missingFor(u.role, projects, rowOf);
+  if (PARTS[part].rate && dayRates().entered(b.date) == null) throw new HttpError(400, 'Shu kun uchun dollar kursini kiriting');
+  const miss = missingFor(part, projects, rowOf);
   if (miss.length) throw new HttpError(400, `To'ldirilmagan: ${miss.map((m) => `${m.project} — ${m.fields.map((f) => FIELDS[f]).join(', ')}`).join('; ')}`);
   const db = getDb();
   const resend = Boolean(db.prepare('SELECT 1 FROM staff_reports WHERE date = ? AND user_id = ?').get(b.date, u.id));
   const at = nowLocal();
   db.prepare('INSERT INTO staff_reports (date, user_id, part, submitted_at) VALUES (?, ?, ?, ?) ON CONFLICT(date, user_id) DO UPDATE SET part = excluded.part, submitted_at = excluded.submitted_at')
-    .run(b.date, u.id, u.role, at);
+    .run(b.date, u.id, part, at);
   // Raqamlar o'zgargan bo'lishi mumkin — PM qayta tekshirib tasdiqlaydi
-  db.prepare('DELETE FROM part_approvals WHERE date = ? AND part = ?').run(b.date, u.role);
-  logEntry({ userId: u.id, date: b.date, kind: 'report', field: 'part', newValue: `${PARTS[u.role].title}: ${resend ? 'qayta yuborildi' : 'yuborildi'}` });
-  const text = partText(u, b.date, projects, rowOf, resend);
+  db.prepare('DELETE FROM part_approvals WHERE date = ? AND part = ?').run(b.date, part);
+  logEntry({ userId: u.id, date: b.date, kind: 'report', field: 'part', newValue: `${PARTS[part].title}: ${resend ? 'qayta yuborildi' : 'yuborildi'}` });
+  const text = partText(u, part, b.date, projects, rowOf, resend);
   for (const c of new Set(pmChats())) sendMessage(c, text).catch((e) => console.error('Telegram:', e.message));
   send(res, 200, { submitted_at: at, resend });
 }, STAFF);
@@ -444,18 +455,19 @@ route('POST', '/api/part/return', async (req, res) => {
   const u = requireUser(req);
   const b = await readBody(req);
   if (!isDate(b.date)) throw new HttpError(400, "Sana noto'g'ri");
-  const s = getDb().prepare("SELECT * FROM users WHERE id = ? AND role IN ('target', 'rop')").get(Number(b.user_id));
-  if (!s) throw new HttpError(404, 'Xodim topilmadi');
+  const s = getDb().prepare("SELECT * FROM users WHERE id = ? AND role != 'pm'").get(Number(b.user_id));
+  if (!s || !userParts(s).length) throw new HttpError(404, 'Xodim topilmadi');
+  const part = userParts(s).includes(b.part) ? b.part : userParts(s)[0];
   const note = String(b.note ?? '').trim().slice(0, 500) || null;
   const db = getDb();
   db.prepare('DELETE FROM staff_reports WHERE date = ? AND user_id = ?').run(b.date, s.id);
-  db.prepare('DELETE FROM part_approvals WHERE date = ? AND part = ?').run(b.date, s.role);
+  db.prepare('DELETE FROM part_approvals WHERE date = ? AND part = ?').run(b.date, part);
   db.prepare('INSERT INTO staff_returns (date, user_id, note, at) VALUES (?, ?, ?, ?) ON CONFLICT(date, user_id) DO UPDATE SET note = excluded.note, at = excluded.at').run(b.date, s.id, note, nowLocal());
   logEntry({ userId: u.id, date: b.date, kind: 'report', field: 'return', newValue: `${s.name} ga qaytarildi${note ? `: ${note}` : ''}` });
   let notified = false;
   if (telegramStatus().enabled) {
     for (const c of splitIds(s.telegram_id)) {
-      await sendMessage(c, `↩️ <b>${escTg(u.name)}</b> ${b.date} uchun ${escTg(PARTS[s.role].title.toLowerCase())}ni qaytardi${note ? `:\n${escTg(note)}` : ''}\n\nIlovada tuzating va qayta yuboring.`).then(() => { notified = true; }).catch((e) => console.error('Telegram:', e.message));
+      await sendMessage(c, `↩️ <b>${escTg(u.name)}</b> ${b.date} uchun ${escTg(PARTS[part].title.toLowerCase())}ni qaytardi${note ? `:\n${escTg(note)}` : ''}\n\nIlovada tuzating va qayta yuboring.`).then(() => { notified = true; }).catch((e) => console.error('Telegram:', e.message));
     }
   }
   send(res, 200, { ok: true, notified });
@@ -464,12 +476,13 @@ route('POST', '/api/part/return', async (req, res) => {
 route('POST', '/api/part/remind', async (req, res) => {
   requireUser(req);
   const b = await readBody(req);
-  const s = getDb().prepare("SELECT * FROM users WHERE id = ? AND active = 1 AND role IN ('target', 'rop')").get(Number(b.user_id));
-  if (!s) throw new HttpError(404, 'Xodim topilmadi');
+  const s = getDb().prepare("SELECT * FROM users WHERE id = ? AND active = 1 AND role != 'pm'").get(Number(b.user_id));
+  if (!s || !userParts(s).length) throw new HttpError(404, 'Xodim topilmadi');
+  const part = userParts(s).includes(b.part) ? b.part : userParts(s)[0];
   if (!s.telegram_id) throw new HttpError(400, `${s.name} Telegram ID sini kiritmagan — eslatma yuborib bo'lmaydi`);
   if (!telegramStatus().enabled) throw new HttpError(503, 'Telegram bot ulanmagan');
   const date = isDate(b.date) ? b.date : addDays(today(), -1);
-  for (const c of splitIds(s.telegram_id)) await sendMessage(c, `⏰ ${date} uchun ${PARTS[s.role].title.toLowerCase()} kutilmoqda. Ilovada «${s.role === 'target' ? 'Target kiritish' : 'Sotuv kiritish'}» bo'limini oching, raqamlarni kiriting va «Yuborish» ni bosing.`).catch((e) => { throw new HttpError(502, e.message); });
+  for (const c of splitIds(s.telegram_id)) await sendMessage(c, `⏰ ${date} uchun ${PARTS[part].title.toLowerCase()} kutilmoqda. Ilovada «${part === 'target' ? 'Target' : 'Sotuv (ROP)'}» bo'limini oching, raqamlarni kiriting va «Yuborish» ni bosing.`).catch((e) => { throw new HttpError(502, e.message); });
   send(res, 200, { ok: true });
 });
 
@@ -477,7 +490,7 @@ route('POST', '/api/part/remind', async (req, res) => {
 // Kiritish va xodimlarni o'zgartirish — ROP va PM; ko'rish (ro'yxat, hisobot) — hamma
 function sellerUser(req) {
   const u = requireUser(req);
-  if (isStaff(u) && u.role !== 'rop') throw new HttpError(403, "Sotuv xodimlari raqamlarini ROP kiritadi");
+  if (isStaff(u) && !canEdit(u, 'sellers')) throw new HttpError(403, "Sotuv xodimlari raqamlarini kiritish uchun ruxsat yo'q — PM ruxsat beradi");
   return u;
 }
 // Sotuv bo'limi orqali ishlaydigan faol loyihalar (avtovoronkasiz), foydalanuvchiga ko'rinadiganlari
@@ -573,7 +586,7 @@ route('GET', '/api/sellers/stats', async (req, res, _p, q) => {
 }, STAFF);
 
 // ---- Xodimlar (faqat PM): targetolog va ROP uchun login ----
-const userOut = (u) => ({ ...publicUser(u), active: u.active, projects: userProjects(u) });
+const userOut = (u) => ({ ...publicUser(u), active: u.active, projects: userProjects(u), access: userAccess(u), access_default: u.access == null });
 route('GET', '/api/users', async (req, res) => {
   requireUser(req);
   send(res, 200, getDb().prepare('SELECT * FROM users ORDER BY active DESC, role, name').all().map(userOut));
@@ -591,14 +604,17 @@ function userFields(b, cur = {}) {
   try { if (b.telegram_id !== undefined) tg = normalizeIds(b.telegram_id); } catch (e) { throw new HttpError(400, e.message); }
   let projects = cur.projects ?? null;
   try { if (b.projects !== undefined) projects = normalizeProjectIds(b.projects, new Set(getDb().prepare('SELECT id FROM projects').all().map((x) => x.id))); } catch (e) { throw new HttpError(400, e.message); }
-  return { name, role, login, tg, projects: role === 'pm' ? null : projects };
+  // Kiritish ruxsati: berilmasa — rol o'zgarganda rolning odatiy ruxsati, aks holda avvalgisi
+  let access = b.access === undefined ? (role !== cur.role ? null : cur.access ?? null) : null;
+  try { if (b.access !== undefined && b.access !== null) access = normalizeAccess(b.access); } catch (e) { throw new HttpError(400, e.message); }
+  return { name, role, login, tg, projects: role === 'pm' ? null : projects, access: role === 'pm' ? null : access };
 }
 const checkPassword = (pw) => { if (String(pw ?? '').length < 6) throw new HttpError(400, "Parol kamida 6 belgi bo'lsin"); return String(pw); };
 route('POST', '/api/users', async (req, res) => {
   requireUser(req);
   const b = await readBody(req);
   const f = userFields({ role: 'target', ...b });
-  const id = createUser({ name: f.name, login: f.login, password: checkPassword(b.password), telegram_id: f.tg, role: f.role, projects: f.projects });
+  const id = createUser({ name: f.name, login: f.login, password: checkPassword(b.password), telegram_id: f.tg, role: f.role, projects: f.projects, access: f.access });
   send(res, 201, userOut(getDb().prepare('SELECT * FROM users WHERE id = ?').get(id)));
 });
 route('PUT', '/api/users/:id', async (req, res, { id }) => {
@@ -610,11 +626,118 @@ route('PUT', '/api/users/:id', async (req, res, { id }) => {
   const active = b.active === undefined ? cur.active : (b.active ? 1 : 0);
   // O'zini o'chirib yoki PM dan tushirib qo'yib, tizimni boshqaruvsiz qoldirmaslik uchun
   if (cur.id === me.id && (!active || f.role !== 'pm')) throw new HttpError(400, "O'zingizni o'chirib yoki rolingizni o'zgartirib bo'lmaydi");
-  getDb().prepare('UPDATE users SET name = ?, login = ?, role = ?, telegram_id = ?, projects = ?, active = ? WHERE id = ?').run(f.name, f.login, f.role, f.tg, f.projects, active, cur.id);
+  getDb().prepare('UPDATE users SET name = ?, login = ?, role = ?, telegram_id = ?, projects = ?, access = ?, active = ? WHERE id = ?').run(f.name, f.login, f.role, f.tg, f.projects, f.access, active, cur.id);
   if (!active) getDb().prepare('DELETE FROM sessions WHERE user_id = ?').run(cur.id);
   if (b.password) setPassword(cur.id, checkPassword(b.password));
   send(res, 200, userOut(getDb().prepare('SELECT * FROM users WHERE id = ?').get(cur.id)));
 });
+
+// ---- Xarajatlar: marketing (marketing rahbari) va operatsion (moliyachi) — hamma ko'radi, ruxsati bor kiritadi ----
+const EXPENSE_SECTION = { marketing: 'marketing', opex: 'finance' };
+const expenseOut = (e, rateOf, users, projects) => ({
+  ...e, uzs: (Number(e.amount) || 0) * (e.currency === 'usd' ? rateOf(e.date) : 1),
+  project: e.project_id ? projects.get(e.project_id) || null : null, by: e.user_id ? users.get(e.user_id) || null : null,
+  label: EXPENSE_CATS[e.kind]?.[e.category] || e.category,
+});
+route('GET', '/api/expenses', async (req, res, _p, q) => {
+  requireUser(req);
+  const { from, to } = period(q);
+  const kind = EXPENSE_KINDS[q.get('kind')] ? q.get('kind') : null;
+  const db = getDb();
+  const users = new Map(db.prepare('SELECT id, name FROM users').all().map((x) => [x.id, x.name]));
+  const projects = new Map(db.prepare('SELECT id, name FROM projects').all().map((x) => [x.id, x.name]));
+  const rateOf = dayRates();
+  const rows = db.prepare('SELECT * FROM expenses WHERE date BETWEEN ? AND ? ORDER BY date DESC, id DESC').all(from, to).filter((e) => !kind || e.kind === kind);
+  send(res, 200, { from, to, kind, cats: EXPENSE_CATS, items: rows.map((e) => expenseOut(e, rateOf, users, projects)) });
+}, STAFF);
+function expenseFields(b, cur = {}) {
+  const kind = b.kind === undefined ? cur.kind : b.kind;
+  if (!EXPENSE_KINDS[kind]) throw new HttpError(400, "Xarajat turi noto'g'ri");
+  const date = b.date === undefined ? cur.date : b.date;
+  if (!isDate(date) || date > today()) throw new HttpError(400, "Sana noto'g'ri");
+  const category = b.category === undefined ? cur.category : b.category;
+  if (!EXPENSE_CATS[kind][category]) throw new HttpError(400, "Xarajat moddasi noto'g'ri");
+  const amount = b.amount === undefined ? cur.amount : num(b.amount);
+  if (!amount) throw new HttpError(400, 'Summani kiriting');
+  const currency = b.currency === undefined ? cur.currency || 'uzs' : b.currency;
+  if (!['uzs', 'usd'].includes(currency)) throw new HttpError(400, "Valyuta noto'g'ri");
+  let projectId = b.project_id === undefined ? cur.project_id ?? null : b.project_id;
+  if (projectId === '' || projectId === 0) projectId = null;
+  if (projectId != null) {
+    projectId = Number(projectId);
+    if (!getDb().prepare('SELECT 1 FROM projects WHERE id = ?').get(projectId)) throw new HttpError(404, 'Loyiha topilmadi');
+  }
+  const note = b.note === undefined ? cur.note ?? null : String(b.note ?? '').trim().slice(0, 300) || null;
+  return { kind, date, category, amount, currency, project_id: projectId, note };
+}
+function expenseAccess(u, kind) {
+  if (!canEdit(u, EXPENSE_SECTION[kind])) throw new HttpError(403, `«${SECTIONS[EXPENSE_SECTION[kind]]}» ga kiritish uchun ruxsat yo'q — PM ruxsat beradi`);
+}
+const logExpense = (u, e, what) => logEntry({ userId: u.id, date: e.date, projectId: e.project_id, kind: 'expense', field: `${e.kind}.${e.category}`, newValue: `${what}: ${e.amount} ${e.currency}${e.note ? ` — ${e.note}` : ''}` });
+route('POST', '/api/expenses', async (req, res) => {
+  const u = requireUser(req);
+  const f = expenseFields(await readBody(req));
+  expenseAccess(u, f.kind);
+  const info = getDb().prepare('INSERT INTO expenses (kind, date, project_id, category, amount, currency, note, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(f.kind, f.date, f.project_id, f.category, f.amount, f.currency, f.note, u.id, nowLocal());
+  logExpense(u, f, "qo'shildi");
+  send(res, 201, { id: Number(info.lastInsertRowid), ...f });
+}, STAFF);
+route('PUT', '/api/expenses/:id', async (req, res, { id }) => {
+  const u = requireUser(req);
+  const cur = getDb().prepare('SELECT * FROM expenses WHERE id = ?').get(Number(id));
+  if (!cur) throw new HttpError(404, 'Xarajat topilmadi');
+  expenseAccess(u, cur.kind);
+  const f = expenseFields(await readBody(req), cur);
+  expenseAccess(u, f.kind);
+  getDb().prepare('UPDATE expenses SET kind = ?, date = ?, project_id = ?, category = ?, amount = ?, currency = ?, note = ? WHERE id = ?')
+    .run(f.kind, f.date, f.project_id, f.category, f.amount, f.currency, f.note, cur.id);
+  logExpense(u, f, "o'zgartirildi");
+  send(res, 200, { id: cur.id, ...f });
+}, STAFF);
+route('DELETE', '/api/expenses/:id', async (req, res, { id }) => {
+  const u = requireUser(req);
+  const cur = getDb().prepare('SELECT * FROM expenses WHERE id = ?').get(Number(id));
+  if (!cur) throw new HttpError(404, 'Xarajat topilmadi');
+  expenseAccess(u, cur.kind);
+  getDb().prepare('DELETE FROM expenses WHERE id = ?').run(cur.id);
+  logExpense(u, cur, "o'chirildi");
+  send(res, 200, { ok: true });
+}, STAFF);
+
+// ---- Nazorat: pul, 1 mijoz narxi, javobgarlik, intizom, takliflar ----
+function controlCtx(from, to) {
+  const db = getDb();
+  return {
+    users: db.prepare('SELECT * FROM users WHERE active = 1').all(),
+    staffReports: db.prepare('SELECT * FROM staff_reports WHERE date BETWEEN ? AND ?').all(from, to),
+    reports: db.prepare('SELECT date, status, submitted_at FROM daily_reports WHERE date BETWEEN ? AND ?').all(from, to),
+    sellerRows: db.prepare('SELECT * FROM seller_daily WHERE date BETWEEN ? AND ?').all(from, to),
+    sellers: db.prepare('SELECT * FROM sellers ORDER BY id').all(),
+    // Xodim qismi ertasi kuni shu vaqtgacha (PM hisobotni tekshirib ulgursin), PM hisoboti — avto-yuborish vaqtigacha
+    settings: { staff_deadline: getSetting('staff_deadline', '12:00'), report_time: getSetting('report_time', '13:00') },
+  };
+}
+route('GET', '/api/control', async (req, res, _p, q) => {
+  requireUser(req);
+  const { from, to } = period(q);
+  send(res, 200, { ...control({ from, to, today: today() }, controlCtx(from, to)), ai: aiStatus() });
+}, STAFF);
+// AI maslahat: hamma raqamlar va topilgan muammolar asosida — kimga nima qilish kerak
+route('POST', '/api/control/ai', async (req, res) => {
+  requireUser(req);
+  const b = await readBody(req);
+  const from = isDate(b.from) ? b.from : addDays(today(), -30);
+  const to = isDate(b.to) ? b.to : addDays(today(), -1);
+  if (from > to) throw new HttpError(400, "Sana oralig'i noto'g'ri");
+  const c = control({ from, to, today: today() }, controlCtx(from, to));
+  try {
+    send(res, 200, await advise(controlAiInput(c)));
+  } catch (e) {
+    if (e instanceof AiError) throw new HttpError(503, e.message);
+    throw e;
+  }
+}, STAFF);
 
 // ---- Statistika ----
 route('GET', '/api/summary', async (req, res, _p, q) => {

@@ -107,6 +107,33 @@ export const OLD_REASON_LABELS = {
 export const DIZIPRO_REASONS = JSON.stringify({ lost: Object.keys(REASONS.lost), bad: Object.keys(REASONS.bad) });
 export const REASON_KINDS = { lost: "Bekor bo'lish sabablari", bad: 'Sifatsiz lidlar' };
 
+// Xarajatlar daftari: marketing rahbari (kind = marketing) va moliyachi (kind = opex) kiritadi.
+// Target reklamasi (Ads, bloger, Telegram kanallar) — targetolog hisobotida, bu yerda emas (ikki marta hisoblanmasin)
+export const EXPENSE_KINDS = { marketing: 'Marketing', opex: 'Operatsion' };
+export const EXPENSE_CATS = {
+  marketing: {
+    content: 'Kontent (video, foto)',
+    smm: 'SMM va dizayn',
+    events: 'Tadbir va PR',
+    offline: 'Offline reklama (banner, flayer)',
+    tools: 'Marketing servislari (CRM, bot)',
+    agency: 'Agentlik / frilanser',
+    gifts: "Sovg'a va aksiyalar",
+    other: 'Boshqa',
+  },
+  opex: {
+    salary: 'Ish haqi',
+    bonus: 'Bonus va KPI',
+    rent: 'Ijara',
+    utilities: 'Kommunal va internet',
+    software: 'Dasturlar va obunalar',
+    tax: 'Soliq',
+    teachers: "O'qituvchi / mentorlar",
+    refund: 'Qaytarilgan pul',
+    other: 'Boshqa',
+  },
+};
+
 export const PLAN_FIELDS = {
   budget: 'Byudjet ($)',
   leads: 'Lidlar',
@@ -271,6 +298,21 @@ function migrate(db) {
       at TEXT NOT NULL,
       PRIMARY KEY (date, user_id)
     );
+    -- Xarajatlar: marketing (marketing rahbari) va operatsion (moliyachi); project_id NULL — kompaniya umumiy xarajati.
+    -- currency: uzs | usd (dollar — shu kun kursi bilan so'mga o'tadi)
+    CREATE TABLE IF NOT EXISTS expenses (
+      id INTEGER PRIMARY KEY,
+      kind TEXT NOT NULL,
+      date TEXT NOT NULL,
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+      category TEXT NOT NULL,
+      amount REAL NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'uzs',
+      note TEXT,
+      user_id INTEGER,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS expenses_date ON expenses (date);
     CREATE TABLE IF NOT EXISTS staff_reports (
       date TEXT NOT NULL,
       user_id INTEGER NOT NULL,
@@ -298,6 +340,8 @@ function migrate(db) {
   // Xodimga biriktirilgan loyihalar («1,3»; bo'sh — hammasi)
   const ucols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
   if (ucols.length && !ucols.includes('projects')) db.exec('ALTER TABLE users ADD COLUMN projects TEXT');
+  // Kiritish ruxsati («target,sellers»); NULL — rolga qarab (eski xodimlar o'z bo'limini kiritishda davom etadi)
+  if (ucols.length && !ucols.includes('access')) db.exec('ALTER TABLE users ADD COLUMN access TEXT');
   // Sabablar yangi bo'linishi: ko'chgan sabablarning eski yozuvlari yangi guruhga; loyihalar tanlovi — yangi tartib (bir marta)
   try {
     if (!db.prepare("SELECT value FROM settings WHERE key = 'reasons_v2'").get()) {

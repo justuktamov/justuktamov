@@ -21,6 +21,7 @@ const QUERIES = [
   [/^SELECT \* FROM channel_daily WHERE date BETWEEN \? AND \?$/, { all: (from, to) => (store.channels || []).filter((r) => inRange(r.date, from, to)).map((r) => ({ ...r })) }],
   [/^SELECT \* FROM plans WHERE month = \?$/, { all: (m) => store.plans.filter((p) => p.month === m).map((p) => ({ ...p })) }],
   [/^PRAGMA table_info/, { all: () => [] }],
+  [/^SELECT \* FROM expenses ORDER BY date, id$/, { all: () => [...(store.expenses || [])].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id)).map((e) => ({ ...e })) }],
   [/^SELECT \* FROM daily_reports WHERE date = \?$/, { get: (d) => { const r = store.reports.find((x) => x.date === d); return r && { ...r }; } }],
   [/^SELECT date, director_comment FROM daily_reports WHERE date < \? AND director_comment IS NOT NULL/, { get: (d) => [...store.reports].filter((x) => x.date < d && x.director_comment).sort(byDateDesc)[0] }],
   [/^SELECT date FROM daily_reports ORDER BY date DESC LIMIT \?$/, { all: (n) => [...store.reports].sort(byDateDesc).slice(0, n).map((r) => ({ date: r.date })) }],

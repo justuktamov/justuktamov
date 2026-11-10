@@ -150,11 +150,12 @@ export function derive(t) {
 // Jami: raqamlar yig'indisi + har bir loyihaning xarajatlari (tannarx va doimiy — loyihaga qarab)
 function totalsOf(list, rowsAll, rateOf = dayRates()) {
   const t = sumRows(rowsAll, rateOf);
-  const f = { var_cost: 0, fixed_cost: 0 };
-  for (const p of list) { f.var_cost += p.var_cost; f.fixed_cost += p.fixed_cost; }
+  const f = { var_cost: 0, fixed_cost: 0, marketing_uzs: 0 };
+  for (const p of list) { f.var_cost += p.var_cost; f.fixed_cost += p.fixed_cost; f.marketing_uzs += p.marketing_uzs || 0; }
   const gross = t.revenue - t.spend_uzs;
-  const net = gross - f.var_cost - f.fixed_cost;
-  return { ...t, ...f, costs: t.spend_uzs + f.var_cost + f.fixed_cost, gross_profit: gross, net_profit: net, gross_margin: div(gross, t.revenue), net_margin: div(net, t.revenue) };
+  const net = gross - f.marketing_uzs - f.var_cost - f.fixed_cost;
+  return { ...t, ...f, costs: t.spend_uzs + f.marketing_uzs + f.var_cost + f.fixed_cost, gross_profit: gross, net_profit: net, gross_margin: div(gross, t.revenue), net_margin: div(net, t.revenue),
+    cac_uzs: div(t.spend_uzs, t.sales), cac_full_uzs: div(t.spend_uzs + f.marketing_uzs, t.sales) };
 }
 
 // ---------- Kanallar ----------
@@ -271,16 +272,67 @@ export function estimateLag(projectId, asOf = today()) {
   return best && best.r >= 0.2 ? best.lag : null;
 }
 
-// Pul: tushum − reklama = foyda; − tannarx (tushumdan %) − doimiy xarajat = sof foyda
-function finance(t, project, days) {
-  const varCost = t.revenue * ((Number(project?.var_cost_pct) || 0) / 100);
-  const fixedCost = (Number(project?.fixed_monthly) || 0) * DAY_SHARE * days;
-  const gross = t.revenue - t.spend_uzs;
-  const net = gross - varCost - fixedCost;
+// ---------- Xarajatlar daftari: marketing va operatsion (expenses jadvali) ----------
+// Ikkalasi ham oy bo'yicha jamlanib, oy kunlariga teng bo'linadi (oylik SMM yoki ish haqi to'langan kun «zarar» bo'lib ko'rinmasin;
+// oy yakunida — kiritilganning hammasi). Loyihaning shu oyi uchun operatsion xarajat kiritilmagan bo'lsa —
+// sozlamadagi «doimiy xarajat, oyiga» (taxmin) olinadi.
+// project_id NULL — kompaniya umumiy xarajati: loyihalarga bo'linmaydi, «Moliya» va «Nazorat» da alohida ko'rinadi
+export function expenseBook(rateOf = dayRates()) {
+  let rows = [];
+  try { rows = getDb().prepare('SELECT * FROM expenses ORDER BY date, id').all(); } catch { rows = []; }
+  const list = rows.map((e) => ({ ...e, uzs: (Number(e.amount) || 0) * (e.currency === 'usd' ? rateOf(e.date) : 1) }));
+  const mk = new Map();
+  const opex = new Map();
+  for (const e of list) {
+    const k = `${e.project_id ?? 0}|${e.date.slice(0, 7)}`;
+    if (e.kind === 'marketing') mk.set(k, (mk.get(k) || 0) + e.uzs);
+    else if (e.kind === 'opex') opex.set(k, (opex.get(k) || 0) + e.uzs);
+  }
+  // Oylar kesimi: [{ month, overlap, days }]
+  const months = (from, to) => {
+    const out = [];
+    for (let m = from.slice(0, 7); m <= to.slice(0, 7); m = addDays(`${monthBounds(m).to}`, 1).slice(0, 7)) {
+      const b = monthBounds(m);
+      const a = from > b.from ? from : b.from;
+      const z = to < b.to ? to : b.to;
+      if (a <= z) out.push({ month: m, overlap: daysBetween(a, z), days: b.days });
+    }
+    return out;
+  };
+  const spread = (map, pid, from, to) => months(from, to).reduce((a, x) => a + ((map.get(`${pid}|${x.month}`) || 0) * x.overlap) / x.days, 0);
   return {
-    var_cost: varCost, fixed_cost: fixedCost, costs: t.spend_uzs + varCost + fixedCost,
+    list,
+    marketing: (projectId, from, to) => spread(mk, Number(projectId), from, to),
+    // Doimiy (operatsion) xarajat: fakt bo'lsa — fakt, bo'lmasa — taxmin
+    fixed(project, from, to) {
+      let cost = 0, actual = false, estimated = false;
+      for (const x of months(from, to)) {
+        const fact = opex.get(`${project.id}|${x.month}`);
+        if (fact != null) { cost += fact * x.overlap / x.days; actual = true; }
+        else if (Number(project.fixed_monthly)) { cost += Number(project.fixed_monthly) * DAY_SHARE * x.overlap; estimated = true; }
+      }
+      return { cost, actual, estimated };
+    },
+    // Kompaniya umumiy xarajatlari (loyihaga bog'lanmagan)
+    general: (from, to) => ({ marketing: spread(mk, 0, from, to), opex: spread(opex, 0, from, to) }),
+  };
+}
+
+// Pul: tushum − reklama = foyda; − marketing − tannarx (tushumdan %) − doimiy (operatsion) xarajat = sof foyda.
+// extra — xarajatlar daftaridan (davr berilganda): marketing va doimiy xarajat fakti
+function finance(t, project, days, extra = null) {
+  const varCost = t.revenue * ((Number(project?.var_cost_pct) || 0) / 100);
+  const fixed = extra ? extra.fixed : { cost: (Number(project?.fixed_monthly) || 0) * DAY_SHARE * days, actual: false, estimated: Boolean(Number(project?.fixed_monthly)) };
+  const marketing = extra ? extra.marketing : 0;
+  const gross = t.revenue - t.spend_uzs;
+  const net = gross - marketing - varCost - fixed.cost;
+  return {
+    var_cost: varCost, fixed_cost: fixed.cost, fixed_actual: fixed.actual, fixed_estimated: fixed.estimated, marketing_uzs: marketing,
+    costs: t.spend_uzs + marketing + varCost + fixed.cost,
     gross_profit: gross, net_profit: net,
     gross_margin: div(gross, t.revenue), net_margin: div(net, t.revenue),
+    // 1 mijozni olib kelish narxi: faqat reklama va reklama + marketing (so'mda)
+    cac_uzs: div(t.spend_uzs, t.sales), cac_full_uzs: div(t.spend_uzs + marketing, t.sales),
   };
 }
 
@@ -325,9 +377,11 @@ function benchmarks(from, projects, plan, projectId) {
   return out;
 }
 
-function projectStats(p, rows, days, rateOf = dayRates()) {
+// range + book berilsa — marketing va operatsion xarajat daftardan (aks holda faqat sozlamadagi taxmin)
+function projectStats(p, rows, days, rateOf = dayRates(), range = null, book = null) {
   const t = sumRows(rows, rateOf);
-  return { ...t, ...finance(t, p, days), ...conversion(t, p.kind) };
+  const extra = range && book ? { marketing: book.marketing(p.id, range.from, range.to), fixed: book.fixed(p, range.from, range.to) } : null;
+  return { ...t, ...finance(t, p, days, extra), ...conversion(t, p.kind) };
 }
 
 export function summary({ from, to, projectId = null }) {
@@ -335,28 +389,35 @@ export function summary({ from, to, projectId = null }) {
   const prevTo = addDays(from, -1);
   const prevFrom = addDays(prevTo, -(len - 1));
   const rateOf = dayRates();
+  const book = expenseBook(rateOf);
   const { projects, rows } = loadRows(from, to, projectId);
   const { projects: prevProjects, rows: prevRows } = loadRows(prevFrom, prevTo, projectId);
   const reasons = loadReasons(from, to);
 
   const byProject = projects.map((p) => {
-    const cur = projectStats(p, rows.filter((r) => r.project_id === p.id), len, rateOf);
-    const old = projectStats(p, prevRows.filter((r) => r.project_id === p.id), len, rateOf);
+    const cur = projectStats(p, rows.filter((r) => r.project_id === p.id), len, rateOf, { from, to }, book);
+    const old = projectStats(p, prevRows.filter((r) => r.project_id === p.id), len, rateOf, { from: prevFrom, to: prevTo }, book);
     const rs = reasons[p.id] || { bad: {}, lost: {} };
     return {
       id: p.id, name: p.name, color: p.color, kind: p.kind || 'leads', var_cost_pct: p.var_cost_pct, fixed_monthly: p.fixed_monthly,
       // Arxivdagi loyiha — shu davrda raqami bor, shuning uchun jamida; doskada ustuni ko'rsatilmaydi
       archived: !p.active,
       ...cur,
-      prev: { unit_cost: old.unit_cost, conv: old.conv, qualified_share: old.qualified_share, net_profit: old.net_profit, revenue: old.revenue, spend: old.spend },
+      prev: { unit_cost: old.unit_cost, conv: old.conv, qualified_share: old.qualified_share, net_profit: old.net_profit, revenue: old.revenue, spend: old.spend,
+        cpl: old.cpl, ctr: old.ctr, cac_full_uzs: old.cac_full_uzs, marketing_uzs: old.marketing_uzs, leads: old.leads, sales: old.sales, unqualified_share: old.unqualified_share },
       growth: { leads: pctChange(cur.leads, old.leads), sales: pctChange(cur.sales, old.sales), revenue: pctChange(cur.revenue, old.revenue) },
       reasons: { bad: reasonList('bad', rs.bad), lost: reasonList('lost', rs.lost) },
     };
   });
 
   const totals = totalsOf(byProject, rows, rateOf);
-  const prevList = prevProjects.map((p) => projectStats(p, prevRows.filter((r) => r.project_id === p.id), len, rateOf));
+  const prevList = prevProjects.map((p) => projectStats(p, prevRows.filter((r) => r.project_id === p.id), len, rateOf, { from: prevFrom, to: prevTo }, book));
   const prev = totalsOf(prevList, prevRows, rateOf);
+  // Kompaniya umumiy xarajatlari (loyihaga bog'lanmagan) — loyihalar jamiga qo'shilmaydi, alohida
+  if (!projectId) {
+    totals.general = book.general(from, to);
+    totals.company_net = totals.net_profit - totals.general.marketing - totals.general.opex;
+  }
   const delta = {};
   for (const k of Object.keys(totals)) if (typeof totals[k] === 'number') delta[k] = pctChange(totals[k], prev[k]);
 
@@ -368,7 +429,7 @@ export function summary({ from, to, projectId = null }) {
     for (const p of list) {
       const r = src.find((x) => x.project_id === p.id && x.date === d);
       if (r && (r.spend != null || r.spend_blogger != null || r.spend_posts != null) && r.revenue != null) has = true;
-      const s = projectStats(p, r ? [r] : [], 1, rateOf);
+      const s = projectStats(p, r ? [r] : [], 1, rateOf, { from: d, to: d }, book);
       revenue += s.revenue; costs += s.costs;
       for (const k of ['spend', 'spend_uzs', 'clicks', 'starts', 'leads', 'qualified', 'sales']) out[k] += s[k];
     }
@@ -548,6 +609,7 @@ const MONTH_KEYS = ['impressions', 'clicks', 'ctr', 'starts', 'spend', 'spend_uz
 export function monthly({ months = 6, projectId = null, asOf = addDays(today(), -1), unit = 'month' } = {}) {
   const out = [];
   const rateOf = dayRates();
+  const book = expenseBook(rateOf);
   const bucket = (i) => {
     if (unit === 'day') { const d = addDays(asOf, -i); return { m: d, from: d, end: d }; }
     if (unit === 'week') {
@@ -564,7 +626,7 @@ export function monthly({ months = 6, projectId = null, asOf = addDays(today(), 
     const to = asOf < end ? asOf : end;
     const len = daysBetween(from, to);
     const { projects, rows } = loadRows(from, to, projectId);
-    const list = projects.map((p) => ({ id: p.id, name: p.name, color: p.color, kind: p.kind, ...projectStats(p, rows.filter((r) => r.project_id === p.id), len, rateOf) }));
+    const list = projects.map((p) => ({ id: p.id, name: p.name, color: p.color, kind: p.kind, ...projectStats(p, rows.filter((r) => r.project_id === p.id), len, rateOf, { from, to }, book) }));
     const t = totalsOf(list, rows, rateOf);
     // Konversiya — faqat sotuv bo'limi orqali ishlaydigan loyihalardan (avtovoronka xaridlari lidsiz)
     const lp = list.filter((p) => p.kind !== 'auto');

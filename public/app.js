@@ -1,5 +1,5 @@
 // Loyihalar analitikasi — proekt menejer uchun (framework'siz, hash-router)
-import { state, setRouter, boot, toast, applyTheme, syncDay, isStaffUser, PART_ROUTE } from './js/core.js';
+import { state, setRouter, boot, toast, applyTheme, syncDay } from './js/core.js';
 import { renderPart } from './js/part.js';
 import { renderSellers } from './js/sellers.js';
 import { renderToday, renderArchive } from './js/pm.js';
@@ -7,6 +7,11 @@ import { renderBoard } from './js/board.js';
 import { renderProject } from './js/project.js';
 import { renderSettings } from './js/settings.js';
 import { renderDynamics } from './js/dynamics.js';
+import { renderMarketing, renderFinance } from './js/expenses.js';
+import { renderControl } from './js/nazorat.js';
+
+// Kunlik qism sahifalari: manzil → qism
+const PART_OF = { '#/target': 'target', '#/sotuv': 'rop' };
 
 async function router() {
   if (!state.me) return;
@@ -25,14 +30,15 @@ async function router() {
     const rolled = state.dayRolled;
     state.dayRolled = null;
     const wasReport = String(state.shownHash || '').startsWith('#/kiritish');
-    const own = isStaffUser() ? PART_ROUTE[state.me.user.role][0] : null;
-    const wasOwn = own && String(state.shownHash || '').startsWith(own);
+    const wasPart = PART_OF[route] && String(state.shownHash || '').startsWith(route);
     state.shownHash = location.hash;
     let m;
-    // Targetolog va ROP: hamma sahifalar PM bilan bir xil (ko'rish uchun) + o'z kiritish sahifasi
-    if (own && route === own) { await renderPart({ rolled: wasOwn ? rolled : null }); return; }
-    if (isStaffUser() && ['#/target', '#/sotuv'].includes(route)) { location.replace(own); return; }
+    // Hamma hamma sahifani ko'radi; kiritish — faqat ruxsat berilgan bo'limda (sahifa o'zi ko'rish rejimiga o'tadi)
+    if (PART_OF[route]) { await renderPart({ part: PART_OF[route], rolled: wasPart ? rolled : null }); return; }
     if ((m = route.match(/^#\/loyiha\/(\d+)$/))) await renderProject(m[1]);
+    else if (route === '#/nazorat') await renderControl();
+    else if (route === '#/marketing') await renderMarketing();
+    else if (route === '#/moliya') await renderFinance();
     else if (route === '#/kiritish') await renderToday({ rolled: wasReport ? rolled : null });
     else if (route === '#/hisobotlar') await renderArchive();
     else if (route === '#/dinamika') await renderDynamics();

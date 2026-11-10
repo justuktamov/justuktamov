@@ -1,7 +1,8 @@
-// Targetolog va ROP ning kunlik ishi: o'z qismini kiritadi va «Yuborish» bilan PM ga topshiradi.
-// PM keyin tekshiradi, tahlil yozadi va direktorga umumiy hisobotni yuboradi
+// Kunlik qism sahifasi (Target / Sotuv): ruxsati bor xodim kiritadi va «Yuborish» bilan PM ga topshiradi.
+// Ruxsati yo'qlar (direktor, boshqa bo'lim xodimlari) — shu sahifani ko'rish rejimida ko'radi; PM — tuzatadi, tasdiqlash «Kunlik hisobot»da
 import {
   $, $$, esc, api, state, shell, fmtN, PART_ROUTE, inVal, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, parseNum,
+  canEditSection, isPmUser, viewNote,
 } from './core.js';
 import { STEPS, LEAD_ST, dateNav, historyBlock, reasonsHtml } from './pm.js';
 
@@ -22,19 +23,25 @@ const ROLE = {
 const dot = (c) => `<span class="dot" style="--dc:${esc(c || '#4c86ff')}"></span>`;
 // Lid holatlari — ROP sahifasida alohida jadvalda (asosiy jadval torayadi)
 const STATUS = LEAD_ST;
-// O'z sahifasi manzili: #/target yoki #/sotuv (kechadan boshqa kun — ?date=…)
-const partHash = (d) => `${PART_ROUTE[state.me.user.role][0]}${d === state.me.reportDay ? '' : `?date=${d}`}`;
+// Sahifa manzili: #/target yoki #/sotuv (kechadan boshqa kun — ?date=…)
+let curPart = 'target';
+const partHash = (d) => `${PART_ROUTE[curPart][0]}${d === state.me.reportDay ? '' : `?date=${d}`}`;
 const LABEL = { target_leads: 'Lid (jami)', tl_web: 'Lid: saytdan', tl_bot: 'Lid: botdan' };
 
-export async function renderPart({ rolled = null } = {}) {
+export async function renderPart({ part = curPart, rolled = null } = {}) {
   state.leaveGuard = null;
   state.isDirty = null;
-  const role = state.me.user.role;
+  curPart = part;
+  const role = part;
   const R = ROLE[role];
+  const editable = canEditSection(part);
+  const pm = isPmUser();
+  // Xodimning o'z qismi (yuboradi); PM — faqat tuzatadi; qolganlar — ko'radi
+  const own = editable && !pm;
   const s = R.step;
   const qd = new URLSearchParams(location.hash.split('?')[1] || '').get('date');
   let date = /^\d{4}-\d{2}-\d{2}$/.test(qd || '') && qd <= state.me.reportDay ? qd : state.me.reportDay;
-  if (!qd && rolled && rolled < state.me.reportDay && state.partOpen?.date === rolled && !state.partOpen.sent) {
+  if (own && !qd && rolled && rolled < state.me.reportDay && state.partOpen?.date === rolled && !state.partOpen.sent) {
     date = rolled;
     history.replaceState(null, '', partHash(rolled));
     state.shownHash = location.hash;
@@ -42,26 +49,29 @@ export async function renderPart({ rolled = null } = {}) {
   }
   const go = async (d) => {
     if (state.leaveGuard && !(await state.leaveGuard())) return;
-    if (location.hash !== partHash(d)) location.hash = partHash(d); else renderPart();
+    if (location.hash !== partHash(d)) location.hash = partHash(d); else renderPart({ part });
   };
   const first = String(state.me.user.name || '').split(' ')[0];
   const isY = date === state.me.reportDay;
-  shell(`<div class="page-head"><div><h1>${isY ? `Salom, <span class="grad">${esc(first)}</span>` : `<span class="grad">${dayLabel(date)}</span>`}</h1>
-      <div class="sub">${isY ? `Kechagi (${dayLabel(date)}) ${R.head.toLowerCase()}` : R.head}</div></div>${dateNav(date, go)}</div>
-    <div id="part">${spinnerBlock()}</div>`);
+  shell(`<div class="page-head"><div><h1>${own && isY ? `Salom, <span class="grad">${esc(first)}</span>` : R.head}</h1>
+      <div class="sub">${isY ? `Kechagi kun — ${dayLabel(date)}${own ? `: ${R.head.toLowerCase()}` : ''}` : dayLabel(date)}</div></div>${dateNav(date, go)}</div>
+    ${viewNote(part)}<div id="part">${spinnerBlock()}</div>`);
   const rid = state.renderId;
   let daily;
   try { daily = await api(`/api/daily?date=${date}`); } catch (e) { const el = $('#part'); if (el) el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const box = $('#part');
   if (!box || isStale(rid)) return;
-  // Kiritish — faqat o'ziga biriktirilgan loyihalar (qolganlari umumiy sahifalarda ko'rinadi)
-  if (daily.editable) daily.projects = daily.projects.filter((p) => daily.editable.includes(p.id));
+  // Kiritish — faqat o'ziga biriktirilgan loyihalar (ko'rish rejimida — hammasi)
+  if (own && daily.editable) daily.projects = daily.projects.filter((p) => daily.editable.includes(p.id));
   if (!daily.projects.length) {
     box.innerHTML = '<div class="card empty">Sizga hali loyiha biriktirilmagan — proekt menejerga ayting.</div>';
     return;
   }
-  const sentAt = daily.mine?.submitted_at || null;
-  state.partOpen = { date, sent: Boolean(sentAt) };
+  const sentAt = own ? daily.mine?.submitted_at || null : null;
+  if (own) state.partOpen = { date, sent: Boolean(sentAt) };
+  // Kim kiritadi va yubordimi — ko'ruvchilar va PM uchun
+  const who = (daily.staff || []).filter((x) => x.role === part);
+  const whoLine = !own ? `<div class="who-line">${who.length ? who.map((x) => `<span class="pill ${x.submitted_at ? 'good' : 'warn'}">${esc(x.name)}: ${x.submitted_at ? `${String(x.submitted_at).slice(11, 16)} da yubordi` : 'hali yubormagan'}</span>`).join('') : `<span class="pill">Bu bo'limga hali hech kimga ruxsat berilmagan</span>`}${daily.approvals?.[part] ? `<span class="pill lime">PM tasdiqladi ✓</span>` : ''}</div>` : '';
 
   const leadsP = role === 'rop' ? daily.projects.filter((p) => p.kind !== 'auto') : daily.projects;
   const autoP = role === 'rop' ? daily.projects.filter((p) => p.kind === 'auto') : [];
@@ -69,8 +79,8 @@ export async function renderPart({ rolled = null } = {}) {
   box.innerHTML = `${back ? `<div class="part-back"><b>↩ Proekt menejer qaytardi</b> <span class="muted small">${esc(String(back.at).slice(0, 16))}</span>
       <p>${back.note ? esc(back.note) : "Raqamlarni qayta tekshiring."}</p><span class="muted small">Tuzating va «Yuborish» ni bosing.</span></div>` : ''}${sentAt ? `<div class="part-sent"><span class="done-dot">${ICONS.check}</span><div><b>${String(sentAt).slice(11, 16)} da yuborildi</b>
       <span class="muted small">PM ga yetkazildi. Raqamni tuzatsangiz — saqlab, «Qayta yuborish» ni bosing.</span></div></div>` : ''}
-    <section class="card step">
-      <div class="step-head"><span class="eyebrow">${esc(state.me.roles?.[role] || '')}</span><h2>${R.head}</h2><p>${R.hint}</p></div>
+    <section class="card step ${editable ? '' : 'ro-mode'}">
+      <div class="step-head"><span class="eyebrow">${role === 'target' ? 'Targetolog' : "Sotuv bo'limi rahbari (ROP)"}</span><h2>${R.head}</h2>${editable ? `<p>${R.hint}</p>` : ''}${whoLine}</div>
       ${s.key === 'target' ? rateBlock() : ''}
       ${leadsP.length ? `${autoP.length ? "<h3 class=\"tbl-title\">Sotuv bo'limi orqali</h3>" : ''}${numTable(leadsP, role === 'rop' ? s.fields.filter(([f]) => !STATUS.includes(f)) : s.fields, s.required)}` : ''}
       ${role === 'rop' && leadsP.length ? `<h3 class="tbl-title">Lidlar holati <span class="muted small">— sotuv bo'limi orqali, nechta</span></h3>${numTable(leadsP, STATUS.map((f) => s.fields.find(([x]) => x === f)), [], false)}` : ''}
@@ -78,11 +88,18 @@ export async function renderPart({ rolled = null } = {}) {
       ${role === 'rop' && leadsP.length ? sourcesBlock(leadsP) : ''}
       ${textsBlock(role === 'rop' ? leadsP : daily.projects)}
       ${role === 'rop' && leadsP.length ? reasonsBlock(leadsP) : ''}
-      <div class="step-foot"><span class="muted small">Kulrang raqam — oldingi kunniki. Enter — keyingi qator.</span><span class="spacer"></span>
-        <button class="btn" data-save>Saqlash</button>
-        <button class="btn primary" data-send>${ICONS.send} ${sentAt ? 'Qayta yuborish' : 'Yuborish'}</button></div>
+      ${!editable ? `<div class="step-foot"><span class="muted small">${ICONS.eye.replace('<svg', '<svg width="14" height="14"')} Faqat ko'rish — kiritish ruxsati PM da</span></div>`
+        : `<div class="step-foot"><span class="muted small">Kulrang raqam — oldingi kunniki. Enter — keyingi qator.</span><span class="spacer"></span>
+        ${pm ? `<a class="btn ghost" href="#/kiritish">Tasdiqlash — «Kunlik hisobot»da</a>` : ''}
+        <button class="btn ${pm ? 'primary' : ''}" data-save>Saqlash</button>
+        ${own ? `<button class="btn primary" data-send>${ICONS.send} ${sentAt ? 'Qayta yuborish' : 'Yuborish'}</button>` : ''}</div>`}
     </section>`;
   box.append(historyBlock(date));
+  if (!editable) {
+    box.querySelectorAll('input, textarea').forEach((el) => { el.readOnly = true; el.tabIndex = -1; });
+    box.querySelectorAll('details.extra').forEach((d) => { d.open = true; });
+    return;
+  }
   bind();
   state.leaveGuard = leaveOk;
   state.isDirty = isDirty;
@@ -130,7 +147,7 @@ export async function renderPart({ rolled = null } = {}) {
       e.preventDefault();
       const td = e.target.closest('td');
       const next = td.parentElement.nextElementSibling?.children[td.cellIndex]?.querySelector('input');
-      (next || box.querySelector('[data-send]')).focus();
+      (next || box.querySelector('[data-send]') || box.querySelector('[data-save]')).focus();
     }));
     // Jami va qismlari mos kelmasa — belgi (lid = web + bot; lid = sifatli + potensial + sifatsiz)
     box.addEventListener('input', (e) => {
@@ -149,15 +166,15 @@ export async function renderPart({ rolled = null } = {}) {
       try { await save(true); } catch (err) { toast(err.message, true); }
       b.disabled = false;
     };
-    $('[data-send]', box).onclick = async (e) => {
+    if ($('[data-send]', box)) $('[data-send]', box).onclick = async (e) => {
       const b = e.currentTarget;
       b.disabled = true;
       try {
         await save(false);
-        const r = await api('/api/part/submit', { method: 'POST', body: { date } });
+        const r = await api('/api/part/submit', { method: 'POST', body: { date, part } });
         toast(r.resend ? 'Tuzatilgan hisobot PM ga yuborildi ✓' : 'Yuborildi ✓ PM ga yetkazildi');
         await refreshMe();
-        renderPart();
+        renderPart({ part });
       } catch (err) { toast(err.message, true); b.disabled = false; }
     };
   }

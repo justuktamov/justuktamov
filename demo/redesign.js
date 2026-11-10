@@ -6,6 +6,7 @@ const IC = {
   check: svg('<path d="m5 12 5 5 9-10"/>'),
   chev: svg('<path d="m9 6 6 6-6 6"/>'),
   arrow: svg('<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>'),
+  shield: svg('<path d="M12 3 4 6v6c0 4.4 3.4 8.3 8 9 4.6-.7 8-4.6 8-9V6z"/><path d="m9 12 2 2 4-4"/>'),
 };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -33,15 +34,22 @@ function decorate() {
     top.insertAdjacentHTML('afterbegin', `<div class="greet crumb"><p class="gc-path"><a href="#/">Perfo</a>${here ? `${IC.chev}<b>${esc(here)}</b>` : ''}</p><p>${day ? `Bugun ${esc(day)}` : ''}</p></div>`);
   }
 
-  // Chap panel: o'z hisobotini kiritish sahifasi (PM — «Kechagi hisobot», xodim — o'z bo'limi)
+  // Chap panel: o'z bo'limi holati (PM — «Kunlik hisobot», xodim — o'z bo'limi). O'z bo'limi yo'q (direktor) — «Nazorat»
   const foot = root.querySelector('.sidebar .side-foot');
-  const own = root.querySelector('.sidebar .nav a.own') || root.querySelector('.sidebar .nav a[href="#/kiritish"]');
-  if (!foot || !own) return;
+  const own = root.querySelector('.sidebar .nav a.own');
+  if (!foot) return;
+  if (!own) {
+    foot.insertAdjacentHTML('afterbegin', `<div class="side-card done"><span class="sc-ic">${IC.shield}</span><b>Nazorat</b><p>Kim qayerda kamchilik qilyapti va pul qayerga ketyapti — bitta sahifada.</p><a href="#/nazorat">Ko'rish ${IC.arrow}</a></div>`);
+    return;
+  }
   const label = own.textContent.replace(/!$/, '').trim();
+  const daily = own.getAttribute('href') === '#/kiritish' || own.getAttribute('href') === '#/target' || own.getAttribute('href') === '#/sotuv';
   const waiting = !!own.querySelector('.badge');
-  foot.insertAdjacentHTML('afterbegin', waiting
-    ? `<div class="side-card"><span class="sc-ic">${IC.edit}</span><b>${esc(label)} kutilmoqda</b><p>Kechagi kun raqamlarini kiriting — hisobot direktorga shundan keyin boradi.</p><a href="${own.getAttribute('href')}">Kiritish ${IC.arrow}</a></div>`
-    : `<div class="side-card done"><span class="sc-ic">${IC.check}</span><b>${esc(label)} yuborildi</b><p>Kechagi kun raqamlari kiritilgan.</p><a href="${own.getAttribute('href')}">Ko'rish ${IC.arrow}</a></div>`);
+  foot.insertAdjacentHTML('afterbegin', !daily
+    ? `<div class="side-card"><span class="sc-ic">${IC.edit}</span><b>${esc(label)} — sizning bo'limingiz</b><p>Xarajat bo'lgan kuni kiriting — moliya va 1 mijoz narxi shundan to'liq hisoblanadi.</p><a href="${own.getAttribute('href')}">Kiritish ${IC.arrow}</a></div>`
+    : waiting
+      ? `<div class="side-card"><span class="sc-ic">${IC.edit}</span><b>${esc(label)} kutilmoqda</b><p>Kechagi kun raqamlarini kiriting — hisobot direktorga shundan keyin boradi.</p><a href="${own.getAttribute('href')}">Kiritish ${IC.arrow}</a></div>`
+      : `<div class="side-card done"><span class="sc-ic">${IC.check}</span><b>${esc(label)} yuborildi</b><p>Kechagi kun raqamlari kiritilgan.</p><a href="${own.getAttribute('href')}">Ko'rish ${IC.arrow}</a></div>`);
 }
 
 const app = document.getElementById('app');

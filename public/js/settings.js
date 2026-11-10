@@ -334,16 +334,23 @@ function backupCard(settings) {
   </div>`;
 }
 
-// ---------- Xodimlar: targetolog va ROP uchun login, rol va loyihalar ----------
+// ---------- Xodimlar: login, rol, loyihalar va KIRITISH RUXSATI ----------
 const ROLE_HINT = {
   target: 'Target raqamlari: xarajat, ko\'rish, klik, lidlar (sayt / bot), kreativlar, dollar kursi',
-  rop: "Sotuv raqamlari: lidlar sifati va holati, qo'ng'iroqlar, sabablar, sotuv, tushum (avtovoronkada — start, xarid)",
-  pm: "Hammasi: tekshiradi, tahlil yozadi, direktorga yuboradi, xodimlarni boshqaradi",
+  rop: "Sotuv raqamlari: lidlar sifati va holati, qo'ng'iroqlar, sabablar, sotuv, tushum (avtovoronkada — start, xarid); sotuv xodimlari",
+  marketing: 'Marketing xarajatlari: kontent, SMM, tadbir, offline reklama, servislar — qaysi loyihaga qancha ketdi',
+  finance: "Operatsion xarajatlar: ish haqi, ijara, soliq, dasturlar — moliya hisoboti shundan to'liq bo'ladi",
+  director: "Hamma narsani ko'radi (nazorat, moliya, javobgarlik), o'zi kiritmaydi",
+  pm: "Hammasi: tekshiradi, tahlil yozadi, direktorga yuboradi, xodimlarga ruxsat beradi",
 };
+// Rol tanlanganda odatiy ruxsat (serverdagi ROLE_ACCESS bilan bir xil)
+const ROLE_ACCESS = { director: [], target: ['target'], rop: ['rop', 'sellers'], marketing: ['marketing'], finance: ['finance'] };
 async function tabStaff(body) {
   const users = await api('/api/users');
   await reloadProjects();
   const roles = state.me.roles || {};
+  const sections = state.me.sections || {};
+  const accChips = (sel = []) => `<div class="chips acc-chips" data-acc>${Object.entries(sections).map(([k, l]) => `<button type="button" class="chip ${sel.includes(k) ? 'on' : ''}" data-sec="${k}" aria-pressed="${sel.includes(k)}">${sel.includes(k) ? '✓ ' : ''}${esc(l)}</button>`).join('')}</div>`;
   const projChips = (sel = []) => `<div class="chips" data-projs>${state.projects.filter((p) => p.active).map((p) => `<button type="button" class="chip ${sel.includes(p.id) ? 'on' : ''}" data-pid="${p.id}" aria-pressed="${sel.includes(p.id)}"><span class="dot" style="--dc:${esc(p.color || '#4c86ff')}"></span>${esc(p.name)}</button>`).join('')}</div>`;
   const card = (u) => `<section class="card user-card ${u.active ? '' : 'off'}" data-uid="${u.id ?? ''}">
       <div class="card-head"><h3>${u.id ? esc(u.name) : "Yangi xodim"}</h3>${u.id ? (u.active ? `<span class="pill ${u.role === 'pm' ? 'lime' : 'info'}">${esc(roles[u.role] || u.role)}</span>` : '<span class="pill">O\'chirilgan</span>') : ''}</div>
@@ -357,16 +364,28 @@ async function tabStaff(body) {
         <label class="field">${u.id ? 'Yangi parol <span class="hint">almashtirish uchun</span>' : 'Parol'}<input data-f="password" type="text" autocomplete="new-password" minlength="6" placeholder="${u.id ? 'o\'zgarmaydi' : 'kamida 6 belgi'}"></label>
         <label class="field">Telegram ID <span class="hint">eslatma uchun</span><input data-f="telegram_id" inputmode="numeric" data-raw value="${esc(u.telegram_id || '')}" placeholder="123456789"></label>
       </div>
+      <div class="field" data-acc-field ${u.role === 'pm' ? 'hidden' : ''}>Kiritish ruxsati <span class="hint">belgilanmagan bo'limni faqat ko'radi — kirita va tuzata olmaydi</span>${accChips(u.id ? u.access || [] : ROLE_ACCESS[u.role || 'target'])}</div>
       <div class="field" data-proj-field ${u.role === 'pm' ? 'hidden' : ''}>Loyihalari <span class="hint">hech biri tanlanmasa — hamma loyihalar</span>${projChips(u.projects || [])}</div>
       <div class="row" style="justify-content:flex-end">${u.id && u.id !== state.me.user.id ? `<button class="btn small ghost" data-a="toggle">${u.active ? "O'chirish" : 'Qayta yoqish'}</button>` : ''}<button class="btn small primary" data-a="save">${u.id ? 'Saqlash' : "Qo'shish"}</button></div>
     </section>`;
-  body.innerHTML = `<div class="card plan-intro"><div class="card-head"><h2>Xodimlar</h2></div>
-      <p class="small" style="margin:0;color:var(--text-2);max-width:95ch">Har kim o'z hisobotini o'zi kiritadi: <b>targetolog</b> — target raqamlarini, <b>ROP</b> — sotuv raqamlarini. Ular kirganda faqat o'z kiritish sahifasini ko'radi va «Yuborish» ni bosadi — sizga Telegramda xabar keladi.
-        Siz «Kechagi hisobot» da kim yuborgani va yubormaganini ko'rasiz, tekshirasiz, tahlil yozib direktorga yuborasiz. Har xodimga loyihalarni biriktiring (masalan, har loyihaning o'z targetologi bo'lsa).</p></div>
+  const act = users.filter((u) => u.active && u.role !== 'pm');
+  body.innerHTML = `<div class="card plan-intro"><div class="card-head"><h2>Xodimlar va ruxsatlar</h2></div>
+      <p class="small" style="margin:0;color:var(--text-2);max-width:100ch">Har kim o'z bo'limini o'zi kiritadi: <b>targetolog</b> — target, <b>ROP</b> — sotuv va sotuv xodimlari, <b>marketing rahbari</b> — marketing xarajatlari, <b>moliyachi</b> — operatsion xarajatlar.
+        <b>Hamma hamma bo'limni ko'radi</b> (statistika ochiq), lekin <b>kiritish va tuzatish — faqat siz ruxsat bergan bo'limga</b>. Ruxsat bo'lmasa, hech kim birovning raqamini o'zgartira olmaydi. Direktor hammasini ko'radi, o'zi kiritmaydi.</p></div>
+    ${act.length ? `<div class="card"><div class="card-head"><h3>Kim nimani kirita oladi</h3><span class="muted small">✓ — kiritadi, · — faqat ko'radi</span></div>
+      <div class="table-wrap"><table class="acc-matrix"><thead><tr><th>Xodim</th>${Object.values(sections).map((l) => `<th class="c">${esc(l)}</th>`).join('')}</tr></thead>
+      <tbody>${act.map((u) => `<tr><td><b>${esc(u.name)}</b> <span class="muted small">${esc(roles[u.role] || '')}</span></td>${Object.keys(sections).map((k) => `<td class="c">${(u.access || []).includes(k) ? '<span class="acc-yes">✓</span>' : '<span class="acc-no">·</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>` : ''}
     <div class="plan-cards">${users.map(card).join('')}${card({ active: 1 })}</div>`;
   body.addEventListener('click', async (e) => {
     const chip = e.target.closest('[data-pid]');
     if (chip) { chip.classList.toggle('on'); chip.setAttribute('aria-pressed', chip.classList.contains('on')); return; }
+    const sec = e.target.closest('[data-sec]');
+    if (sec) {
+      sec.classList.toggle('on');
+      sec.setAttribute('aria-pressed', sec.classList.contains('on'));
+      sec.textContent = `${sec.classList.contains('on') ? '✓ ' : ''}${sections[sec.dataset.sec]}`;
+      return;
+    }
     const btn = e.target.closest('[data-a]');
     if (!btn) return;
     const c = btn.closest('[data-uid]');
@@ -380,6 +399,7 @@ async function tabStaff(body) {
         toast(u.active ? `${u.name} o'chirildi — endi kira olmaydi` : `${u.name} qayta yoqildi`);
       } else {
         const b = { name: v('name'), login: v('login'), role: v('role'), telegram_id: v('telegram_id'), projects: $$('[data-pid].on', c).map((x) => Number(x.dataset.pid)) };
+        if (b.role !== 'pm') b.access = $$('[data-sec].on', c).map((x) => x.dataset.sec);
         if (v('password')) b.password = v('password');
         await api(id ? `/api/users/${id}` : '/api/users', { method: id ? 'PUT' : 'POST', body: b });
         toast(id ? 'Saqlandi' : `Qo'shildi. Login: ${b.login} — parolni xodimga bering`);
@@ -393,6 +413,15 @@ async function tabStaff(body) {
     const c = sel.closest('[data-uid]');
     $('[data-role-hint]', c).textContent = ROLE_HINT[sel.value] || '';
     $('[data-proj-field]', c).hidden = sel.value === 'pm';
+    $('[data-acc-field]', c).hidden = sel.value === 'pm';
+    // Rol almashsa — shu rolning odatiy ruxsati belgilanadi (keyin qo'lda o'zgartiriladi)
+    const def = ROLE_ACCESS[sel.value] || [];
+    $$('[data-sec]', c).forEach((x) => {
+      const on = def.includes(x.dataset.sec);
+      x.classList.toggle('on', on);
+      x.setAttribute('aria-pressed', on);
+      x.textContent = `${on ? '✓ ' : ''}${sections[x.dataset.sec]}`;
+    });
   });
 }
 

@@ -1,6 +1,7 @@
 // Sotuv xodimlari (operatorlar): ROP har kuni har xodimning natijasini kiritadi; oylik jadval — kim qanday ishlayapti
 import {
   $, $$, esc, api, state, shell, addDays, fmtN, fmtP, toast, spinnerBlock, isStale, monthLabel, shortDate, dayLabel, parseNum,
+  canEditSection, isPmUser, viewNote,
 } from './core.js';
 import { dateNav } from './pm.js';
 
@@ -24,15 +25,16 @@ const conv = (a, b) => (b > 0 ? a / b : null);
 export async function renderSellers() {
   state.leaveGuard = null;
   state.isDirty = null;
-  const f = (state.sellers ||= { tab: state.me.user.role === 'rop' ? 'entry' : 'report', period: 'month', month: 0, date: null });
-  // Kiritish va ro'yxat — ROP va PM; targetolog faqat hisobotni ko'radi
-  const TABS = state.me.user.role === 'target' ? ALL_TABS.slice(0, 1) : ALL_TABS;
+  const edit = canEditSection('sellers');
+  const f = (state.sellers ||= { tab: edit && !isPmUser() ? 'entry' : 'report', period: 'month', month: 0, date: null });
+  // Kiritish va ro'yxat — «Sotuv xodimlari» ruxsati borlar (ROP) va PM; qolganlar faqat hisobotni ko'radi
+  const TABS = edit ? ALL_TABS : ALL_TABS.slice(0, 1);
   const q = new URLSearchParams(location.hash.split('?')[1] || '');
   if (TABS.some(([k]) => k === q.get('tab'))) f.tab = q.get('tab');
   if (!TABS.some(([k]) => k === f.tab)) f.tab = 'report';
   shell(`<div class="page-head"><div><h1><span class="grad">Sotuv xodimlari</span></h1>
       <div class="sub">Har bir sotuvchi qanday ishlayapti: nechta lid oldi, nechtasi bilan gaplashdi, nechta sotdi, qancha vaqt qo'ng'iroq qildi</div></div></div>
-    <div class="tabs" id="slTabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-k="${k}" class="${f.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+    ${viewNote('sellers')}<div class="tabs" id="slTabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-k="${k}" class="${f.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
     <div id="sl">${spinnerBlock()}</div>`);
   $('#slTabs').onclick = async (e) => {
     const k = e.target.dataset.k;
@@ -76,7 +78,7 @@ async function tabReport(box, f, rid) {
       <tfoot><tr><td>Jami</td>${cells(p.total, true)}</tr></tfoot></table></div></section>`;
   };
   box.innerHTML = bar + (data.projects.length ? data.projects.map(table).join('')
-    : `<div class="card empty">Bu davr uchun sotuv xodimlari raqamlari kiritilmagan. ${state.me.user.role === 'rop' || !['target', 'rop'].includes(state.me.user.role) ? '«Kunlik kiritish» bo\'limida kiriting.' : ''}</div>`)
+    : `<div class="card empty">Bu davr uchun sotuv xodimlari raqamlari kiritilmagan. ${edit ? '«Kunlik kiritish» bo\'limida kiriting.' : ''}</div>`)
     + '<p class="muted small">Konversiya umumiy = sotuv ÷ umumiy lidlar; konversiya sifatli = sotuv ÷ sifatli lidlar. Eng yuqori konversiya yashil bilan belgilangan.</p>';
   $('#slPer').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { f.period = b.dataset.p; renderSellers(); } };
   $$('[data-mm]', box).forEach((b) => { b.onclick = () => { f.month = Math.max(0, f.month + Number(b.dataset.mm)); renderSellers(); }; });

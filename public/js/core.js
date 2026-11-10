@@ -131,6 +131,15 @@ export const ICONS = {
   check: svg('<path d="m5 12 5 5 9-10"/>'),
   send: svg('<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>'),
   cal: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
+  shield: svg('<path d="M12 3 4 6v6c0 4.4 3.4 8.3 8 9 4.6-.7 8-4.6 8-9V6z"/><path d="m9 12 2 2 4-4"/>'),
+  wallet: svg('<path d="M4 7h15a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 7V6a2 2 0 0 1 2-2h11v3"/><path d="M16 13.5h.01"/>'),
+  mega: svg('<path d="M3 10v4h3l6 4V6L6 10z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>'),
+  target: svg('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8"/>'),
+  phone: svg('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>'),
+  eye: svg('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
+  menu: svg('<path d="M4 7h16M4 12h16M4 17h16"/>'),
+  bulb: svg('<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.4 1 1.1 1 1.8V16h5v-.3c0-.7.4-1.4 1-1.8A6 6 0 0 0 12 3z"/>'),
+  trash: svg('<path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
 };
 
 // Dizayn faqat yorug' rejimda; eski saqlangan tanlov tozalanadi
@@ -570,44 +579,59 @@ let routerFn = () => {};
 export function setRouter(fn) { routerFn = fn; }
 export function rerender() { if (state.me) routerFn(); }
 
+// Demoda rolni almashtirib ko'rish: har kim kirganda nimani ko'radi va nimani kirita oladi
+const DEMO_ROLES = [['pm', 'PM'], ['director', 'Direktor'], ['target', 'Targetolog'], ['rop', 'ROP'], ['marketing', 'Marketing'], ['finance', 'Moliyachi']];
 function demoMenu() {
-  // Demoda rolni almashtirib ko'rish: har kim kirganda nimani ko'radi
   const role = state.me?.user?.role || 'pm';
   return `<span class="menu-btn" style="cursor:default"><span class="tag-demo">Demo</span>namuna ma'lumot</span>
-    <span class="seg seg-sm demo-as" role="group" aria-label="Kim sifatida ko'rish">${[['pm', 'PM'], ['target', 'Targetolog'], ['rop', 'ROP']].map(([k, l]) => `<button type="button" data-demo-as="${k}" class="${role === k ? 'on' : ''}">${l}</button>`).join('')}</span>
+    <span class="demo-as-wrap"><span class="muted small">Kim sifatida:</span>${selectHtml(DEMO_ROLES, role, 'data-demo-as-sel', "Kim sifatida ko'rish")}</span>
     <button class="btn small ghost" data-demo-reset title="Namuna ma'lumotni qaytarish">↺</button>`;
 }
 
-// Targetolog va ROP: faqat o'z kiritish sahifasi va profil
-export const isStaffUser = () => ['target', 'rop'].includes(state.me?.user?.role);
-// Xodimning o'z kiritish sahifasi: manzil va menyudagi nomi
-export const PART_ROUTE = { target: ['#/target', 'Target kiritish'], rop: ['#/sotuv', 'Sotuv kiritish'] };
+// PM — boshqaruvchi; qolganlar (direktor, targetolog, ROP, marketing, moliyachi) — hamma narsani ko'radi, faqat ruxsat berilgan bo'limiga kiritadi
+export const isStaffUser = () => Boolean(state.me?.user) && state.me.user.role !== 'pm';
+export const isPmUser = () => state.me?.user?.role === 'pm';
+// Shu bo'limga kiritish ruxsati bormi (PM — hammasiga)
+export const canEditSection = (section) => (state.me?.access || []).includes(section);
+// Kunlik qismlar sahifasi: manzil va menyudagi nomi
+export const PART_ROUTE = { target: ['#/target', 'Target'], rop: ['#/sotuv', 'Sotuv (ROP)'] };
+// Bo'limlar: manzil, nomi, belgisi, ruxsat kaliti
+export const SECTION_NAV = [
+  ['#/target', 'Target', 'target', 'target'],
+  ['#/sotuv', 'Sotuv (ROP)', 'phone', 'rop'],
+  ['#/sotuvchilar', 'Sotuv xodimlari', 'team', 'sellers'],
+  ['#/marketing', 'Marketing', 'mega', 'marketing'],
+  ['#/moliya', 'Moliya', 'wallet', 'finance'],
+];
+// Ruxsat yo'q bo'limda ko'rsatiladigan eslatma
+export function viewNote(section) {
+  if (canEditSection(section)) return '';
+  return `<div class="view-note">${ICONS.eye}<div><b>Ko'rish rejimi</b><span>Bu bo'limni hamma ko'radi, lekin kiritish va tuzatish — faqat ruxsati borlarga. Ruxsatni proekt menejer beradi (Sozlamalar → Xodimlar).</span></div></div>`;
+}
 
+// Menyu hamma uchun bir xil: «Umumiy» — ko'rish sahifalari, «Bo'limlar» — har bo'limning kiritish sahifasi.
+// Xodimning o'z bo'limi (ruxsati bor) belgilanadi; kunlik qismi yuborilmagan bo'lsa — «!»
 function navItems() {
-  // Hamma bir xil asosiy sahifalarni ko'radi; targetolog va ROP — qo'shimcha o'z kiritish sahifasi (belgi bilan)
-  if (isStaffUser()) {
-    const own = PART_ROUTE[state.me.user.role];
-    return {
-      items: [
-        ['#/', 'Loyihalar', ICONS.chart],
-        [own[0], own[1], ICONS.edit, state.me.partSent ? null : '!', 'own'],
-        ['#/kiritish', 'Kechagi hisobot', ICONS.send],
-        ['#/dinamika', 'Dinamika', ICONS.trend],
-        ['#/sotuvchilar', 'Sotuv xodimlari', ICONS.team],
-        ['#/hisobotlar', 'Hisobotlar', ICONS.archive],
-      ],
-      bottom: [['#/sozlamalar', 'Profil', ICONS.set]],
-    };
-  }
+  const pm = isPmUser();
   const sent = ['submitted', 'reviewed'].includes(state.me.reportStatus);
-  const items = [
+  const common = [
     ['#/', 'Loyihalar', ICONS.chart],
-    ['#/kiritish', 'Kechagi hisobot', ICONS.edit, sent ? null : '!'],
+    ['#/nazorat', 'Nazorat', ICONS.shield],
     ['#/dinamika', 'Dinamika', ICONS.trend],
-    ['#/sotuvchilar', 'Sotuv xodimlari', ICONS.team],
     ['#/hisobotlar', 'Hisobotlar', ICONS.archive],
   ];
-  return { items, bottom: [['#/sozlamalar', 'Sozlamalar', ICONS.set]] };
+  const sections = [
+    ['#/kiritish', 'Kunlik hisobot', ICONS.send, pm && !sent ? '!' : null, pm ? 'own' : ''],
+    ...SECTION_NAV.map(([href, label, icon, sec]) => {
+      const own = !pm && canEditSection(sec);
+      const part = sec === 'target' || sec === 'rop';
+      return [href, label, ICONS[icon], own && part && !state.me.partSent ? '!' : null, own ? 'own' : ''];
+    }),
+  ];
+  return {
+    groups: [['Umumiy', common], ["Bo'limlar", sections]],
+    bottom: [['#/sozlamalar', pm ? 'Sozlamalar' : 'Profil', ICONS.set]],
+  };
 }
 
 const WEEKDAYS = ['yakshanba', 'dushanba', 'seshanba', 'chorshanba', 'payshanba', 'juma', 'shanba'];
@@ -622,18 +646,21 @@ export function shell(content) {
   menuClose?.();
   destroyCharts();
   const route = location.hash.split('?')[0] || '#/';
-  const { items, bottom } = navItems();
+  const { groups, bottom } = navItems();
   const active = (href) => route === href || (href !== '#/' && route.startsWith(href)) || (href === '#/' && route.startsWith('#/loyiha/'));
-  const link = ([href, label, icon, badge, cls = '']) => `<a href="${href}" class="${active(href) ? 'active' : ''} ${cls}" title="${label}"><span class="ic">${icon}</span><span>${label}</span>${badge ? `<span class="badge">${badge}</span>` : ''}</a>`;
+  const link = ([href, label, icon, badge, cls = '']) => `<a href="${href}" class="${active(href) ? 'active' : ''} ${cls}" title="${label}${cls.includes('own') ? ' — sizning bo\'limingiz' : ''}"><span class="ic">${icon}</span><span>${label}</span>${badge ? `<span class="badge">${badge}</span>` : ''}</a>`;
   const u = state.me.user;
-  const mobileItems = [...items, ...bottom];
+  const all = groups.flatMap(([, list]) => list);
+  // Telefonda pastki panel: asosiylari + o'z bo'limi; qolganlari — «Menyu» da
+  const own = all.filter((x) => String(x[4] || '').includes('own')).slice(0, 2);
+  const mobileItems = [all[0], all[1], ...own, ['#menu', 'Menyu', ICONS.menu, null, 'm-more']];
   app().innerHTML = `
     <div class="mobile-top"><span class="logo"><span class="logo-mark">${ICONS.logo}</span>Analitika</span>
       <button id="logoutM" aria-label="Chiqish" title="Chiqish">${ICONS.logout.replace('<svg', '<svg width="18" height="18"')}</button></div>
     <div class="layout">
       <aside class="sidebar">
         <div class="logo"><span class="logo-mark">${ICONS.logo}</span><span>Analitika<small>kunlik hisobot</small></span></div>
-        <nav class="nav" aria-label="Asosiy">${items.map(link).join('')}</nav>
+        ${groups.map(([label, list]) => `<div class="nav-label">${label}</div><nav class="nav" aria-label="${label}">${list.map(link).join('')}</nav>`).join('')}
         <div class="side-foot">
           <nav class="nav">${bottom.map(link).join('')}</nav>
           <a class="side-user" href="#/sozlamalar?tab=profil" style="text-decoration:none"><span class="avatar">${esc(initials(u.name))}</span><span>${esc(u.name)}<small>${esc(state.me.roles?.[u.role] || 'Proekt menejer')}</small></span></a>
@@ -651,14 +678,18 @@ export function shell(content) {
         ${window.DEMO ? `<div class="demo-mobile">${demoMenu()}</div>` : ''}${content}
       </main>
     </div>
-    <nav class="mobile-nav" style="--n:${mobileItems.length}">${mobileItems.map(link).join('')}</nav>`;
+    <nav class="mobile-nav" style="--n:${mobileItems.length}">${mobileItems.map(link).join('')}</nav>
+    <div class="m-sheet" hidden><div class="m-sheet-in" role="dialog" aria-label="Menyu">${groups.map(([label, list]) => `<div class="nav-label">${label}</div><nav class="nav">${list.map(link).join('')}</nav>`).join('')}<nav class="nav">${bottom.map(link).join('')}</nav></div></div>`;
+  const sheet = $('.m-sheet');
+  $('.mobile-nav .m-more').onclick = (e) => { e.preventDefault(); sheet.hidden = !sheet.hidden; };
+  sheet.onclick = (e) => { if (e.target === sheet || e.target.closest('a')) sheet.hidden = true; };
   $('#logout').onclick = $('#logoutM').onclick = async () => {
     await api('/api/logout', { method: 'POST', body: {} }).catch(() => {});
     state.me = null;
     renderLogin();
   };
   document.querySelectorAll('[data-demo-reset]').forEach((b) => { b.onclick = () => window.__demoReset?.(); });
-  document.querySelectorAll('[data-demo-as]').forEach((b) => { b.onclick = () => { if (!b.classList.contains('on')) window.__demoAs?.(b.dataset.demoAs); }; });
+  document.querySelectorAll('[data-demo-as-sel]').forEach((el) => { el.onchange = () => { if (el.value !== state.me.user.role) window.__demoAs?.(el.value); }; });
 }
 
 // ---------- Kirish ----------

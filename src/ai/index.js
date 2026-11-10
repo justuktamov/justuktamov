@@ -3,6 +3,7 @@
 // Standart: OpenRouter orqali DeepSeek
 import { AiError } from './errors.js';
 import { SYSTEM_PROMPT, userPrompt, parseAiResult } from './prompt.js';
+import { ADVICE_SYSTEM, ADVICE_SCHEMA, advicePrompt, parseAdvice } from './advice.js';
 
 export { AiError };
 
@@ -66,6 +67,27 @@ export async function analyze(input, env = process.env) {
     try {
       const result = parseAiResult(await complete(req), input);
       return { ...result, provider: cfg.provider, model: cfg.model };
+    } catch (e) {
+      lastError = e instanceof AiError ? e : new AiError(e.message, { retry: true });
+      if (!lastError.retry) break;
+    }
+  }
+  throw lastError;
+}
+
+// «Nazorat» sahifasi: butun kompaniya bo'yicha xulosa — kim aybdor va kimga nima qilish kerak (controlAiInput natijasi)
+export async function advise(input, env = process.env) {
+  const cfg = aiConfig(env);
+  if (!cfg.enabled) throw new AiError(`AI ulanmagan: ${cfg.reason}`);
+  const { complete } = await adapterFor(cfg.adapter);
+  const req = {
+    baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model: cfg.model, effort: cfg.effort, headers: cfg.headers, body: cfg.body,
+    system: ADVICE_SYSTEM, user: advicePrompt(input), timeoutMs: TIMEOUT_MS, schema: ADVICE_SCHEMA,
+  };
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return { ...parseAdvice(await complete(req)), provider: cfg.provider, model: cfg.model };
     } catch (e) {
       lastError = e instanceof AiError ? e : new AiError(e.message, { retry: true });
       if (!lastError.retry) break;
