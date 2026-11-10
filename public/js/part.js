@@ -4,7 +4,7 @@ import {
   $, $$, esc, api, state, shell, fmtN, PART_ROUTE, inVal, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, parseNum,
   canEditSection, isAdminUser, viewNote,
 } from './core.js';
-import { STEPS, LEAD_ST, dateNav, historyBlock, reasonsHtml, groupHead, fieldLabel, SALES_MAIN, SALES_STATUS } from './pm.js';
+import { STEPS, dateNav, historyBlock, reasonsHtml, entryCards, bindCards, readOnlyCards, SRC_FIELDS } from './pm.js';
 
 const ROLE = {
   target: {
@@ -21,8 +21,6 @@ const ROLE = {
   },
 };
 const dot = (c) => `<span class="dot" style="--dc:${esc(c || '#4c86ff')}"></span>`;
-// Lid holatlari — ROP sahifasida alohida jadvalda (asosiy jadval torayadi)
-const STATUS = LEAD_ST;
 // Sahifa manzili: #/target yoki #/sotuv (kechadan boshqa kun — ?date=…)
 let curPart = 'target';
 const partHash = (d) => `${PART_ROUTE[curPart][0]}${d === state.me.reportDay ? '' : `?date=${d}`}`;
@@ -81,10 +79,8 @@ export async function renderPart({ part = curPart, rolled = null } = {}) {
     <section class="card step ${editable ? '' : 'ro-mode'}">
       <div class="step-head">${editable ? `<p>${R.hint}</p>` : ''}${whoLine}</div>
       ${s.key === 'target' ? rateBlock() : ''}
-      ${leadsP.length ? `${autoP.length ? "<h3 class=\"tbl-title\">Sotuv bo'limi orqali</h3>" : ''}${numTable(leadsP, role === 'rop' ? SALES_MAIN(s.fields) : s.fields, s.required)}` : ''}
-      ${role === 'rop' && leadsP.length ? numTable(leadsP, SALES_STATUS(s.fields), [], false) : ''}
-      ${autoP.length ? `<h3 class="tbl-title">Avtovoronka</h3>${numTable(autoP, s.autoFields, s.autoRequired)}` : ''}
-      ${role === 'rop' && leadsP.length ? sourcesBlock(leadsP) : ''}
+      ${leadsP.length ? `${autoP.length ? "<h3 class=\"tbl-title\">Sotuv bo'limi orqali</h3>" : ''}${entryCards(leadsP, role === 'rop' ? [...s.fields, ...SRC_FIELDS] : s.fields, { kind: role === 'rop' ? 'sales' : 'target', required: s.required })}` : ''}
+      ${autoP.length ? `<h3 class="tbl-title">Avtovoronka</h3>${entryCards(autoP, s.autoFields, { kind: 'auto', required: s.autoRequired, fallback: 'Avtovoronka' })}` : ''}
       ${textsBlock(role === 'rop' ? leadsP : daily.projects)}
       ${role === 'rop' && leadsP.length ? reasonsBlock(leadsP) : ''}
       ${!editable ? ''
@@ -96,6 +92,7 @@ export async function renderPart({ part = curPart, rolled = null } = {}) {
   box.append(historyBlock(date));
   if (!editable) {
     box.querySelectorAll('input, textarea').forEach((el) => { el.readOnly = true; el.tabIndex = -1; });
+    readOnlyCards(box);
     box.querySelectorAll('details.extra').forEach((d) => { d.open = true; });
     return;
   }
@@ -110,21 +107,6 @@ export async function renderPart({ part = curPart, rolled = null } = {}) {
       <input id="dRate" class="cell-in" inputmode="decimal" value="${r.value ?? ''}" placeholder="${fmtN(r.prev || 12650)}" aria-label="Dollar kursi, so'm"><span class="muted">so'm</span>
       ${r.value == null ? '<span class="need-tag">kiritilmagan</span>' : ''}
     </div>`;
-  }
-
-  function numTable(projects, fields, required, main = true) {
-    return `<div class="table-wrap"><table class="grid-entry ${fields.length > 4 ? 'wide' : ''} ${fields.length > 7 ? 'xwide' : ''}" style="--cols:${fields.length % 3 ? 2 : 3}" ${main ? 'data-part' : ''}><thead>${groupHead(fields)}<tr><th>Loyiha</th>${fields.map(([, l]) => `<th class="n">${esc(l)}</th>`).join('')}<th></th></tr></thead>
-      <tbody>${projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
-        ${fields.map((fd) => { const [f] = fd; const l = fieldLabel(fd); return `<td class="n" data-label="${esc(l)}"><input class="cell-in" inputmode="decimal" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${esc(l)}"></td>`; }).join('')}
-        <td data-state>${required.length && required.every((f) => p.row[f] != null) ? '<span class="pill good">✓</span>' : ''}</td></tr>`).join('')}</tbody></table></div>`;
-  }
-
-  function sourcesBlock(projects) {
-    const SRC = [['src_ig', 'Instagram'], ['src_tg', 'Telegram']];
-    return `<h3 class="tbl-title">Lichkadan kelgan lidlar <span class="muted small">(jami lid ichida)</span></h3>
-      <div class="table-wrap"><table class="grid-entry grid-mini" style="--cols:2"><thead><tr><th>Loyiha</th>${SRC.map(([, l]) => `<th class="n">${l}</th>`).join('')}</tr></thead>
-      <tbody>${projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
-        ${SRC.map(([f, l]) => `<td class="n" data-label="${l}"><input class="cell-in" inputmode="numeric" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
 
   function textsBlock(projects) {
@@ -148,17 +130,8 @@ export async function renderPart({ part = curPart, rolled = null } = {}) {
       const next = td.parentElement.nextElementSibling?.children[td.cellIndex]?.querySelector('input');
       (next || box.querySelector('[data-send]') || box.querySelector('[data-save]')).focus();
     }));
-    // Jami va qismlari mos kelmasa — belgi (lid = web + bot; lid = sifatli + potensial + sifatsiz)
-    box.addEventListener('input', (e) => {
-      const row = e.target.closest('tr[data-id]');
-      const tr = row && box.querySelector(`table[data-part] tr[data-id="${row.dataset.id}"]`);
-      if (!tr) return;
-      const v = (f) => { const el = box.querySelector(`tr[data-id="${tr.dataset.id}"] input[name="${f}"]`); return !el || el.value.trim() === '' ? null : parseNum(el.value); };
-      const [total, parts] = role === 'target' ? [v('target_leads'), ['tl_web', 'tl_bot'].map(v)] : [v('leads'), ['qualified', 'potential', 'unqualified'].map(v)];
-      const sum = parts.reduce((a, x) => a + (x || 0), 0);
-      $('[data-state]', tr).innerHTML = total != null && parts.some((x) => x != null) && sum > total
-        ? `<span class="pill warn" title="Qismlari jamidan ko'p: ${sum}">≠ ${sum}</span>` : '';
-    });
+    // Kartalar: jonli hisob (1 lid narxi, konversiya), qismlari jamidan ko'p bo'lsa — belgi; Enter — keyingi katak
+    bindCards(box, daily.projects, () => box.querySelector('[data-send]') || box.querySelector('[data-save]'));
     $('[data-save]', box).onclick = async (e) => {
       const b = e.currentTarget;
       b.disabled = true;
@@ -192,14 +165,14 @@ export async function renderPart({ part = curPart, rolled = null } = {}) {
   // O'zgargan kataklar saqlanadi; jami bo'sh qolsa — qismlari qo'shiladi
   async function save(loud) {
     const byProject = {};
-    for (const el of box.querySelectorAll('tr[data-id] input[name]')) {
-      const p = daily.projects.find((x) => String(x.id) === el.closest('tr').dataset.id);
+    for (const el of box.querySelectorAll('[data-id] input[name]')) {
+      const p = daily.projects.find((x) => String(x.id) === el.closest('[data-id]').dataset.id);
       if (inVal(el) !== String(p.row[el.name] ?? '')) (byProject[p.id] ||= {})[el.name] = inVal(el);
     }
     const sumInto = (p, total, parts) => {
-      const tr = box.querySelector(`table[data-part] tr[data-id="${p.id}"]`);
-      if (!tr || !$(`input[name="${total}"]`, tr)) return;
-      const val = (f) => { const el = box.querySelector(`tr[data-id="${p.id}"] input[name="${f}"]`); return el ? inVal(el) : ''; };
+      const card = box.querySelector(`[data-card][data-id="${p.id}"]`);
+      if (!card || !$(`input[name="${total}"]`, card)) return;
+      const val = (f) => { const el = card.querySelector(`input[name="${f}"]`); return el ? inVal(el) : ''; };
       const got = parts.map(val).filter(Boolean);
       if (!val(total) && got.length) (byProject[p.id] ||= {})[total] = String(got.reduce((a, x) => a + (parseNum(x) || 0), 0));
     };

@@ -1,7 +1,7 @@
 // Sotuv xodimlari (operatorlar): ROP har kuni har xodimning natijasini kiritadi; oylik jadval — kim qanday ishlayapti
 import {
   $, $$, esc, api, state, shell, addDays, fmtN, fmtP, toast, spinnerBlock, isStale, monthLabel, shortDate, dayLabel, parseNum,
-  canEditSection, isAdminUser, viewNote, openDrawer, ICONS,
+  canEditSection, isAdminUser, viewNote, openDrawer, ICONS, initials,
 } from './core.js';
 import { dateNav } from './pm.js';
 
@@ -21,6 +21,9 @@ export function fmtDuration(sec) {
   return `${Math.floor(t / 3600)}:${String(Math.floor((t % 3600) / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
 }
 const conv = (a, b) => (b > 0 ? a / b : null);
+// Sotuvchi avatari rangi — ismdan (har sahifada bir xil)
+const AVA = ['#7357ff', '#ff7a3d', '#3b8cff', '#14b8a6', '#f59e0b', '#f43f5e', '#8b5cf6', '#22a06b'];
+const avaColor = (name) => { let h = 2166136261; for (const ch of String(name)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return AVA[(h >>> 0) % AVA.length]; };
 
 export async function renderSellers() {
   state.leaveGuard = null;
@@ -64,22 +67,37 @@ async function tabReport(box, f, rid) {
   if (isStale(rid)) return;
   const bar = `<div class="sl-bar"><div class="seg" id="slPer">${[['day', 'Kecha'], ['week', '7 kun'], ['month', 'Oy']].map(([k, l]) => `<button data-p="${k}" class="${f.period === k ? 'on' : ''}">${l}</button>`).join('')}</div>
     ${f.period === 'month' ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-mm="1" aria-label="Oldingi oy">‹</button><b>${esc(monthLabel(mFirst.slice(0, 7)))}</b><button type="button" class="btn small icon" data-mm="-1" aria-label="Keyingi oy" ${f.month ? '' : 'disabled'}>›</button></span>` : `<b class="sl-when">${esc(label)}</b>`}</div>`;
-  const table = (p) => {
-    const best = Math.max(...p.rows.map((r) => r.conv ?? -1));
-    const bestQ = Math.max(...p.rows.map((r) => r.conv_q ?? -1));
-    const cells = (r, tot) => `${NUM.map(([k]) => `<td class="n">${fmtN(r[k])}</td>`).join('')}
-      <td class="n ${!tot && r.conv === best && best > 0 ? 'sl-best' : ''}">${r.conv == null ? '—' : fmtP(r.conv, 1)}</td>
-      <td class="n ${!tot && r.conv_q === bestQ && bestQ > 0 ? 'sl-best' : ''}">${r.conv_q == null ? '—' : fmtP(r.conv_q, 1)}</td>
-      <td class="n mono">${fmtDuration(r.call_sec)}</td>`;
-    return `<section class="card sl-card" style="--pc:${esc(p.color || '#4c86ff')}">
-      <div class="sl-head"><b>${dot(p.color)}${esc(p.name)}</b><span class="muted small">${fmtN(p.total.leads)} lid · ${fmtN(p.total.sales)} sotuv · ${p.total.conv == null ? '—' : fmtP(p.total.conv, 1)}</span></div>
-      <div class="table-wrap"><table class="sl-table"><thead><tr><th>Sotuvchi</th>${NUM.map(([, l]) => `<th class="n">${l}</th>`).join('')}<th class="n" title="Sotuv ÷ lidlar">Konversiya</th><th class="n" title="Sotuv ÷ sifatli lidlar">Sifatlidan</th><th class="n">Qo'ng'iroq vaqti</th></tr></thead>
-      <tbody>${p.rows.map((r) => `<tr class="${r.active ? '' : 'off'}"><td><b>${esc(r.name)}</b>${r.active ? '' : ' <span class="muted small">(arxiv)</span>'}</td>${cells(r)}</tr>`).join('')}</tbody>
-      <tfoot><tr><td>Jami</td>${cells(p.total, true)}</tr></tfoot></table></div></section>`;
+  // Reyting: konversiya bo'yicha tartib; chiziq — lidlar tarkibi (sotuv · jarayonda · bekor · sifatsiz), uzunligi — lid soni
+  const board = (p) => {
+    const rows = [...p.rows].sort((x, y) => (y.conv ?? -1) - (x.conv ?? -1) || (y.sales || 0) - (x.sales || 0));
+    const maxL = Math.max(1, ...rows.map((r) => r.leads || 0));
+    const mix = (r) => {
+      const L = r.leads || 0, sold = r.sales || 0, canc = r.cancelled || 0, unq = r.unqualified || 0;
+      const wip = Math.max(0, (r.qualified || 0) - sold - canc);
+      const rest = Math.max(0, L - sold - canc - unq - wip);
+      const seg = (n, c, t) => (n > 0 ? `<i class="${c}" style="flex:${n}" title="${t}: ${fmtN(n)}"></i>` : '');
+      return `<div class="lb-bar" style="width:${Math.max(6, (L / maxL) * 100)}%">${seg(sold, 'b-sale', 'Sotuv')}${seg(wip, 'b-wip', 'Jarayonda')}${seg(canc, 'b-canc', 'Bekor')}${seg(unq, 'b-unq', 'Sifatsiz')}${seg(rest, 'b-rest', 'Belgilanmagan')}</div>
+        <small class="lb-sub">${fmtN(r.qualified || 0)} sifatli · ${fmtN(canc)} bekor · ${fmtN(unq)} sifatsiz</small>`;
+    };
+    const t = p.total;
+    return `<section class="card lb-card" style="--pc:${esc(p.color || '#4c86ff')}">
+      <header class="lb-head"><b class="lb-proj">${dot(p.color)}${esc(p.name)}</b>
+        <div class="lb-sum"><span><b>${fmtN(t.leads)}</b> lid</span><span><b>${fmtN(t.sales)}</b> sotuv</span><span class="lb-tc"><b>${t.conv == null ? '—' : fmtP(t.conv, 1)}</b> konversiya</span>${t.call_sec ? `<span><b>${fmtDuration(t.call_sec)}</b> qo'ng'iroq</span>` : ''}</div></header>
+      <div class="lb-cols"><span>#</span><span>Sotuvchi</span><span>Lidlar tarkibi</span><span class="n">Lid</span><span class="n">Sotuv</span><span class="n">Konversiya</span><span class="n" title="Sotuv ÷ sifatli lidlar">Sifatlidan</span><span class="n">Qo'ng'iroq</span></div>
+      <ol class="lb-list">${rows.map((r, i) => `<li class="${r.active ? '' : 'off'}">
+        <span class="lb-rank ${r.conv > 0 && i < 3 ? `m${i + 1}` : ''}">${i + 1}</span>
+        <span class="lb-name"><span class="lb-ava" style="--ac:${avaColor(r.name)}">${esc(initials(r.name))}</span><b>${esc(r.name)}</b>${r.active ? '' : '<small>arxiv</small>'}</span>
+        <span class="lb-track">${mix(r)}</span>
+        <span class="n lb-num" data-l="lid">${fmtN(r.leads)}</span>
+        <span class="n lb-num" data-l="sotuv"><b>${fmtN(r.sales)}</b></span>
+        <span class="n"><em class="lb-conv ${i === 0 && r.conv > 0 ? 'top' : ''}">${r.conv == null ? '—' : fmtP(r.conv, 1)}</em></span>
+        <span class="n lb-q" data-l="sifatlidan">${r.conv_q == null ? '—' : fmtP(r.conv_q, 1)}</span>
+        <span class="n lb-call" data-l="qo'ng'iroq">${fmtDuration(r.call_sec) || '—'}</span></li>`).join('')}</ol>
+    </section>`;
   };
-  box.innerHTML = bar + (data.projects.length ? data.projects.map(table).join('')
-    : `<div class="card empty">Bu davr uchun sotuv xodimlari raqamlari kiritilmagan. ${edit ? '«Kunlik kiritish» bo\'limida kiriting.' : ''}</div>`)
-    + '<p class="muted small">Yashil — eng yuqori konversiya</p>';
+  const legend = `<div class="lb-legend"><span><i class="b-sale"></i>Sotuv</span><span><i class="b-wip"></i>Jarayonda</span><span><i class="b-canc"></i>Bekor</span><span><i class="b-unq"></i>Sifatsiz</span></div>`;
+  box.innerHTML = bar.replace(/<\/div>$/, `${data.projects.length ? legend : ''}</div>`) + (data.projects.length ? data.projects.map(board).join('')
+    : `<div class="card empty">Bu davr uchun sotuv xodimlari raqamlari kiritilmagan. ${edit ? '«Kunlik kiritish» bo\'limida kiriting.' : ''}</div>`);
   $('#slPer').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { f.period = b.dataset.p; renderSellers(); } };
   $$('[data-mm]', box).forEach((b) => { b.onclick = () => { f.month = Math.max(0, f.month + Number(b.dataset.mm)); renderSellers(); }; });
 }

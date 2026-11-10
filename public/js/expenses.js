@@ -4,7 +4,7 @@
 // Hamma ko'radi; kiritish, tuzatish va o'chirish — faqat PM ruxsat bergan xodim
 import {
   $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtSom, fmtP, toast, ICONS, spinnerBlock, isStale, monthLabel, shortDate,
-  selectHtml, dateButton, openCalendar, prettyDate, inVal, parseNum, canEditSection, viewNote, openDrawer, oneOf, chipsHtml,
+  selectHtml, dateButton, openCalendar, prettyDate, inVal, parseNum, canEditSection, viewNote, openDrawer, oneOf, chipsHtml, dayLabel,
 } from './core.js';
 
 const dot = (c) => `<span class="dot" style="--dc:${esc(c || '#8b7cf6')}"></span>`;
@@ -69,13 +69,47 @@ function expenseDrawer(kind, cats, it, rerender) {
 }
 const addBtn = () => `<button type="button" class="btn primary" data-add>${ICONS.plus} Xarajat qo'shish</button>`;
 
+// Moddalar belgisi va rangi (lentada)
+const CAT_IC = {
+  content: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  smm: '<path d="M12 3l2.2 5.3L20 9l-4.4 3.8L17 19l-5-3-5 3 1.4-6.2L4 9l5.8-.7z"/>',
+  events: '<path d="M4 20V5h11l-1.5 4L15 13H6"/>',
+  offline: '<rect x="3" y="5" width="18" height="11" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  tools: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+  agency: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 4.5a3 3 0 0 1 0 6M21 20c0-2.6-1.5-4.5-3.8-5.2"/>',
+  gifts: '<rect x="3" y="9" width="18" height="11" rx="1.5"/><path d="M12 9v11M3 13h18M12 9c-2-4-6-4-6-1.5S10 9 12 9c2 0 6 .2 6-1.5S14 5 12 9"/>',
+  salary: '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v.01M18 15v.01"/>',
+  bonus: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>',
+  rent: '<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/>',
+  utilities: '<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1"/>',
+  software: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M9 9l-2 2 2 2M15 9l2 2-2 2"/>',
+  tax: '<path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/>',
+  teachers: '<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2 9 2 12 0v-5"/>',
+  refund: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
+  other: '<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>',
+};
+const CAT_TONE = { content: 'coral', smm: 'violet', events: 'amber', offline: 'sky', tools: 'teal', agency: 'rose', gifts: 'lime', salary: 'violet', bonus: 'amber', rent: 'sky', utilities: 'teal', software: 'coral', tax: 'rose', teachers: 'lime', refund: 'rose', other: 'grey' };
+const catIcon = (k) => `<span class="feed-ic t-${CAT_TONE[k] || 'grey'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${CAT_IC[k] || CAT_IC.other}</svg></span>`;
+
+// Yozuvlar — kunlar bo'yicha lenta: har kun sarlavhasida shu kunning jami
 function listCard(items, editable, title) {
-  return `<div class="card"><div class="card-head"><h3>${title}</h3><span class="muted small">${items.length} ta yozuv</span></div>
-    ${items.length ? `<div class="table-wrap"><table class="exp-table"><thead><tr><th>Sana</th><th>Loyiha</th><th>Modda</th><th class="n">Summa</th><th>Izoh</th><th>Kiritdi</th>${editable ? '<th></th>' : ''}</tr></thead>
-      <tbody>${items.map((e) => `<tr data-eid="${e.id}"><td>${shortDate(e.date)}</td><td>${e.project ? esc(e.project) : '<span class="muted">Umumiy</span>'}</td><td>${esc(e.label)}</td>
-        <td class="n"><b>${fmtSom(e.uzs)}</b>${e.currency === 'usd' ? `<br><span class="muted small">${fmtUsd(e.amount)}</span>` : ''}</td>
-        <td class="wrap">${esc(e.note || '')}</td><td class="muted small">${esc(e.by || '—')}</td>
-        ${editable ? `<td class="exp-act"><button type="button" class="btn small ghost" data-edit title="Tuzatish">${ICONS.edit}</button><button type="button" class="btn small ghost" data-del title="O'chirish">${ICONS.trash}</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`
+  const days = [];
+  for (const e of [...items].sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : y.id - x.id))) {
+    const last = days.at(-1);
+    if (last && last[0] === e.date) last[1].push(e); else days.push([e.date, [e]]);
+  }
+  const total = items.reduce((a, e) => a + e.uzs, 0);
+  const color = (id) => state.projects.find((p) => p.id === id)?.color;
+  return `<div class="card feed-card"><div class="card-head"><h3>${title}</h3><span class="muted small">${items.length} ta yozuv · ${mln(total)} so'm</span></div>
+    ${items.length ? `<div class="feed">${days.map(([d, list]) => `<div class="feed-day">
+      <div class="feed-date"><b>${esc(dayLabel(d))}</b><span>${fmtSom(list.reduce((a, e) => a + e.uzs, 0))}</span><i></i></div>
+      ${list.map((e) => `<div class="feed-it" data-eid="${e.id}">${catIcon(e.category)}
+        <div class="feed-main"><b>${esc(e.label)}</b><span>${e.note ? esc(e.note) : '<span class="muted">izohsiz</span>'}</span></div>
+        <span class="feed-proj">${e.project ? `${dot(color(e.project_id))}${esc(e.project)}` : '<span class="feed-gen">Umumiy</span>'}</span>
+        <span class="feed-by" title="Kiritdi">${esc(e.by || '—')}</span>
+        <span class="feed-sum"><b>${fmtSom(e.uzs)}</b>${e.currency === 'usd' ? `<small>${fmtUsd(e.amount)}</small>` : ''}</span>
+        ${editable ? `<span class="feed-act"><button type="button" class="btn small ghost icon" data-edit title="Tuzatish" aria-label="Tuzatish">${ICONS.edit}</button><button type="button" class="btn small ghost icon" data-del title="O'chirish" aria-label="O'chirish">${ICONS.trash}</button></span>` : ''}
+      </div>`).join('')}</div>`).join('')}</div>`
       : '<div class="empty">Bu oyda hali yozuv yo\'q</div>'}</div>`;
 }
 
@@ -88,7 +122,7 @@ function bindEntry(root, kind, cats, items, rerender) {
     expenseDrawer(kind, cats, null, rerender);
   }
   root.addEventListener('click', async (e) => {
-    const row = e.target.closest('tr[data-eid]');
+    const row = e.target.closest('[data-eid]');
     if (!row) return;
     const it = items.find((x) => String(x.id) === row.dataset.eid);
     if (e.target.closest('[data-edit]')) { expenseDrawer(kind, cats, it, rerender); return; }

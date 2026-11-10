@@ -591,7 +591,6 @@ table.wt .wt-sum.pos-c { background: var(--lime-soft); color: #3d5800; }
 .wm-rev { color: var(--violet-ink); }
 .wm-legend .l-rev::before { background: var(--violet); } .wm-legend .l-ad::before { background: var(--coral); }
 .wt-total { background: var(--violet-soft); border-radius: 16px; }
-.grid-entry .grp-h span { background: var(--violet-soft); color: var(--violet-ink); }
 .rate-in { border-radius: 16px; }
 .rate-in.need { background: #fff4dc; }
 
@@ -629,3 +628,24 @@ table.wt .wt-sum.pos-c { background: var(--lime-soft); color: #3d5800; }
 .drawer-foot .btn.primary { border-radius: 999px; }
 .in-big input { background: var(--surface-2); }
 table.click-list tbody tr:hover td { background: var(--violet-soft); }
+
+/* ---------- Kartalar, reyting, lenta — demo ranglari ---------- */
+.pcard { border: 0; background: #fff; box-shadow: 0 0 0 1px var(--border), 0 14px 30px -26px rgba(80, 50, 200, .45); border-radius: 24px; }
+.pod { border-radius: 18px; }
+.pod.t-violet { --tc: var(--violet); --tb: var(--violet-soft); }
+.pod.t-sky { --tc: var(--sky); --tb: #eaf3ff; }
+.pod.t-lime { --tc: #4a6800; --tb: var(--lime-soft); }
+.pod.t-coral { --tc: var(--coral); --tb: #fff0e6; }
+.pod.t-amber { --tc: #b45309; --tb: #fff4dc; }
+.pod.t-mint { --tc: #0f8a5f; --tb: #e4f8ef; }
+.pin .cell-in { background: #fff; }
+.calc-chip { background: var(--surface-2); }
+.pc-ok { background: var(--lime-soft); color: #3d5800; }
+.lb-card { border-top: 0; box-shadow: 0 0 0 1px var(--border), 0 14px 30px -26px rgba(80, 50, 200, .45); }
+.lb-list li { background: var(--surface-2); }
+.lb-conv.top { background: linear-gradient(135deg, var(--violet-2), var(--violet)); }
+.b-sale { background: var(--violet); } .b-wip { background: #b9a9ff; } .b-canc { background: var(--coral); } .b-unq { background: #dcd8ec; }
+.lb-sum .lb-tc { background: var(--violet-soft); color: var(--violet-ink); }
+.lb-sum .lb-tc b { color: var(--violet-ink); }
+.feed-it:hover { background: var(--violet-soft); }
+.feed-act .btn.confirm { background: var(--rose-soft); color: var(--rose-ink); }
