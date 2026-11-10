@@ -27,7 +27,7 @@ export async function renderControl() {
   state.leaveGuard = null;
   state.isDirty = null;
   const r = range(ctl.period);
-  shell(`<div class="page-head"><div><h1>Nazorat</h1><div class="sub">Pul qayerga ketyapti, 1 mijoz necha pulga tushyapti va kim qayerda xato qilyapti — hamma bo'limlar bitta joyda</div></div>
+  shell(`<div class="page-head"><div><h1>Nazorat</h1><div class="sub">Kim qayerda xato qilyapti va pul qayerga ketyapti</div></div>
       <div class="filters"><div class="seg" id="ctlPer">${PERIODS.map(([k, l]) => `<button type="button" data-p="${k}" class="${ctl.period === k ? 'on' : ''}">${l}</button>`).join('')}</div>
       <span class="muted small">${shortDate(r.from)} – ${shortDate(r.to)}</span></div></div>
     <div id="ctl">${spinnerBlock()}</div>`);
@@ -69,15 +69,15 @@ function kpiBlock(c) {
     <div class="kpi"><div class="top"><span class="label">Tushum</span>${ch(t.revenue, t.prev.revenue)}</div><div class="value">${mln(t.revenue)}<small>so'm</small></div><div class="sub">${fmtN(t.sales)} ta sotuv · ${fmtN(t.leads)} ta lid</div></div>
     <div class="kpi"><div class="top"><span class="label">Jami xarajat</span></div><div class="value">${mln(t.costs)}<small>so'm</small></div><div class="sub">reklama ${mln(t.spend_uzs)} · marketing ${mln(t.marketing_uzs)}</div></div>
     <div class="kpi"><div class="top"><span class="label">Sof foyda</span>${ch(t.net, t.prev.net)}</div><div class="value"><span class="${t.net < 0 ? 'neg' : 'pos'}">${t.net < 0 ? '−' : '+'}${mln(Math.abs(t.net))}</span><small>so'm</small></div><div class="sub">marja ${fmtP(t.margin, 1)}</div></div>
-    <div class="kpi"><div class="top"><span class="label">1 mijoz narxi</span>${ch(t.cac_full_uzs, t.prev.cac_full_uzs, true)}</div><div class="value">${mln(t.cac_full_uzs)}<small>so'm</small></div><div class="sub">reklama + marketing ÷ sotuv</div></div>
-    <div class="kpi"><div class="top"><span class="label">ROMI</span></div><div class="value">${fmtP(t.romi, 0)}</div><div class="sub">reklama va marketingga 1 so'm → ${t.romi != null ? fmtN(1 + t.romi, 2) : '—'} so'm</div></div>
+    <div class="kpi"><div class="top"><span class="label">1 mijoz narxi</span>${ch(t.cac_full_uzs, t.prev.cac_full_uzs, true)}</div><div class="value">${mln(t.cac_full_uzs)}<small>so'm</small></div><div class="sub">reklama + marketing</div></div>
+    <div class="kpi"><div class="top"><span class="label">ROMI</span></div><div class="value">${fmtP(t.romi, 0)}</div><div class="sub">1 so'm → ${t.romi != null ? fmtN(1 + t.romi, 2) : '—'} so'm</div></div>
   </div>`;
 }
 
 // ---------- 3. Kim qayerda xato qilyapti ----------
 function ownersBlock(c) {
   const issue = (i) => `<li class="iss ${i.level}"><span class="iss-dot"></span><span>${i.project ? `<b>${esc(i.project)}:</b> ` : ''}${esc(i.text)}</span></li>`;
-  return `<section class="card mb"><div class="card-head"><h2>Javobgarlik — kim qayerda kamchilik qilyapti</h2><span class="muted small">ball: 100 dan har jiddiy muammo −20, diqqat −8, ma'lumot −3</span></div>
+  return `<section class="card mb"><div class="card-head"><h2>Kim qayerda kamchilik qilyapti</h2><span class="muted small" title="100 dan: jiddiy −20, diqqat −8, ma'lumot −3">ball — 100 dan</span></div>
     <div class="owner-grid">${c.owners.map((o) => `<article class="owner ${o.status}">
       <header><span class="o-ic">${OWNER_IC[o.key]}</span><div><b>${esc(o.label)}</b><small>${o.people.length ? esc(o.people.join(', ')) : 'xodim biriktirilmagan'}</small></div>
         <span class="o-score" style="--s:${o.score}"><b>${o.score}</b></span></header>
@@ -90,8 +90,8 @@ function bindOwners() { /* details — brauzerning o'zi ochadi */ }
 
 // ---------- 4. Pul: 1 mijoz narxi va chegarasi ----------
 function econBlock(c) {
-  const verdictPill = (v) => (v ? `<span class="pill ${LEVEL[v.level]?.[0] || 'info'}" title="${esc(v.text)}">${{ nosale: "Sotuv yo'q", over: "Ko'p sarflanyapti", volume: 'Hajm yetmayapti', under: 'Oshirsa bo\'ladi', ok: "Me'yorida" }[v.key] || ''}</span>` : '<span class="muted small">ma\'lumot kam</span>');
-  return `<section class="card mb"><div class="card-head"><h2>Pul — 1 mijoz necha pulga tushyapti</h2><span class="muted small">chegara — 1 sotuvdan tannarxdan keyin qoladigan pul: 1 sotuvning reklamasi undan qimmat bo'lsa — har sotuv zarar</span></div>
+  const verdictPill = (v) => (v ? `<span class="pill ${LEVEL[v.level]?.[0] || 'info'}" title="${esc(v.text)}">${{ nosale: "Sotuv yo'q", over: "Ko'p sarflanyapti", volume: 'Hajm kam', under: 'Oshirsa bo\'ladi', ok: "Me'yorida" }[v.key] || ''}</span>` : '<span class="muted small">ma\'lumot kam</span>');
+  return `<section class="card mb"><div class="card-head"><h2>1 mijoz necha pulga tushyapti</h2><span class="muted small" title="1 sotuvdan tannarxdan keyin qoladigan pul. 1 sotuvning reklamasi undan qimmat bo'lsa — har sotuv zarar">chegara — 1 sotuvdan qoladigan pul</span></div>
     <div class="table-wrap"><table class="econ"><thead><tr><th>Loyiha</th><th class="n">Tushum</th><th class="n">Reklama</th><th class="n">Marketing</th><th class="n">Lid / sotuv</th><th class="n">1 lid</th><th class="n">1 mijoz</th><th class="n">Chegara</th><th class="n">Sof foyda</th><th>Xulosa</th></tr></thead>
     <tbody>${c.projects.map((p) => {
       const pct = p.contribution > 0 && p.cac_full_uzs ? Math.min(1.5, p.cac_full_uzs / p.contribution) : null;
@@ -108,7 +108,7 @@ function forecastBlock(c) {
   const list = c.projects.filter((p) => p.model?.unit_cost && p.model?.rate);
   if (!list.length) return '';
   if (!list.some((p) => p.id === ctl.fcProject)) { ctl.fcProject = list[0].id; ctl.fcBudget = null; }
-  return `<section class="card mb fc"><div class="card-head"><h2>Agar … tiksak — qancha keladi?</h2><span class="muted small">shu davrdagi lid narxi, konversiya va o'rtacha chek asosida, oyiga</span></div>
+  return `<section class="card mb fc"><div class="card-head"><h2>Agar … tiksak — qancha keladi?</h2><span class="muted small">oyiga, taxminiy</span></div>
     <div class="fc-in">
       <div class="field">Loyiha${selectHtml(list.map((p) => [String(p.id), p.name]), String(ctl.fcProject), 'id="fcProj"', 'Loyiha')}</div>
       <label class="field">Reklama byudjeti, oyiga ($)<input id="fcBudget" inputmode="decimal"></label>
@@ -144,7 +144,7 @@ function bindForecast(box, c) {
       const cls = Math.abs(d) < 1e-9 ? '' : (inv ? d < 0 : d > 0) ? 'pos' : 'neg';
       return `<div class="fc-cell"><small>${label}</small><b>${fmt(b)}</b><span class="${cls}">hozirgi sur'at: ${fmt(a)}</span></div>`;
     };
-    out.innerHTML = `${m.enough ? '' : '<div class="insight warning"><span class="ic">Diqqat</span><span>Shu davrda lid/sotuv kam — prognoz taxminiy. Uzoqroq davrni tanlang (30 kun).</span></div>'}
+    out.innerHTML = `${m.enough ? '' : '<div class="insight warning"><span class="ic">Diqqat</span><span>Raqam kam — «30 kun»ni tanlang</span></div>'}
       <div class="fc-grid">
         ${m.kind === 'auto' ? '' : cell('Lid', now.leads, f.leads, (x) => fmtN(x))}
         ${cell('Sotuv', now.sales, f.sales, (x) => fmtN(x, x < 10 ? 1 : 0))}
@@ -153,11 +153,10 @@ function bindForecast(box, c) {
         ${cell('1 mijoz (reklama + marketing)', now.cac, f.cac, (x) => (x == null ? '—' : `${mln(x)} so'm`), true)}
         ${cell('Sof foyda', now.profit, f.profit, (x) => `${x < 0 ? '−' : '+'}${mln(Math.abs(x))} so'm`)}
       </div>
-      ${best ? `<div class="fc-best">${ICONS.bulb}<span>Eng ko'p foyda — taxminan <b>${fmtUsd(best.budget, 0)}/oy</b> byudjetda: sof foyda ${best.profit < 0 ? '−' : '+'}${mln(Math.abs(best.profit))} so'm.
-        ${best.budget > m.spend_month * 1.15 ? `Hozir ${fmtUsd(m.spend_month, 0)} — <b>kam sarflayapmiz</b>, byudjetni bosqichma-bosqich oshirib, lid narxini kuzating.` : best.budget < m.spend_month * 0.85 ? `Hozir ${fmtUsd(m.spend_month, 0)} — <b>ko'p sarflayapmiz</b>: qimmat kanal va kreativlarni qisqartiring.` : `Hozir ${fmtUsd(m.spend_month, 0)} — <b>me'yorida</b>.`}
-        ${best.profit < 0 ? ` <b>Eng yaxshi byudjetda ham zarar</b> — muammo reklamada emas: tannarx (${fmtP(m.var_pct, 0)}), doimiy xarajat yoki marketingni qayta ko'rish kerak.` : ''}</span>
-        <button type="button" class="btn small" data-best="${Math.round(best.budget)}">Shu byudjetni ko'rish</button></div>` : ''}
-      <p class="muted small" style="margin:8px 0 0">Taxmin: byudjet 2 barobar oshsa, auditoriya kengayib 1 lid ~19% qimmatlashadi deb olinadi. Konversiya, chek, marketing va doimiy xarajat — shu davrdagidek. Haqiqiy natija kreativ va sotuv bo'limiga bog'liq.</p>`;
+      ${best ? `<div class="fc-best">${ICONS.bulb}<span>Eng foydali byudjet — <b>${fmtUsd(best.budget, 0)}/oy</b> (hozir ${fmtUsd(m.spend_month, 0)}): ${best.budget > m.spend_month * 1.15 ? '<b>kam sarflayapmiz</b>' : best.budget < m.spend_month * 0.85 ? '<b>ko\'p sarflayapmiz</b>' : '<b>me\'yorida</b>'}.
+        ${best.profit < 0 ? ` Unda ham zarar — muammo reklamada emas: tannarx (${fmtP(m.var_pct, 0)}) yoki doimiy xarajat.` : ''}</span>
+        <button type="button" class="btn small" data-best="${Math.round(best.budget)}">Ko'rish</button></div>` : ''}
+      <p class="muted small" style="margin:8px 0 0" title="Byudjet 2 barobar oshsa, 1 lid ~19% qimmatlashadi deb olinadi; konversiya, chek, marketing va doimiy xarajat — shu davrdagidek">Taxmin — shu davr raqamlari asosida</p>`;
     const bb = $('[data-best]', out);
     if (bb) bb.onclick = () => setBudget(Number(bb.dataset.best));
   };
@@ -172,7 +171,7 @@ function disciplineBlock(c) {
   const d = c.discipline;
   if (!d.rows.length) return '';
   const pill = (lv) => `<span class="pill ${LEVEL[lv][0]}">${{ good: 'Vaqtida', warn: 'Diqqat', crit: 'Yomon' }[lv]}</span>`;
-  return `<section class="card mb"><div class="card-head"><h2>Intizom — hisobotlar vaqtida kiritilyaptimi</h2><span class="muted small">kunlik hisobot ertasiga: xodimlar ${esc(d.staff_deadline)} gacha, PM ${esc(d.report_deadline)} gacha · ${d.days} kun</span></div>
+  return `<section class="card mb"><div class="card-head"><h2>Intizom — hisobot vaqtida kiritilyaptimi</h2><span class="muted small">muddat: xodim ${esc(d.staff_deadline)}, PM ${esc(d.report_deadline)}</span></div>
     <div class="table-wrap"><table class="disc"><thead><tr><th>Xodim</th><th>Nima kiritadi</th><th class="n">Vaqtida</th><th class="n">Kechikib</th><th class="n">Kiritilmagan</th><th>Vaqti</th><th></th></tr></thead>
     <tbody>${d.rows.map((r) => {
       if (r.entries != null) {
@@ -192,9 +191,9 @@ function disciplineBlock(c) {
 // ---------- 7. Takliflar va AI ----------
 function adviceBlock(c) {
   const who = { target: 'Targetolog', rop: "Sotuv bo'limi", marketing: 'Marketing', pm: 'PM' };
-  return `<section class="card mb advice"><div class="card-head"><h2>Takliflar — nima qilish kerak</h2>
+  return `<section class="card mb advice"><div class="card-head"><h2>Nima qilish kerak</h2>
       <button type="button" class="btn small ${c.ai?.enabled ? 'primary' : ''}" id="aiBtn" ${c.ai?.enabled ? '' : `title="${esc(c.ai?.reason || 'AI ulanmagan')}"`}>${ICONS.bulb} AI tahlil</button></div>
-    <div id="aiOut">${c.ai?.enabled ? '' : `<div class="insight info"><span class="ic">AI</span><span>${esc(c.ai?.reason || 'AI ulanmagan')}. Quyidagi takliflar — tizim qoidalari bo'yicha.</span></div>`}</div>
+    <div id="aiOut"></div>
     ${c.advice.length ? `<ol class="adv-list">${c.advice.map((a) => `<li class="${a.level}"><span class="pill ${LEVEL[a.level]?.[0] || 'info'}">${esc(who[a.owner] || 'Rahbar')}</span><span>${esc(a.text)}</span></li>`).join('')}</ol>`
       : `<p class="o-ok">${ICONS.check} Jiddiy taklif yo'q — hammasi me'yorida.</p>`}
   </section>`;

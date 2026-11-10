@@ -606,7 +606,7 @@ export const SECTION_NAV = [
 // Ruxsat yo'q bo'limda ko'rsatiladigan eslatma
 export function viewNote(section) {
   if (canEditSection(section)) return '';
-  return `<div class="view-note">${ICONS.eye}<div><b>Ko'rish rejimi</b><span>Bu bo'limni hamma ko'radi, lekin kiritish va tuzatish — faqat ruxsati borlarga. Ruxsatni proekt menejer beradi (Sozlamalar → Xodimlar).</span></div></div>`;
+  return `<div class="view-note">${ICONS.eye}<div><b>Faqat ko'rish</b><span>Kiritish uchun ruxsatni PM beradi</span></div></div>`;
 }
 
 // Menyu hamma uchun bir xil: «Umumiy» — ko'rish sahifalari, «Bo'limlar» — har bo'limning kiritish sahifasi.
@@ -647,7 +647,7 @@ export function shell(content) {
   destroyCharts();
   const route = location.hash.split('?')[0] || '#/';
   const { groups, bottom } = navItems();
-  const active = (href) => route === href || (href !== '#/' && route.startsWith(href)) || (href === '#/' && route.startsWith('#/loyiha/'));
+  const active = (href) => route === href || (href !== '#/' && route.startsWith(`${href}/`)) || (href === '#/' && route.startsWith('#/loyiha/'));
   const link = ([href, label, icon, badge, cls = '']) => `<a href="${href}" class="${active(href) ? 'active' : ''} ${cls}" title="${label}${cls.includes('own') ? ' — sizning bo\'limingiz' : ''}"><span class="ic">${icon}</span><span>${label}</span>${badge ? `<span class="badge">${badge}</span>` : ''}</a>`;
   const u = state.me.user;
   const all = groups.flatMap(([, list]) => list);

@@ -204,7 +204,7 @@ export async function renderDynamics(inside = false) {
   const isDays = V[0] === 'days' && f.dList?.length > 0;
   const isCmp = isMon || isDays;
   const projects = state.projects.filter((x) => x.active);
-  shell(`<div class="page-head"><div><h1>Dinamika</h1><div class="sub">${V[4]}: o'syapmizmi yoki pasayyapmizmi</div></div>
+  shell(`<div class="page-head"><div><h1>Dinamika</h1><div class="sub">${V[4]}</div></div>
       <div class="filters">${isDay ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-dd="1" aria-label="Oldingi kun">‹</button><b>${shortDate(dSel)}${f.day ? '' : dBase === 2 ? ' · 3 kun oldin' : dBase ? ' · kechadan oldin' : ' · kecha'}</b><button type="button" class="btn small icon" data-dd="-1" aria-label="Keyingi kun" ${f.day ? '' : 'disabled'}>›</button></span>` : ''}${isWk ? `<span class="month-nav wk-nav"><button type="button" class="btn small icon" data-wk="1" aria-label="${isMo ? 'Oldingi oy' : 'Oldingi hafta'}">‹</button><b>${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`}</b><button type="button" class="btn small icon" data-wk="-1" aria-label="${isMo ? 'Keyingi oy' : 'Keyingi hafta'}" ${(isMo ? f.month : f.week) ? '' : 'disabled'}>›</button></span>` : ''}</div></div>
     <div class="dyn-bar"><div class="seg" id="dynMonths">${VIEWS.filter((v) => v[0] !== 'days').map((v) => `<button data-m="${v[0]}" class="${V[0] === v[0] && !f.pick ? 'on' : ''}" ${v[0] === 'mon' ? `aria-expanded="${isMon && f.mOpen}"` : ''}>${v[1]}${v[0] === 'mon' ? `<span class="mp-caret ${isMon && f.mOpen ? 'open' : ''}">›</span>` : ''}</button>`).join('')}</div>
       ${isMon && f.mOpen ? `<div class="seg mon-seg ${f.mAnim ? 'mp-in' : ''}" id="dynMp" role="group" aria-label="Oylar — solishtirish uchun bir nechtasini belgilang"><span class="mp-year"><button type="button" data-my="-1" aria-label="Oldingi yil">‹</button><b>${f.mYear}</b><button type="button" data-my="1" aria-label="Keyingi yil" ${f.mYear >= Number(yMon.slice(0, 4)) ? 'disabled' : ''}>›</button></span>${MSHORT.map((n, i) => { const m = `${f.mYear}-${String(i + 1).padStart(2, '0')}`; const on = isMon && f.mSel.includes(m); return `<button type="button" data-ms="${m}" class="mp-m ${on ? 'on' : ''}" aria-pressed="${on}" title="${esc(monthLabel(m))}" ${m > yMon ? 'disabled' : ''}><b>${i + 1}</b><small>${n}</small></button>`; }).join('')}</div>` : ''}
@@ -271,7 +271,7 @@ export async function renderDynamics(inside = false) {
   // Hafta/oy/kun ko'rinishida kunlar doim ko'rsatiladi (bir kun kiritilgan bo'lsa ham); qolganlarida — birinchi ma'lumotli davrdan
   const months = isWk || isDay || isCmp ? data : data.filter((m, i) => m.has || data.slice(0, i).some((x) => x.has));
   const anyData = months.some((m) => m.has);
-  if (!months.length || (!anyData && !isWk && !isDay)) { box.innerHTML = '<div class="card empty">Hali ma\'lumot yo\'q — kunlik raqamlar kiritilgach davrlar shu yerda solishtiriladi.</div>'; return; }
+  if (!months.length || (!anyData && !isWk && !isDay)) { box.innerHTML = '<div class="card empty">Hali ma\'lumot yo\'q</div>'; return; }
 
   const auto = f.project && projects.find((p) => String(p.id) === String(f.project))?.kind === 'auto';
   // «Hammasi»da mijoz narxi va o'rtacha chek arzon avtovoronka bilan aralashib ma'nosini yo'qotadi — faqat loyiha tanlanganda
@@ -316,7 +316,7 @@ export async function renderDynamics(inside = false) {
         const d = chg(P, L, k);
         const dcls = d == null || !good || Math.abs(d) < 0.03 ? '' : (d > 0) === (good > 0) ? 'up' : 'down';
         return `<div class="m-hero ${cls} dp-hero"><span class="m-ic">${icon}</span><div><small>${label}</small><b>${fmt(L[k])}</b>
-          <span class="m-sub">${d == null ? sub : `<span class="dp-d ${dcls}">${d > 0 ? '▲' : '▼'} ${Math.abs(d) >= 10 ? '>999' : fmtN(Math.abs(d) * 100, 0)}%</span> ${unitWord}`}</span></div>
+          <span class="m-sub">${d == null ? sub : `<span class="dp-d ${dcls}">${d > 0 ? '▲' : '▼'} ${Math.abs(d) >= 10 ? '>999' : fmtN(Math.abs(d) * 100, 0)}%</span>`}</span></div>
           ${spark(months.map((m) => row(m)?.[k] ?? 0), cls)}</div>`;
       };
       const loss = (L.net_profit || 0) < 0;
@@ -325,51 +325,74 @@ export async function renderDynamics(inside = false) {
         ${`
         ${hero('ad', M_IC.ad, 'Reklama', 'spend', (x) => fmtUsd(x, 0), 0, `${fmtUzs(L.spend_uzs)} so'm`)}
         ${hero('rev', M_IC.rev, 'Tushum', 'revenue', (x) => `${fmtUzs(x)}<i>so'm</i>`, 1, `${fmtN(L.sales)} ta sotuv`)}
-        ${hero(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar' : 'Sof foyda', 'net_profit', (x) => `${signed(x, false)}<i>so'm</i>`, 1, 'barcha xarajatdan keyin')}`}
+        ${hero(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar' : 'Sof foyda', 'net_profit', (x) => `${signed(x, false)}<i>so'm</i>`, 1, '')}`}
       </section>`;
     }).join('');
     return cards ? `<div class="dp-grid">${cards}</div>` : '';
   }
 
-  // Hafta: dushanbadan yakshanbagacha 7 qator — reklama, tushum, sof foyda; pastda jami
-  // Hafta: har loyiha uchun 7 ta kun kartasi (Dushanba … Yakshanba) + hafta jami; har kartada reklama, tushum, sof foyda
+  // Hafta / tanlangan kunlar / oylar — ixcham jadval: qatorlar (reklama, tushum, sotuv, sof foyda), ustunlar — davrlar va jami.
+  // Oy (kunma-kun) — kalendar: har katakda tushum, sof foyda va reklama (rang bilan farqlanadi, yozuvsiz).
+  // ▲▼ — oldingi kunga (oyga) nisbatan; foizi — sichqoncha ustiga olib borganda
   function weekDays(p, row) {
-    const DAYS = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'];
+    const WD2 = ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'];
+    const wd = (d) => (new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7;
     const list = [];
-    // Oylar: tanlangan davrning har bir oyi yonma-yon (ma'lumotsiz oylar ham)
-    if (isMon) for (const m of data) list.push({ head: esc(monthLabel(m.month)), name: m.partial ? `${m.days} kun` : '', r: m.has ? row(m) : null, days: m.days });
-    else if (isDays) for (const m of data) list.push({ head: `${shortDate(m.from)}.${m.from.slice(2, 4)}`, name: DAYS[(new Date(`${m.from}T00:00:00Z`).getUTCDay() + 6) % 7], r: m.has ? row(m) : null, days: 1 });
+    if (isMon) for (const m of data) list.push({ head: MSHORT[Number(m.month.slice(5, 7)) - 1], sub: `${m.month.slice(0, 4)}${m.partial ? ` · ${m.days} kun` : ''}`, r: m.has ? row(m) : null, days: m.days });
+    else if (isDays) for (const m of data) list.push({ head: WD2[wd(m.from)], sub: shortDate(m.from), r: m.has ? row(m) : null, days: 1 });
     else for (let d = pStart; d <= pEnd; d = addDays(d, 1)) {
       const m = months.find((x) => x.from === d);
-      list.push({ head: shortDate(d), name: DAYS[(new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7], d, r: m?.has ? row(m) : null, future: d > yday, days: 1 });
+      list.push({ head: WD2[wd(d)], sub: shortDate(d), d, r: m?.has ? row(m) : null, future: d > yday, days: 1 });
     }
     const tot = { spend: 0, spend_uzs: 0, revenue: 0, net_profit: 0, sales: 0 };
     for (const x of list) if (x.r) for (const k of Object.keys(tot)) tot[k] += x.r[k] || 0;
-    const delta = (cur, prevR, k, good, dc = 1, dp = 1) => {
-      // Oylar: tugamagan oy to'liq oy bilan kunlik sur'atda solishtiriladi
-      const a = cur?.[k] == null ? null : cur[k] / dc, b0 = prevR?.[k] == null ? null : prevR[k] / dp;
+    const filled = list.filter((x) => x.r).length;
+    // O'zgarish belgisi: oylar kunlik sur'atda solishtiriladi (tugamagan oy — to'liq oy bilan)
+    const arrow = (cur, prevX, k, good) => {
+      const a = cur?.r?.[k] == null ? null : cur.r[k] / cur.days, b0 = prevX?.r?.[k] == null ? null : prevX.r[k] / prevX.days;
       if (a == null || b0 == null || b0 === 0) return '';
       const d = (a - b0) / Math.abs(b0);
+      if (Math.abs(d) < 0.005) return '';
       const cls = !good || Math.abs(d) < 0.03 ? '' : (d > 0) === (good > 0) ? 'up' : 'down';
-      return `<span class="wd-delta dp-d ${cls}">${d > 0 ? '▲' : '▼'} ${Math.abs(d) >= 10 ? '>999' : fmtN(Math.abs(d) * 100, 0)}%</span>`;
+      return `<i class="ar ${cls}" title="${d > 0 ? '+' : '−'}${Math.abs(d) >= 10 ? '>999' : fmtN(Math.abs(d) * 100, 0)}% — ${isMon ? 'oldingi oyga' : 'oldingi kunga'}">${d > 0 ? '▲' : '▼'}</i>`;
     };
-    const heroes = (r, prevR, dc, dp) => {
-      const loss = (r.net_profit || 0) < 0;
-      const h = (cls, icon, label, value, sub) => `<div class="m-hero ${cls} wd-hero"><span class="m-ic">${icon}</span><div><small>${label}</small><b>${value}</b><span class="m-sub">${sub}</span></div></div>`; // ▲▼ — o'ng yuqori burchakda
-      return h('ad', M_IC.ad, 'Reklama', fmtUsd(r.spend, 0), `${fmtUzs(r.spend_uzs)} so'm${delta(r, prevR, 'spend', 0, dc, dp)}`)
-        + h('rev', M_IC.rev, 'Tushum', `${fmtUzs(r.revenue)}<i>so'm</i>`, `${fmtN(r.sales)} ta sotuv${delta(r, prevR, 'revenue', 1, dc, dp)}`)
-        + h(loss ? 'loss' : 'profit', loss ? M_IC.down : M_IC.up, loss ? 'Zarar' : 'Sof foyda', `${signed(r.net_profit, false)}<i>so'm</i>`, `xarajatdan keyin${delta(r, prevR, 'net_profit', 1, dc, dp)}`);
+    const ROWS_W = [
+      ['spend', 'Reklama, $', (v) => fmtN(v, 0), 0],
+      ['revenue', "Tushum, so'm", (v) => fmtUzs(v), 1],
+      ['sales', 'Sotuv', (v) => fmtN(v), 1],
+      ['net_profit', "Sof foyda, so'm", (v) => signed(v, false), 1],
+    ];
+    const totalLabel = isDays ? 'Jami' : isMon ? 'Jami' : isMo ? 'Oy' : 'Hafta';
+    const range = isMon || isDays ? `${list.length} ${isMon ? 'oy' : 'kun'}` : isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`;
+    const head = `<div class="wt-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${range}</span></div>`;
+
+    if (isMo) {
+      // Kalendar: dushanbadan boshlanadi; oyning birinchi kunigacha bo'sh kataklar
+      const lead = wd(mFirst);
+      const cells = '<div class="wm-cell blank"></div>'.repeat(lead) + list.map((x, i) => {
+        if (!x.r) return `<div class="wm-cell ${x.future ? 'future' : 'none'}"><span class="wm-d">${Number(x.d.slice(8))}</span></div>`;
+        const neg = (x.r.net_profit || 0) < 0;
+        return `<div class="wm-cell ${neg ? 'neg' : ''}" title="${esc(prettyDate(x.d))}: ${fmtN(x.r.sales)} ta sotuv"><span class="wm-d">${Number(x.d.slice(8))}</span>
+          <b class="wm-rev">${fmtUzs(x.r.revenue)}${arrow(x, list[i - 1], 'revenue', 1)}</b>
+          <span class="wm-net ${neg ? 'neg' : 'pos'}">${signed(x.r.net_profit, false)}</span>
+          <span class="wm-ad">$${fmtN(x.r.spend, 0)}</span></div>`;
+      }).join('');
+      return `<section class="card wt-card" style="--pc:${esc(p.color || '#4c86ff')}">${head}
+        <div class="wm-legend"><span class="l-rev">Tushum</span><span class="l-net">Sof foyda</span><span class="l-ad">Reklama</span><span class="muted">so'm · reklama — $</span></div>
+        <div class="wm"><div class="wm-wd">${WD2.map((d) => `<span>${d}</span>`).join('')}</div><div class="wm-grid">${cells}</div></div>
+        <div class="wt-total"><span>Oy jami <small>${filled} kun</small></span><span>Reklama <b>${fmtUsd(tot.spend, 0)}</b></span><span>Tushum <b>${fmtUzs(tot.revenue)}</b></span><span>Sotuv <b>${fmtN(tot.sales)}</b></span><span>Sof foyda <b class="${tot.net_profit < 0 ? 'neg' : 'pos'}">${signed(tot.net_profit, false)}</b></span></div></section>`;
+    }
+
+    const td = (x, i, k, fmt, good) => {
+      if (!x.r) return `<td class="n ${x.future ? 'future' : 'none'}">—</td>`;
+      const v = x.r[k];
+      const cls = k === 'net_profit' ? ((v || 0) < 0 ? 'neg-c' : 'pos-c') : '';
+      return `<td class="n ${cls}">${v == null ? '—' : fmt(v)}${arrow(x, list[i - 1], k, good)}</td>`;
     };
-    // Kalendar: dushanbadan boshlanadi — oyning birinchi kunigacha bo'sh kataklar
-    const lead = isMo ? (new Date(`${mFirst}T00:00:00Z`).getUTCDay() + 6) % 7 : 0;
-    const cards = '<div class="wd-blank"></div>'.repeat(lead) + list.map((x, i) => `<div class="wd-card ${x.r ? '' : 'empty'}"><div class="wd-head"><b>${x.head}</b><span>${x.name}</span></div>
-      ${x.r ? heroes(x.r, list[i - 1]?.r, x.days, list[i - 1]?.days) : `<div class="wd-none">${x.future ? 'hali kelmagan' : 'kiritilmagan'}</div>`}</div>`).join('');
-    const title = isDays ? 'Tanlangan kunlar jami' : isMon ? 'Tanlangan oylar jami' : isMo ? 'Oy jami' : 'Hafta jami';
-    const span = isDays ? `${list.length} kun · ▲▼ chapdagi kunga nisbatan` : isMon ? `${list.length} oy · ▲▼ chapdagi oyga nisbatan (kunlik sur'atda)` : `${isMo ? esc(monthLabel(mFirst.slice(0, 7))) : `${shortDate(monday)} – ${shortDate(sunday)}`} · ▲▼ oldingi kunga`;
-    const cols = isCmp ? ` style="--mc:${Math.min(list.length, 6)}"` : '';
-    return `<section class="card wd-proj" style="--pc:${esc(p.color || '#4c86ff')}"><div class="dp-head">${dot(p.color)}<b>${esc(p.name)}</b><span class="muted small">${span}</span></div>
-      <div class="wd-grid ${isCmp ? 'mon-grid' : ''}"${cols}>${cards}</div>
-      <div class="wd-card total wd-total"><div class="wd-head"><b>${title}</b><span>${isMon && !isDays ? `${list.filter((x) => x.r).length} oy` : `${list.filter((x) => x.r).length} kun`}</span></div><div class="wd-total-row">${heroes(tot)}</div></div></section>`;
+    return `<section class="card wt-card" style="--pc:${esc(p.color || '#4c86ff')}">${head}
+      <div class="table-wrap"><table class="wt"><thead><tr><th></th>${list.map((x) => `<th class="n ${x.future ? 'future' : ''}"><b>${x.head}</b><small>${x.sub}</small></th>`).join('')}<th class="n wt-sum"><b>${totalLabel}</b><small>${filled} ${isMon ? 'oy' : 'kun'}</small></th></tr></thead>
+      <tbody>${ROWS_W.map(([k, label, fmt, good]) => `<tr class="wt-${k}"><th>${label}</th>${list.map((x, i) => td(x, i, k, fmt, good)).join('')}
+        <td class="n wt-sum ${k === 'net_profit' ? (tot.net_profit < 0 ? 'neg-c' : 'pos-c') : ''}">${filled ? fmt(tot[k]) : '—'}</td></tr>`).join('')}</tbody></table></div></section>`;
   }
 
 
@@ -383,14 +406,14 @@ export async function renderDynamics(inside = false) {
 
   // Kun ko'rinishi: tanlangan kun raqamlari kiritilmagan bo'lsa — ochiq aytiladi
   if (isDay && !months.at(-1)?.has) {
-    box.innerHTML = `<div class="card empty">${shortDate(dSel)} raqamlari hali kiritilmagan. <a href="#/kiritish">Kechagi hisobot</a> bo'limida kiriting yoki ‹ bilan oldingi kunni oching.</div>`;
+    box.innerHTML = `<div class="card empty">${shortDate(dSel)} raqamlari hali kiritilmagan</div>`;
     return;
   }
   // Hafta/oy: hech bir kun kiritilmagan bo'lsa ham kunlar kartasi chiqadi (grafik va jadvalsiz)
   if (!anyData) { box.innerHTML = rvHtml + projCards(); bindReview(box, review); return; }
-  box.innerHTML = `${rvHtml}${projCards()}<div class="card"><div class="card-head"><h2>Tushum va barcha xarajat</h2><span class="muted small">reklama + tannarx + doimiy xarajat, so'm</span></div>
+  box.innerHTML = `${rvHtml}${projCards()}<div class="card"><div class="card-head"><h2>Tushum va xarajat</h2><span class="muted small">so'm</span></div>
       <div class="chart-box"><canvas aria-label="Oylar bo'yicha tushum va xarajat"></canvas></div></div>
-    <div class="card mt"><div class="card-head"><h2>Ko'rsatkichlar</h2><span class="muted small">▲▼ — ${V[2] === 'day' ? 'oldingi kunga' : V[2] === 'week' ? 'oldingi haftaga' : 'o\'tgan oyga'} nisbatan${V[2] === 'day' ? '' : '; summalar kunlik sur\'atda solishtiriladi'}</span></div>
+    <div class="card mt"><div class="card-head"><h2>Ko'rsatkichlar</h2><span class="muted small">▲▼ — ${V[2] === 'day' ? 'oldingi kunga' : V[2] === 'week' ? 'oldingi haftaga' : 'o\'tgan oyga'} nisbatan</span></div>
       <div class="table-wrap"><table class="dyn-table"><thead><tr><th>Ko'rsatkich</th>${head}</tr></thead>
       <tbody>${rows.map((r) => (r[0] === '§' ? `<tr class="dyn-sec"><td colspan="${months.length + 1}">${r[1]}</td></tr>` : `<tr><td>${r[1]}</td>${months.map((m, i) => cell(r, m, i)).join('')}</tr>`)).join('')}</tbody></table></div>
       ${months.at(-1).partial && V[2] !== 'day' ? `<p class="muted small">${esc(periodLabel(months.at(-1)))} hali tugamagan — ${months.at(-1).days} kunlik ma'lumot.</p>` : ''}</div>

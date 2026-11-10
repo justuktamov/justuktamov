@@ -578,3 +578,21 @@ th { color: var(--text-3); font-weight: 700; }
 .cat-bars.opex .cat-bar > i > i { background: linear-gradient(90deg, var(--sky-2), var(--sky)); }
 .exp-act .btn.confirm { background: var(--rose-soft); color: var(--rose-ink); }
 .acc-yes { background: var(--lime-soft); color: #4a6800; }
+
+/* ---------- Dinamika jadvali va kiritish — demo ranglari ---------- */
+.wt-card { border-top: 0; box-shadow: inset 0 4px 0 var(--pc); }
+table.wt tbody th { background: #fff; }
+table.wt .wt-sum { background: var(--violet-soft); color: var(--violet-ink); }
+table.wt tr.wt-revenue td { color: var(--text); }
+table.wt td.neg-c { background: var(--rose-soft); color: var(--rose-ink); }
+table.wt td.pos-c { color: #0a8f4e; }
+table.wt .wt-sum.neg-c { background: var(--rose-soft); color: var(--rose-ink); }
+table.wt .wt-sum.pos-c { background: var(--lime-soft); color: #3d5800; }
+.wm-cell { border-radius: 14px; }
+.wm-cell.neg { background: var(--rose-soft); }
+.wm-rev { color: var(--violet-ink); }
+.wm-legend .l-rev::before { background: var(--violet); } .wm-legend .l-ad::before { background: var(--coral); }
+.wt-total { background: var(--violet-soft); border-radius: 16px; }
+.grid-entry .grp-h span { background: var(--violet-soft); color: var(--violet-ink); }
+.rate-in { border-radius: 16px; }
+.rate-in.need { background: #fff4dc; }

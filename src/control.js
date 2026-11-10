@@ -14,10 +14,10 @@ const mln = (x) => (Math.abs(x) >= 1e6 ? `${(x / 1e6).toFixed(1).replace('.0', '
 
 // Javobgarlik egalari (kim nima uchun javob beradi)
 export const OWNERS = {
-  target: { label: 'Targetolog', duty: "Reklama: lid narxi, CTR, byudjet sur'ati, lid sifati (auditoriya)" },
-  rop: { label: "Sotuv bo'limi (ROP)", duty: "Lid → sotuv: qo'ng'iroq, konversiya, e'tirozlar, sotuvchilar" },
-  marketing: { label: 'Marketing', duty: 'Marketing xarajati va uning natijasi, xarajatlarni kiritish' },
-  pm: { label: 'Proekt menejer', duty: "Jarayon: reja, hisobot vaqtida, tasdiqlash, lidlar yo'qolmasligi" },
+  target: { label: 'Targetolog', duty: 'Lid narxi, CTR, byudjet, lid sifati' },
+  rop: { label: "Sotuv bo'limi", duty: "Qo'ng'iroq, konversiya, sotuvchilar" },
+  marketing: { label: 'Marketing', duty: 'Marketing xarajati va natijasi' },
+  pm: { label: 'Proekt menejer', duty: 'Reja, hisobot vaqti, jarayon' },
 };
 
 // Bitta muammo: kim, qanchalik jiddiy (crit | warn | info), qaysi loyiha, matn va raqamlar (dalil)
@@ -37,10 +37,10 @@ function economics(p, days, planItem) {
   let verdict = null;
   if (spendAll > 0 && !p.sales && (p.leads >= 10 || p.clicks >= 300 || p.spend >= 50)) verdict = { level: 'crit', key: 'nosale', text: "Pul sarflandi, sotuv yo'q" };
   else if (p.cac_uzs != null && contribution != null) {
-    if (p.cac_uzs > contribution) verdict = { level: 'crit', key: 'over', text: `Ko'p sarflayapmiz: 1 sotuvga reklamaning o'zi ${mln(p.cac_uzs)}, sotuvdan qoladigani ${mln(contribution)} — har yangi sotuv zarar` };
-    else if (p.net_profit < 0) verdict = { level: 'warn', key: 'volume', text: `Reklama o'zini qoplaydi (1 sotuvga ${mln(p.cac_uzs)}, qoladigani ${mln(contribution)}), lekin sotuvlar doimiy xarajat va marketingni qoplashga yetmayapti` };
-    else if (p.cac_full_uzs < contribution * 0.5) verdict = { level: 'good', key: 'under', text: `Kam sarflayapmiz: 1 mijoz ${mln(p.cac_full_uzs)}, sotuvdan qoladigani ${mln(contribution)} — byudjetni oshirsa foyda o'sadi` };
-    else verdict = { level: 'ok', key: 'ok', text: `Me'yorida: 1 mijoz ${mln(p.cac_full_uzs)}, sotuvdan qoladigani ${mln(contribution)}` };
+    if (p.cac_uzs > contribution) verdict = { level: 'crit', key: 'over', text: `Ko'p sarflanyapti: 1 sotuv reklamasi ${mln(p.cac_uzs)}, qoladigani ${mln(contribution)}` };
+    else if (p.net_profit < 0) verdict = { level: 'warn', key: 'volume', text: 'Sotuv doimiy xarajatni qoplamayapti' };
+    else if (p.cac_full_uzs < contribution * 0.5) verdict = { level: 'good', key: 'under', text: `Byudjetni oshirsa bo'ladi: 1 mijoz ${mln(p.cac_full_uzs)}, qoladigani ${mln(contribution)}` };
+    else verdict = { level: 'ok', key: 'ok', text: `Me'yorida: 1 mijoz ${mln(p.cac_full_uzs)}` };
   }
   const per30 = days ? 30 / days : 1;
   const rate = p.spend ? p.spend_uzs / p.spend : null;
@@ -74,53 +74,52 @@ function projectIssues(p, plan, sellerByProject) {
   // Targetolog
   if (p.unit_cost != null && b.unit_cost) {
     const r = p.unit_cost / b.unit_cost;
-    if (r >= 1.25) out.push(issue('target', r >= 1.5 ? 'crit' : 'warn', `${p.unit_label} ${usd(p.unit_cost)} (odatda ${usd(b.unit_cost)}) — ${pctTxt(r - 1)} qimmat`, name, { now: p.unit_cost, norm: b.unit_cost }));
+    if (r >= 1.25) out.push(issue('target', r >= 1.5 ? 'crit' : 'warn', `${p.unit_label} ${usd(p.unit_cost)}, odatda ${usd(b.unit_cost)} (+${pctTxt(r - 1)})`, name, { now: p.unit_cost, norm: b.unit_cost }));
   }
-  if (p.ctr != null && b.ctr && p.impressions >= 1000 && p.ctr < b.ctr * 0.75) out.push(issue('target', 'warn', `CTR ${pctTxt(p.ctr)} (odatda ${pctTxt(b.ctr)}) — kreativ charchagan, yangilash kerak`, name));
+  if (p.ctr != null && b.ctr && p.impressions >= 1000 && p.ctr < b.ctr * 0.75) out.push(issue('target', 'warn', `CTR ${pctTxt(p.ctr)}, odatda ${pctTxt(b.ctr)} — kreativni yangilang`, name));
   const pb = plan?.metrics?.budget;
   if (pb?.plan && plan.elapsed >= 5) {
-    if (pb.status === 'over') out.push(issue('target', 'warn', `Byudjet rejadan tez sarflanyapti: ${usd(pb.fact)} (shu kungacha ${usd(pb.expected)} bo'lishi kerak edi)`, name));
-    else if (pb.fact < pb.expected * 0.7) out.push(issue('target', 'warn', `Byudjet kam sarflanyapti: ${usd(pb.fact)} / ${usd(pb.expected)} — lid rejaga yetmaydi`, name));
+    if (pb.status === 'over') out.push(issue('target', 'warn', `Byudjet tez ketyapti: ${usd(pb.fact)} / ${usd(pb.expected)}`, name));
+    else if (pb.fact < pb.expected * 0.7) out.push(issue('target', 'warn', `Byudjet kam ishlatilyapti: ${usd(pb.fact)} / ${usd(pb.expected)}`, name));
   }
   if (!auto && p.leads >= 20 && p.unqualified_share != null && p.unqualified_share > 0.45) {
     const top = p.reasons?.bad?.[0];
-    out.push(issue('target', p.unqualified_share > 0.6 ? 'crit' : 'warn', `Sifatsiz lid ${pctTxt(p.unqualified_share)}${top ? ` (eng ko'pi — «${top.label}», ${top.count} ta)` : ''} — auditoriya yoki forma noto'g'ri`, name));
+    out.push(issue('target', p.unqualified_share > 0.6 ? 'crit' : 'warn', `Sifatsiz lid ${pctTxt(p.unqualified_share)}${top ? ` — ko'pi «${top.label}»` : ''}`, name));
   }
   // Jarayon (PM): targetolog aytgan lid sotuv bo'limiga yetib bormayapti
   if (!auto && p.reported?.target_leads && p.reported?.leads && p.target_leads - p.leads >= 10 && p.target_leads > p.leads * 1.2) {
-    out.push(issue('pm', 'warn', `Targetolog ${p.target_leads} ta lid dedi, sotuv bo'limi ${p.leads} ta oldi — ${p.target_leads - p.leads} ta lid yo'lda yo'qolgan (forma / CRM)`, name));
+    out.push(issue('pm', 'warn', `${p.target_leads - p.leads} ta lid yo'qolgan: target ${p.target_leads}, sotuv ${p.leads}`, name));
   }
   // Sotuv bo'limi (ROP)
   if (!auto) {
-    if (p.leads >= 20 && !p.sales) out.push(issue('rop', 'crit', `${p.leads} ta liddan birorta ham sotuv yo'q`, name));
+    if (p.leads >= 20 && !p.sales) out.push(issue('rop', 'crit', `${p.leads} ta lid — sotuv yo'q`, name));
     else if (p.conv != null && b.conv && p.leads >= 15) {
       const r = p.conv / b.conv;
-      if (r < 0.75) out.push(issue('rop', r < 0.5 ? 'crit' : 'warn', `Konversiya ${pctTxt(p.conv)} (${b.conv_src === 'reja' ? 'rejada' : 'odatda'} ${pctTxt(b.conv)}) — sotuv bo'limida yo'qotyapmiz`, name));
+      if (r < 0.75) out.push(issue('rop', r < 0.5 ? 'crit' : 'warn', `Konversiya ${pctTxt(p.conv)}, ${b.conv_src === 'reja' ? 'rejada' : 'odatda'} ${pctTxt(b.conv)}`, name));
     }
-    if (p.reported?.calls && p.leads >= 10 && p.calls < p.leads * 0.9) out.push(issue('rop', 'warn', `Qo'ng'iroq ${p.calls} ta, lid ${p.leads} ta — hamma lidga qo'ng'iroq qilinmagan`, name));
-    if (p.st_nopickup && p.leads >= 10 && p.st_nopickup / p.leads > 0.25) out.push(issue('rop', 'warn', `Ko'tarmaganlar ${pctTxt(p.st_nopickup / p.leads)} — qayta qo'ng'iroq jadvali kerak`, name));
+    if (p.reported?.calls && p.leads >= 10 && p.calls < p.leads * 0.9) out.push(issue('rop', 'warn', `Qo'ng'iroq ${p.calls} / lid ${p.leads}`, name));
+    if (p.st_nopickup && p.leads >= 10 && p.st_nopickup / p.leads > 0.25) out.push(issue('rop', 'warn', `Ko'tarmagan ${pctTxt(p.st_nopickup / p.leads)}`, name));
     const lost = p.reasons?.lost?.[0];
     if (lost && lost.count >= 5 && lost.share >= 0.35) {
-      const hint = { expensive: "narx e'tirozi — sotuvchilar qiymatni tushuntira olmayapti yoki narx/to'lov shartlarini qayta ko'rish kerak", unreachable: "qaytib bog'lanilmagan — tezroq qo'ng'iroq qilish kerak", info_only: "faqat ma'lumot olgan — taklifni kuchaytirish kerak", lesson_disliked: "sinov darsi yoqmagan — mahsulot/ustoz bilan ishlash kerak" }[lost.reason] || "shu sababga qarshi skript kerak";
-      out.push(issue('rop', 'info', `Bekor bo'lishning ${pctTxt(lost.share)} — «${lost.label}» (${lost.count} ta): ${hint}`, name));
+      out.push(issue('rop', 'info', `Rad etishning ${pctTxt(lost.share)} — «${lost.label}»`, name));
     }
     const sp = sellerByProject.get(p.id);
     if (sp && sp.total.conv != null) {
       for (const s of sp.rows) {
-        if (s.leads >= 15 && s.conv != null && s.conv < sp.total.conv * 0.5) out.push(issue('rop', 'warn', `Sotuvchi ${s.name}: konversiya ${pctTxt(s.conv)} (bo'lim ${pctTxt(sp.total.conv)}) — o'qitish yoki lidlarni qayta taqsimlash kerak`, name));
+        if (s.leads >= 15 && s.conv != null && s.conv < sp.total.conv * 0.5) out.push(issue('rop', 'warn', `${s.name}: konversiya ${pctTxt(s.conv)}, bo'lim ${pctTxt(sp.total.conv)}`, name));
       }
     }
   } else if (p.conv != null && b.conv && (p.starts >= 50 || p.clicks >= 300)) {
     const r = p.conv / b.conv;
-    if (r < 0.75) out.push(issue('pm', r < 0.5 ? 'crit' : 'warn', `Avtovoronka: ${p.conv_label} ${pctTxt(p.conv)} (odatda ${pctTxt(b.conv)}) — bot / to'lov bosqichini tekshiring`, name));
+    if (r < 0.75) out.push(issue('pm', r < 0.5 ? 'crit' : 'warn', `Bot: ${p.conv_label} ${pctTxt(p.conv)}, odatda ${pctTxt(b.conv)}`, name));
   }
   // Marketing: xarajat oshdi, natija yo'q
   const mk = p.marketing_uzs || 0;
   const mkPrev = p.prev?.marketing_uzs || 0;
   if (mk > 0 && mkPrev > 0 && mk > mkPrev * 1.3 && (p.leads || p.sales) <= (p.prev?.leads || p.prev?.sales || 0)) {
-    out.push(issue('marketing', 'warn', `Marketing xarajati ${pctTxt(mk / mkPrev - 1)} oshdi (${mln(mk)}), lekin lid/sotuv o'smadi`, name));
+    out.push(issue('marketing', 'warn', `Marketing +${pctTxt(mk / mkPrev - 1)}, natija o'smadi`, name));
   }
-  if (mk > 0 && p.revenue > 0 && mk / p.revenue > 0.2) out.push(issue('marketing', mk / p.revenue > 0.35 ? 'crit' : 'warn', `Marketing xarajati tushumning ${pctTxt(mk / p.revenue)} ni yeyapti (${mln(mk)})`, name));
+  if (mk > 0 && p.revenue > 0 && mk / p.revenue > 0.2) out.push(issue('marketing', mk / p.revenue > 0.35 ? 'crit' : 'warn', `Marketing — tushumning ${pctTxt(mk / p.revenue)}`, name));
   return out;
 }
 
@@ -208,18 +207,18 @@ export function control({ from, to, today }, ctx) {
   const mkAll = (t.marketing_uzs || 0) + general.marketing;
   const hasMarketingUser = ctx.users.some((u) => u.active !== 0 && u.role !== 'pm' && userAccess(u).includes('marketing'));
   const mkEntries = book.list.filter((e) => e.kind === 'marketing' && e.date >= from && e.date <= to).length;
-  if (hasMarketingUser && !mkEntries) issues.push(issue('marketing', 'warn', "Shu davr uchun marketing xarajatlari kiritilmagan — mijoz narxi to'liq hisoblanmayapti"));
-  if (mkAll > 0 && t.revenue > 0 && general.marketing / t.revenue > 0.15) issues.push(issue('marketing', 'warn', `Umumiy (loyihasiz) marketing xarajati tushumning ${pctTxt(general.marketing / t.revenue)} — qaysi loyihaga ketganini belgilang`));
-  if (!s.plan.hasPlans) issues.push(issue('pm', 'warn', "Bu oy uchun reja kiritilmagan — byudjet va sotuv nazoratsiz (Sozlamalar → Oylik reja)"));
+  if (hasMarketingUser && !mkEntries) issues.push(issue('marketing', 'warn', 'Marketing xarajatlari kiritilmagan'));
+  if (mkAll > 0 && t.revenue > 0 && general.marketing / t.revenue > 0.15) issues.push(issue('marketing', 'warn', `Loyihasiz marketing — tushumning ${pctTxt(general.marketing / t.revenue)}`));
+  if (!s.plan.hasPlans) issues.push(issue('pm', 'warn', 'Oylik reja kiritilmagan'));
   const estimated = live.filter((p) => p.fixed_estimated && !p.fixed_actual).map((p) => p.name);
-  if (estimated.length) issues.push(issue('pm', 'info', `Operatsion xarajat fakti kiritilmagan (${estimated.join(', ')}) — sozlamadagi taxmin bilan hisoblandi. Moliyachi «Moliya» bo'limiga kiritsin`));
+  if (estimated.length) issues.push(issue('pm', 'info', `Operatsion xarajat kiritilmagan: ${estimated.join(', ')}`));
 
   const disc = discipline({ from, to, today, ctx, book });
   for (const r of disc.rows) {
     const owner = r.role === 'pm' ? 'pm' : r.role === 'rop' ? 'rop' : r.role === 'target' ? 'target' : r.role === 'marketing' ? 'marketing' : null;
     if (!owner || r.level === 'good') continue;
-    if (r.entries != null) issues.push(issue(owner, r.level === 'crit' ? 'warn' : 'info', `${r.name}: ${r.ago == null ? 'hali birorta xarajat kiritmagan' : `oxirgi kiritish ${r.ago} kun oldin`}`));
-    else issues.push(issue(owner, r.level, `${r.name}: ${r.what.toLowerCase()} — ${r.missed ? `${r.missed} kun kiritilmagan` : ''}${r.missed && r.late ? ', ' : ''}${r.late ? `${r.late} kun kechikib (${r.deadline} dan keyin)` : ''}`));
+    if (r.entries != null) issues.push(issue(owner, r.level === 'crit' ? 'warn' : 'info', `${r.name}: ${r.ago == null ? 'hali kiritmagan' : `oxirgi kiritish ${r.ago} kun oldin`}`));
+    else issues.push(issue(owner, r.level, `${r.name}: ${[r.missed ? `${r.missed} kun kiritmagan` : '', r.late ? `${r.late} kun kechikkan` : ''].filter(Boolean).join(', ')}`));
   }
 
   // Har bir javobgar: ball (100 dan jiddiy −20, diqqat −8, ma'lumot −3) va holat
@@ -233,8 +232,8 @@ export function control({ from, to, today }, ctx) {
   });
   const worst = [...owners].sort((a, b) => a.score - b.score)[0];
   const verdict = worst && worst.score < 80
-    ? { owner: worst.key, level: worst.status, text: `Asosiy kamchilik — ${worst.label}. ${worst.issues[0]?.project ? `${worst.issues[0].project}: ` : ''}${worst.issues[0]?.text || ''}` }
-    : { owner: null, level: 'good', text: "Jiddiy kamchilik yo'q — hamma bo'lim me'yorida ishlayapti" };
+    ? { owner: worst.key, level: worst.status, text: `Asosiy kamchilik — ${worst.label}: ${worst.issues[0]?.project ? `${worst.issues[0].project}, ` : ''}${worst.issues[0]?.text || ''}` }
+    : { owner: null, level: 'good', text: "Hammasi me'yorida" };
 
   // Kompaniya bo'yicha jami
   const net = (t.company_net ?? t.net_profit);
@@ -251,13 +250,13 @@ export function control({ from, to, today }, ctx) {
   // Takliflar (qoida bo'yicha): eng muhimlari — avval pulga ta'sir qiladiganlar
   const advice = [];
   for (const p of projects) {
-    if (p.verdict?.key === 'nosale') advice.push({ owner: p.kind === 'auto' ? 'pm' : 'rop', level: 'crit', project: p.name, text: `${p.name}: pul sarflanyapti, sotuv yo'q — reklamani to'xtatib, voronkani tekshirish kerak (lid → qo'ng'iroq → sotuv)` });
-    else if (p.verdict?.key === 'over') advice.push({ owner: 'target', level: 'crit', project: p.name, text: `${p.name}: ${p.verdict.text}. Avval eng qimmat kanal va kreativni o'chiring: 1 sotuv reklamasini ${p.contribution && p.cac_uzs ? pctTxt(1 - p.contribution / p.cac_uzs) : ''} ga arzonlashtirish yoki konversiyani oshirish kerak` });
-    else if (p.verdict?.key === 'volume') advice.push({ owner: 'pm', level: 'warn', project: p.name, text: `${p.name}: ${p.verdict.text}. Sotuvni ko'paytirish (byudjet + konversiya) yoki doimiy xarajat/marketingni qisqartirish kerak` });
-    else if (p.verdict?.key === 'under') advice.push({ owner: 'target', level: 'good', project: p.name, text: `${p.name}: ${p.verdict.text}. «Agar tiksak» kalkulyatorida yangi byudjetni sinab ko'ring` });
+    if (p.verdict?.key === 'nosale') advice.push({ owner: p.kind === 'auto' ? 'pm' : 'rop', level: 'crit', project: p.name, text: `${p.name}: sotuv yo'q — reklamani to'xtatib, voronkani tekshiring` });
+    else if (p.verdict?.key === 'over') advice.push({ owner: 'target', level: 'crit', project: p.name, text: `${p.name}: eng qimmat kanal va kreativni o'chiring${p.contribution && p.cac_uzs ? ` — 1 sotuv reklamasi ${pctTxt(1 - p.contribution / p.cac_uzs)} arzonlashishi kerak` : ''}` });
+    else if (p.verdict?.key === 'volume') advice.push({ owner: 'pm', level: 'warn', project: p.name, text: `${p.name}: sotuvni ko'paytiring yoki doimiy xarajatni qisqartiring` });
+    else if (p.verdict?.key === 'under') advice.push({ owner: 'target', level: 'good', project: p.name, text: `${p.name}: byudjetni oshirsa foyda o'sadi — «Agar tiksak»da sinab ko'ring` });
   }
   for (const i of issues.filter((x) => x.level === 'crit').slice(0, 4)) advice.push({ owner: i.owner, level: 'warn', project: i.project, text: `${i.project ? `${i.project}: ` : ''}${i.text}` });
-  if (totals.marketing_uzs && totals.revenue && totals.marketing_uzs / totals.revenue > 0.25) advice.push({ owner: 'marketing', level: 'warn', text: `Marketing tushumning ${pctTxt(totals.marketing_uzs / totals.revenue)} ini olyapti — natija bermayotgan xarajat turlarini qisqartiring` });
+  if (totals.marketing_uzs && totals.revenue && totals.marketing_uzs / totals.revenue > 0.25) advice.push({ owner: 'marketing', level: 'warn', text: `Marketing — tushumning ${pctTxt(totals.marketing_uzs / totals.revenue)}: natija bermayotganini qisqartiring` });
 
   // Xarajatlar tarkibi (kategoriyalar bo'yicha) — shu davr
   const byCat = {};

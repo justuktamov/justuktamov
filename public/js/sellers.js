@@ -6,8 +6,8 @@ import {
 import { dateNav } from './pm.js';
 
 const FIELDS = [
-  ['leads', 'Umumiy lidlar soni'], ['qualified', 'Sifatli lid soni'], ['sales', 'Sotuv'],
-  ['cancelled', "Bekor bo'ldi"], ['unqualified', 'Sifatsiz lidlar'], ['call_sec', 'Call duration'],
+  ['leads', 'Lidlar'], ['qualified', 'Sifatli'], ['sales', 'Sotuv'],
+  ['cancelled', 'Bekor'], ['unqualified', 'Sifatsiz'], ['call_sec', "Qo'ng'iroq vaqti"],
 ];
 // Hisobot jadvalidagi son ustunlari (call duration — alohida, oxirida)
 const NUM = FIELDS.filter(([k]) => k !== 'call_sec');
@@ -33,7 +33,7 @@ export async function renderSellers() {
   if (TABS.some(([k]) => k === q.get('tab'))) f.tab = q.get('tab');
   if (!TABS.some(([k]) => k === f.tab)) f.tab = 'report';
   shell(`<div class="page-head"><div><h1><span class="grad">Sotuv xodimlari</span></h1>
-      <div class="sub">Har bir sotuvchi qanday ishlayapti: nechta lid oldi, nechtasi bilan gaplashdi, nechta sotdi, qancha vaqt qo'ng'iroq qildi</div></div></div>
+      <div class="sub">Har sotuvchi: lid, sotuv, konversiya</div></div></div>
     ${viewNote('sellers')}<div class="tabs" id="slTabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-k="${k}" class="${f.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
     <div id="sl">${spinnerBlock()}</div>`);
   $('#slTabs').onclick = async (e) => {
@@ -72,14 +72,14 @@ async function tabReport(box, f, rid) {
       <td class="n ${!tot && r.conv_q === bestQ && bestQ > 0 ? 'sl-best' : ''}">${r.conv_q == null ? '—' : fmtP(r.conv_q, 1)}</td>
       <td class="n mono">${fmtDuration(r.call_sec)}</td>`;
     return `<section class="card sl-card" style="--pc:${esc(p.color || '#4c86ff')}">
-      <div class="sl-head"><span class="sl-month">${esc(label)}</span><b>${dot(p.color)}${esc(p.name)}</b></div>
-      <div class="table-wrap"><table class="sl-table"><thead><tr><th>Xodimlar</th>${NUM.map(([, l]) => `<th class="n">${l}</th>`).join('')}<th class="n">Konversiya umumiy</th><th class="n">Konversiya sifatli</th><th class="n">Call duration</th></tr></thead>
+      <div class="sl-head"><b>${dot(p.color)}${esc(p.name)}</b><span class="muted small">${fmtN(p.total.leads)} lid · ${fmtN(p.total.sales)} sotuv · ${p.total.conv == null ? '—' : fmtP(p.total.conv, 1)}</span></div>
+      <div class="table-wrap"><table class="sl-table"><thead><tr><th>Sotuvchi</th>${NUM.map(([, l]) => `<th class="n">${l}</th>`).join('')}<th class="n" title="Sotuv ÷ lidlar">Konversiya</th><th class="n" title="Sotuv ÷ sifatli lidlar">Sifatlidan</th><th class="n">Qo'ng'iroq vaqti</th></tr></thead>
       <tbody>${p.rows.map((r) => `<tr class="${r.active ? '' : 'off'}"><td><b>${esc(r.name)}</b>${r.active ? '' : ' <span class="muted small">(arxiv)</span>'}</td>${cells(r)}</tr>`).join('')}</tbody>
       <tfoot><tr><td>Jami</td>${cells(p.total, true)}</tr></tfoot></table></div></section>`;
   };
   box.innerHTML = bar + (data.projects.length ? data.projects.map(table).join('')
     : `<div class="card empty">Bu davr uchun sotuv xodimlari raqamlari kiritilmagan. ${edit ? '«Kunlik kiritish» bo\'limida kiriting.' : ''}</div>`)
-    + '<p class="muted small">Konversiya umumiy = sotuv ÷ umumiy lidlar; konversiya sifatli = sotuv ÷ sifatli lidlar. Eng yuqori konversiya yashil bilan belgilangan.</p>';
+    + '<p class="muted small">Yashil — eng yuqori konversiya</p>';
   $('#slPer').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { f.period = b.dataset.p; renderSellers(); } };
   $$('[data-mm]', box).forEach((b) => { b.onclick = () => { f.month = Math.max(0, f.month + Number(b.dataset.mm)); renderSellers(); }; });
 }
@@ -98,7 +98,7 @@ async function tabEntry(box, f, rid) {
   const rowOf = (sid, pid) => d.rows.find((r) => r.seller_id === sid && r.project_id === pid) || {};
   const val = (r, k) => (k === 'call_sec' ? fmtDuration(r[k]) : r[k] ?? '');
   const inProject = (s, pid) => !s.projects.length || s.projects.includes(pid) || d.rows.some((r) => r.seller_id === s.id && r.project_id === pid);
-  box.innerHTML = `<div class="sl-bar">${nav}<span class="muted small">Har bir sotuvchi bo'yicha ${esc(dayLabel(date))} raqamlari. Call duration — soat:daqiqa:soniya (masalan 2:15:30) yoki faqat daqiqa.</span></div>
+  box.innerHTML = `<div class="sl-bar">${nav}<span class="muted small">Qo'ng'iroq vaqti: 2:15:30 yoki daqiqa</span></div>
     ${d.projects.map((p) => {
       const sellers = d.sellers.filter((s) => inProject(s, p.id));
       const rop = d.rop[p.id];
@@ -112,7 +112,7 @@ async function tabEntry(box, f, rid) {
           : '<p class="muted small">Bu loyihaga xodim biriktirilmagan.</p>'}
       </section>`;
     }).join('')}
-    <div class="step-foot"><span class="muted small">Enter — keyingi qator.</span><span class="spacer"></span><button class="btn primary" data-save>Saqlash</button></div>`;
+    <div class="step-foot"><span class="muted small"></span><span class="spacer"></span><button class="btn primary" data-save>Saqlash</button></div>`;
 
   const num = (el) => (el.value.trim() === '' ? null : parseNum(el.value));
   const dur = (s) => { const m = String(s).trim().match(/^(\d+)(?::([0-5]?\d))?(?::([0-5]?\d))?$/); if (!m) return 0; return m[3] != null ? m[1] * 3600 + m[2] * 60 + Number(m[3]) : m[2] != null ? m[1] * 60 + Number(m[2]) : m[1] * 60; };
@@ -179,7 +179,7 @@ async function tabList(box, rid) {
       <div class="field">Loyihalari <span class="hint">tanlanmasa — hamma sotuv loyihalari</span>${chips(s.projects || [])}</div>
       <div class="row">${s.id ? `<button class="btn small ghost" data-a="toggle">${s.active ? 'Arxivlash' : 'Qaytarish'}</button>` : ''}<button class="btn small primary" data-a="save">${s.id ? 'Saqlash' : "Qo'shish"}</button></div>
     </div>`;
-  box.innerHTML = `<p class="muted small" style="margin:0 0 12px">Sotuvchilar tizimga kirmaydi — ularning raqamlarini ROP kiritadi. Ishdan ketgan xodimni arxivlang: eski oylar hisobotida qoladi.</p>
+  box.innerHTML = `<p class="muted small" style="margin:0 0 12px">Sotuvchilar tizimga kirmaydi — raqamlarini ROP kiritadi.</p>
     <div class="sl-people">${row({ active: 1 })}${list.map(row).join('')}</div>`;
   box.addEventListener('click', async (e) => {
     const chip = e.target.closest('[data-pid]');

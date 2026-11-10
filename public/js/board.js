@@ -270,7 +270,7 @@ function column(p, plan, collapsed = false, picked = false) {
       <div class="m-hero ad" data-exp role="button" tabindex="0" aria-expanded="false" title="Bosing — qayerga qancha ketgani"><span class="m-ic">${M_IC.ad}</span><div><small>Reklama · umumiy</small><b>${fmtUsd(p.spend, 0)}</b><span class="m-sub">${fmtUzs(p.spend_uzs)} so'm</span></div><span class="m-chev">${CHEV}</span>
         <div class="ad-break">${adRows(p)}</div></div>
       <div class="m-hero rev"><span class="m-ic">${M_IC.rev}</span><div><small>Tushum</small><b>${fmtUzs(p.revenue)}<i>so'm</i></b><span class="m-sub">${fmtN(p.sales)} ta ${auto ? 'xarid' : 'sotuv'}</span></div></div>
-      <div class="m-hero ${p.net_profit < 0 ? 'loss' : 'profit'}"><span class="m-ic">${p.net_profit < 0 ? M_IC.down : M_IC.up}</span><div><small>${p.net_profit < 0 ? 'Zarar' : 'Sof foyda'}</small><b>${signed(p.net_profit, false)}<i>so'm</i></b><span class="m-sub">barcha xarajatdan keyin</span></div></div>
+      <div class="m-hero ${p.net_profit < 0 ? 'loss' : 'profit'}"><span class="m-ic">${p.net_profit < 0 ? M_IC.down : M_IC.up}</span><div><small>${p.net_profit < 0 ? 'Zarar' : 'Sof foyda'}</small><b>${signed(p.net_profit, false)}<i>so'm</i></b></div></div>
     </div>
     <div class="tile">
       <small>${auto ? 'Avtovoronka' : 'Voronka'} · target</small>

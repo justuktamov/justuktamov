@@ -1384,3 +1384,65 @@ h4.mt { margin-bottom: 10px; font-size: 13.5px; }
   .ctl-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .verdict b { font-size: 16px; }
 }
+
+/* ---------- Dinamika: ixcham hafta jadvali va oy kalendari ---------- */
+.wt-card { padding: 16px 18px; margin-bottom: 14px; }
+.wt-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.wt-head b { font-size: 16px; }
+.wt-head .muted { margin-left: auto; }
+table.wt { width: 100%; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
+table.wt th, table.wt td { padding: 9px 10px; white-space: nowrap; border-bottom: 1px solid var(--border); }
+table.wt thead th { font-size: 12px; color: var(--text-3); vertical-align: bottom; font-weight: 600; }
+table.wt thead th b { display: block; font-size: 13px; color: var(--text); font-weight: 800; }
+table.wt thead th small { font-size: 11px; }
+table.wt thead th.future b { color: var(--text-3); }
+table.wt tbody th { text-align: left; font-size: 13px; color: var(--text-2); font-weight: 600; position: sticky; left: 0; background: var(--surface-solid); z-index: 1; }
+table.wt td { text-align: right; font-size: 14px; }
+table.wt tbody tr:last-child th, table.wt tbody tr:last-child td { border-bottom: 0; }
+table.wt .wt-sum { background: var(--surface-2); font-weight: 800; }
+table.wt td.none, table.wt td.future { color: var(--text-3); }
+table.wt tr.wt-revenue td { font-weight: 600; }
+table.wt td.pos-c { color: var(--good); font-weight: 700; }
+table.wt td.neg-c { color: var(--crit); font-weight: 700; background: var(--crit-bg); }
+.ar { font-style: normal; font-size: 9px; margin-left: 4px; vertical-align: 2px; color: var(--text-3); cursor: help; }
+.ar.up { color: var(--good); } .ar.down { color: var(--crit); }
+.wm-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-2); margin-bottom: 8px; font-weight: 600; }
+.wm-legend span::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.wm-legend .l-rev::before { background: var(--series-1); } .wm-legend .l-net::before { background: var(--good); } .wm-legend .l-ad::before { background: var(--series-2); }
+.wm-legend .muted { margin-left: auto; font-weight: 500; } .wm-legend .muted::before { display: none; }
+.wm-wd, .wm-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.wm-wd { font-size: 11px; font-weight: 800; color: var(--text-3); text-align: center; margin-bottom: 4px; }
+.wm-cell { display: grid; gap: 1px; align-content: start; min-width: 0; min-height: 76px; padding: 7px 8px; border-radius: 12px; background: var(--surface-2); font-variant-numeric: tabular-nums; }
+.wm-cell.blank { background: transparent; }
+.wm-cell.none, .wm-cell.future { opacity: .5; }
+.wm-cell.neg { background: var(--crit-bg); }
+.wm-d { font-size: 11px; font-weight: 800; color: var(--text-3); }
+.wm-rev { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wm-net { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wm-net.pos { color: var(--good); } .wm-net.neg { color: var(--crit); }
+.wm-ad { font-size: 11px; color: var(--text-3); }
+.wt-total { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 10px; padding: 10px 14px; border-radius: 12px; background: var(--surface-2); font-size: 13px; color: var(--text-2); }
+.wt-total b { color: var(--text); margin-left: 4px; font-variant-numeric: tabular-nums; }
+.wt-total small { color: var(--text-3); margin-left: 4px; }
+.wt-total b.pos { color: var(--good); } .wt-total b.neg { color: var(--crit); }
+@media (max-width: 860px) {
+  .wt-card { padding: 14px 12px; }
+  table.wt th, table.wt td { padding: 8px 7px; }
+  .wm-wd { display: none; }
+  .wm-grid { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .wm-cell { grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; min-height: 0; column-gap: 8px; }
+  .wm-cell.blank, .wm-cell.future { display: none; }
+  .wm-ad { display: none; }
+}
+
+/* ---------- Kiritish jadvallari: ustunlar guruhi, ixcham dollar kursi ---------- */
+.grid-entry tr.grp th { padding: 2px 4px 0; border-bottom: 0; }
+.grid-entry .grp-h span { display: block; margin: 0 2px; padding: 3px 8px; border-radius: 8px; background: var(--surface-2); font-size: 11px; font-weight: 800; color: var(--text-2); text-align: center; letter-spacing: .02em; }
+.cell-in::placeholder { opacity: .45; }
+.rate-in { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; width: fit-content; max-width: 100%; padding: 10px 14px; }
+.rate-in label { display: block; }
+.rate-in .cell-in { width: 130px; }
+.rate-in .need-tag { font-size: 12px; font-weight: 700; color: var(--warn); }
+.step-head:empty { display: none; }
+.sl-head { justify-content: space-between; }
+.dp-grid:has(.wt-card) { grid-template-columns: minmax(0, 1fr); gap: 0; }

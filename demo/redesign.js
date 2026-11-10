@@ -26,7 +26,7 @@ function decorate() {
   const route = location.hash.split('?')[0] || '#/';
   const title = `${hello()}${name ? `, ${esc(name)}` : ''} 👋`;
   if (route === '#/') {
-    const sub = day ? `Bugun ${esc(day)} — loyihalar bo'yicha qisqacha holat` : "Loyihalar bo'yicha qisqacha holat";
+    const sub = day ? `Bugun ${esc(day)}` : '';
     top.insertAdjacentHTML('afterbegin', `<div class="greet"><h2>${title}</h2><p>${sub}</p></div>`);
     root.querySelector('.demo-mobile')?.insertAdjacentHTML('beforebegin', `<div class="greet-m"><h2>${title}</h2><p>${esc(day)}</p></div>`);
   } else {
@@ -39,17 +39,17 @@ function decorate() {
   const own = root.querySelector('.sidebar .nav a.own');
   if (!foot) return;
   if (!own) {
-    foot.insertAdjacentHTML('afterbegin', `<div class="side-card done"><span class="sc-ic">${IC.shield}</span><b>Nazorat</b><p>Kim qayerda kamchilik qilyapti va pul qayerga ketyapti — bitta sahifada.</p><a href="#/nazorat">Ko'rish ${IC.arrow}</a></div>`);
+    foot.insertAdjacentHTML('afterbegin', `<div class="side-card done"><span class="sc-ic">${IC.shield}</span><b>Nazorat</b><p>Kim qayerda kamchilik qilyapti.</p><a href="#/nazorat">Ko'rish ${IC.arrow}</a></div>`);
     return;
   }
   const label = own.textContent.replace(/!$/, '').trim();
   const daily = own.getAttribute('href') === '#/kiritish' || own.getAttribute('href') === '#/target' || own.getAttribute('href') === '#/sotuv';
   const waiting = !!own.querySelector('.badge');
   foot.insertAdjacentHTML('afterbegin', !daily
-    ? `<div class="side-card"><span class="sc-ic">${IC.edit}</span><b>${esc(label)} — sizning bo'limingiz</b><p>Xarajat bo'lgan kuni kiriting — moliya va 1 mijoz narxi shundan to'liq hisoblanadi.</p><a href="${own.getAttribute('href')}">Kiritish ${IC.arrow}</a></div>`
+    ? `<div class="side-card"><span class="sc-ic">${IC.edit}</span><b>${esc(label)} — sizning bo'limingiz</b><p>Xarajat bo'lgan kuni kiriting.</p><a href="${own.getAttribute('href')}">Kiritish ${IC.arrow}</a></div>`
     : waiting
-      ? `<div class="side-card"><span class="sc-ic">${IC.edit}</span><b>${esc(label)} kutilmoqda</b><p>Kechagi kun raqamlarini kiriting — hisobot direktorga shundan keyin boradi.</p><a href="${own.getAttribute('href')}">Kiritish ${IC.arrow}</a></div>`
-      : `<div class="side-card done"><span class="sc-ic">${IC.check}</span><b>${esc(label)} yuborildi</b><p>Kechagi kun raqamlari kiritilgan.</p><a href="${own.getAttribute('href')}">Ko'rish ${IC.arrow}</a></div>`);
+      ? `<div class="side-card"><span class="sc-ic">${IC.edit}</span><b>${esc(label)} kutilmoqda</b><p>Kechagi raqamlarni kiriting.</p><a href="${own.getAttribute('href')}">Kiritish ${IC.arrow}</a></div>`
+      : `<div class="side-card done"><span class="sc-ic">${IC.check}</span><b>${esc(label)} yuborildi</b><a href="${own.getAttribute('href')}">Ko'rish ${IC.arrow}</a></div>`);
 }
 
 const app = document.getElementById('app');

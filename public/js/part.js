@@ -4,19 +4,19 @@ import {
   $, $$, esc, api, state, shell, fmtN, PART_ROUTE, inVal, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, parseNum,
   canEditSection, isPmUser, viewNote,
 } from './core.js';
-import { STEPS, LEAD_ST, dateNav, historyBlock, reasonsHtml } from './pm.js';
+import { STEPS, LEAD_ST, dateNav, historyBlock, reasonsHtml, groupHead, fieldLabel, SALES_MAIN, SALES_STATUS } from './pm.js';
 
 const ROLE = {
   target: {
     step: STEPS[0],
     head: 'Target hisoboti',
-    hint: "Reklama kabinetidan kechagi raqamlarni har bir loyiha bo'yicha yozing: xarajat, ko'rishlar, kliklar va lidlar. Lidlardan nechtasi saytdan (web), nechtasi Telegram botdan tushganini alohida yozing — «Lid» bo'sh qolsa, ikkalasi qo'shiladi. Bloger va Telegram kanallarga to'lov bo'lmagan kun bo'sh qoladi.",
+    hint: "Reklama kabinetidan kechagi raqamlar. Lid bo'sh qolsa — sayt + bot qo'shiladi.",
     textsTitle: 'Kreativlar va muammolar',
   },
   rop: {
     step: STEPS[1],
     head: 'Sotuv hisoboti',
-    hint: "Sotuv bo'limiga tushgan lidlar: nechta qo'ng'iroq qilindi, nechtasi sifatli, potensial, sifatsiz, hozir qaysi holatda; nechta sotuv bo'ldi va qancha pul tushdi. Pastda — nega sifatsiz va nega sotib olmagani (har sababdan nechta). «Umumiy lid» bo'sh qolsa — uch turi qo'shiladi.",
+    hint: "Kechagi lidlar, holati, sotuv va tushum. Jami lid bo'sh qolsa — qismlari qo'shiladi.",
     textsTitle: 'Izoh',
   },
 };
@@ -26,7 +26,7 @@ const STATUS = LEAD_ST;
 // Sahifa manzili: #/target yoki #/sotuv (kechadan boshqa kun — ?date=…)
 let curPart = 'target';
 const partHash = (d) => `${PART_ROUTE[curPart][0]}${d === state.me.reportDay ? '' : `?date=${d}`}`;
-const LABEL = { target_leads: 'Lid (jami)', tl_web: 'Lid: saytdan', tl_bot: 'Lid: botdan' };
+
 
 export async function renderPart({ part = curPart, rolled = null } = {}) {
   state.leaveGuard = null;
@@ -51,10 +51,9 @@ export async function renderPart({ part = curPart, rolled = null } = {}) {
     if (state.leaveGuard && !(await state.leaveGuard())) return;
     if (location.hash !== partHash(d)) location.hash = partHash(d); else renderPart({ part });
   };
-  const first = String(state.me.user.name || '').split(' ')[0];
   const isY = date === state.me.reportDay;
-  shell(`<div class="page-head"><div><h1>${own && isY ? `Salom, <span class="grad">${esc(first)}</span>` : R.head}</h1>
-      <div class="sub">${isY ? `Kechagi kun — ${dayLabel(date)}${own ? `: ${R.head.toLowerCase()}` : ''}` : dayLabel(date)}</div></div>${dateNav(date, go)}</div>
+  shell(`<div class="page-head"><div><h1>${R.head}</h1>
+      <div class="sub">${isY ? 'Kecha · ' : ''}${dayLabel(date)}</div></div>${dateNav(date, go)}</div>
     ${viewNote(part)}<div id="part">${spinnerBlock()}</div>`);
   const rid = state.renderId;
   let daily;
@@ -80,17 +79,17 @@ export async function renderPart({ part = curPart, rolled = null } = {}) {
       <p>${back.note ? esc(back.note) : "Raqamlarni qayta tekshiring."}</p><span class="muted small">Tuzating va «Yuborish» ni bosing.</span></div>` : ''}${sentAt ? `<div class="part-sent"><span class="done-dot">${ICONS.check}</span><div><b>${String(sentAt).slice(11, 16)} da yuborildi</b>
       <span class="muted small">PM ga yetkazildi. Raqamni tuzatsangiz — saqlab, «Qayta yuborish» ni bosing.</span></div></div>` : ''}
     <section class="card step ${editable ? '' : 'ro-mode'}">
-      <div class="step-head"><span class="eyebrow">${role === 'target' ? 'Targetolog' : "Sotuv bo'limi rahbari (ROP)"}</span><h2>${R.head}</h2>${editable ? `<p>${R.hint}</p>` : ''}${whoLine}</div>
+      <div class="step-head">${editable ? `<p>${R.hint}</p>` : ''}${whoLine}</div>
       ${s.key === 'target' ? rateBlock() : ''}
-      ${leadsP.length ? `${autoP.length ? "<h3 class=\"tbl-title\">Sotuv bo'limi orqali</h3>" : ''}${numTable(leadsP, role === 'rop' ? s.fields.filter(([f]) => !STATUS.includes(f)) : s.fields, s.required)}` : ''}
-      ${role === 'rop' && leadsP.length ? `<h3 class="tbl-title">Lidlar holati <span class="muted small">— sotuv bo'limi orqali, nechta</span></h3>${numTable(leadsP, STATUS.map((f) => s.fields.find(([x]) => x === f)), [], false)}` : ''}
-      ${autoP.length ? `<h3 class="tbl-title">Avtovoronka <span class="muted small">— botdan va to'lov tizimidan</span></h3>${numTable(autoP, s.autoFields, s.autoRequired)}` : ''}
+      ${leadsP.length ? `${autoP.length ? "<h3 class=\"tbl-title\">Sotuv bo'limi orqali</h3>" : ''}${numTable(leadsP, role === 'rop' ? SALES_MAIN(s.fields) : s.fields, s.required)}` : ''}
+      ${role === 'rop' && leadsP.length ? numTable(leadsP, SALES_STATUS(s.fields), [], false) : ''}
+      ${autoP.length ? `<h3 class="tbl-title">Avtovoronka</h3>${numTable(autoP, s.autoFields, s.autoRequired)}` : ''}
       ${role === 'rop' && leadsP.length ? sourcesBlock(leadsP) : ''}
       ${textsBlock(role === 'rop' ? leadsP : daily.projects)}
       ${role === 'rop' && leadsP.length ? reasonsBlock(leadsP) : ''}
-      ${!editable ? `<div class="step-foot"><span class="muted small">${ICONS.eye.replace('<svg', '<svg width="14" height="14"')} Faqat ko'rish — kiritish ruxsati PM da</span></div>`
-        : `<div class="step-foot"><span class="muted small">Kulrang raqam — oldingi kunniki. Enter — keyingi qator.</span><span class="spacer"></span>
-        ${pm ? `<a class="btn ghost" href="#/kiritish">Tasdiqlash — «Kunlik hisobot»da</a>` : ''}
+      ${!editable ? ''
+        : `<div class="step-foot"><span class="muted small">Kulrang raqam — oldingi kun</span><span class="spacer"></span>
+        ${pm ? `<a class="btn ghost" href="#/kiritish">Tasdiqlash →</a>` : ''}
         <button class="btn ${pm ? 'primary' : ''}" data-save>Saqlash</button>
         ${own ? `<button class="btn primary" data-send>${ICONS.send} ${sentAt ? 'Qayta yuborish' : 'Yuborish'}</button>` : ''}</div>`}
     </section>`;
@@ -106,23 +105,23 @@ export async function renderPart({ part = curPart, rolled = null } = {}) {
 
   function rateBlock() {
     const r = daily.rate || {};
-    return `<div class="rate-in ${r.value == null ? 'need' : ''}">
-      <label for="dRate"><b>Dollar kursi</b><span class="muted small">${esc(dayLabel(date))} uchun, so'm</span></label>
-      <input id="dRate" class="cell-in" inputmode="decimal" value="${r.value ?? ''}" placeholder="masalan, ${fmtN(r.prev || 12650)}" aria-label="Dollar kursi, so'm">
-      <span class="muted small">${r.value == null ? '<b class="need-tag">Kiritilmagan</b> — kurssiz yuborilmaydi. ' : ''}Reklama hisobidan to'langan kurs; shu kun xarajati so'mga shu kurs bilan o'tadi.</span>
+    return `<div class="rate-in ${r.value == null ? 'need' : ''}" title="Shu kun reklamasi so'mga shu kurs bilan o'tadi">
+      <label for="dRate"><b>Dollar kursi</b></label>
+      <input id="dRate" class="cell-in" inputmode="decimal" value="${r.value ?? ''}" placeholder="${fmtN(r.prev || 12650)}" aria-label="Dollar kursi, so'm"><span class="muted">so'm</span>
+      ${r.value == null ? '<span class="need-tag">kiritilmagan</span>' : ''}
     </div>`;
   }
 
   function numTable(projects, fields, required, main = true) {
-    return `<div class="table-wrap"><table class="grid-entry ${fields.length > 4 ? 'wide' : ''} ${fields.length > 7 ? 'xwide' : ''}" style="--cols:${fields.length % 3 ? 2 : 3}" ${main ? 'data-part' : ''}><thead><tr><th>Loyiha</th>${fields.map(([f, l]) => `<th class="n">${esc(LABEL[f] || l)}</th>`).join('')}<th></th></tr></thead>
+    return `<div class="table-wrap"><table class="grid-entry ${fields.length > 4 ? 'wide' : ''} ${fields.length > 7 ? 'xwide' : ''}" style="--cols:${fields.length % 3 ? 2 : 3}" ${main ? 'data-part' : ''}><thead>${groupHead(fields)}<tr><th>Loyiha</th>${fields.map(([, l]) => `<th class="n">${esc(l)}</th>`).join('')}<th></th></tr></thead>
       <tbody>${projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
-        ${fields.map(([f, l]) => `<td class="n" data-label="${esc(LABEL[f] || l)}"><input class="cell-in" inputmode="decimal" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${esc(LABEL[f] || l)}"></td>`).join('')}
+        ${fields.map((fd) => { const [f] = fd; const l = fieldLabel(fd); return `<td class="n" data-label="${esc(l)}"><input class="cell-in" inputmode="decimal" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${esc(l)}"></td>`; }).join('')}
         <td data-state>${required.length && required.every((f) => p.row[f] != null) ? '<span class="pill good">✓</span>' : ''}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
   function sourcesBlock(projects) {
-    const SRC = [['src_ig', 'Instagram direktdan'], ['src_tg', 'Telegram lichkadan']];
-    return `<h3 class="tbl-title">Lichkadan kelgan lidlar <span class="muted small">— Instagram direkt va Telegram admin lichkasi, nechta (jami lid ichida)</span></h3>
+    const SRC = [['src_ig', 'Instagram'], ['src_tg', 'Telegram']];
+    return `<h3 class="tbl-title">Lichkadan kelgan lidlar <span class="muted small">(jami lid ichida)</span></h3>
       <div class="table-wrap"><table class="grid-entry grid-mini" style="--cols:2"><thead><tr><th>Loyiha</th>${SRC.map(([, l]) => `<th class="n">${l}</th>`).join('')}</tr></thead>
       <tbody>${projects.map((p) => `<tr data-id="${p.id}"><td>${dot(p.color)}${esc(p.name)}</td>
         ${SRC.map(([f, l]) => `<td class="n" data-label="${l}"><input class="cell-in" inputmode="numeric" name="${f}" value="${p.row[f] ?? ''}" placeholder="${p.prev?.[f] != null ? fmtN(p.prev[f]) : ''}" aria-label="${esc(p.name)} — ${l}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>`;

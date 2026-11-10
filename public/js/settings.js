@@ -364,15 +364,14 @@ async function tabStaff(body) {
         <label class="field">${u.id ? 'Yangi parol <span class="hint">almashtirish uchun</span>' : 'Parol'}<input data-f="password" type="text" autocomplete="new-password" minlength="6" placeholder="${u.id ? 'o\'zgarmaydi' : 'kamida 6 belgi'}"></label>
         <label class="field">Telegram ID <span class="hint">eslatma uchun</span><input data-f="telegram_id" inputmode="numeric" data-raw value="${esc(u.telegram_id || '')}" placeholder="123456789"></label>
       </div>
-      <div class="field" data-acc-field ${u.role === 'pm' ? 'hidden' : ''}>Kiritish ruxsati <span class="hint">belgilanmagan bo'limni faqat ko'radi — kirita va tuzata olmaydi</span>${accChips(u.id ? u.access || [] : ROLE_ACCESS[u.role || 'target'])}</div>
-      <div class="field" data-proj-field ${u.role === 'pm' ? 'hidden' : ''}>Loyihalari <span class="hint">hech biri tanlanmasa — hamma loyihalar</span>${projChips(u.projects || [])}</div>
+      <div class="field" data-acc-field ${u.role === 'pm' ? 'hidden' : ''}>Kiritish ruxsati${accChips(u.id ? u.access || [] : ROLE_ACCESS[u.role || 'target'])}</div>
+      <div class="field" data-proj-field ${u.role === 'pm' ? 'hidden' : ''}>Loyihalari <span class="hint">tanlanmasa — hammasi</span>${projChips(u.projects || [])}</div>
       <div class="row" style="justify-content:flex-end">${u.id && u.id !== state.me.user.id ? `<button class="btn small ghost" data-a="toggle">${u.active ? "O'chirish" : 'Qayta yoqish'}</button>` : ''}<button class="btn small primary" data-a="save">${u.id ? 'Saqlash' : "Qo'shish"}</button></div>
     </section>`;
   const act = users.filter((u) => u.active && u.role !== 'pm');
   body.innerHTML = `<div class="card plan-intro"><div class="card-head"><h2>Xodimlar va ruxsatlar</h2></div>
-      <p class="small" style="margin:0;color:var(--text-2);max-width:100ch">Har kim o'z bo'limini o'zi kiritadi: <b>targetolog</b> — target, <b>ROP</b> — sotuv va sotuv xodimlari, <b>marketing rahbari</b> — marketing xarajatlari, <b>moliyachi</b> — operatsion xarajatlar.
-        <b>Hamma hamma bo'limni ko'radi</b> (statistika ochiq), lekin <b>kiritish va tuzatish — faqat siz ruxsat bergan bo'limga</b>. Ruxsat bo'lmasa, hech kim birovning raqamini o'zgartira olmaydi. Direktor hammasini ko'radi, o'zi kiritmaydi.</p></div>
-    ${act.length ? `<div class="card"><div class="card-head"><h3>Kim nimani kirita oladi</h3><span class="muted small">✓ — kiritadi, · — faqat ko'radi</span></div>
+      <p class="small" style="margin:0;color:var(--text-2)">Hamma hammasini ko'radi. Kiritish — faqat ruxsat berilgan bo'limga.</p></div>
+    ${act.length ? `<div class="card"><div class="card-head"><h3>Kim nimani kiritadi</h3></div>
       <div class="table-wrap"><table class="acc-matrix"><thead><tr><th>Xodim</th>${Object.values(sections).map((l) => `<th class="c">${esc(l)}</th>`).join('')}</tr></thead>
       <tbody>${act.map((u) => `<tr><td><b>${esc(u.name)}</b> <span class="muted small">${esc(roles[u.role] || '')}</span></td>${Object.keys(sections).map((k) => `<td class="c">${(u.access || []).includes(k) ? '<span class="acc-yes">✓</span>' : '<span class="acc-no">·</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>` : ''}
     <div class="plan-cards">${users.map(card).join('')}${card({ active: 1 })}</div>`;

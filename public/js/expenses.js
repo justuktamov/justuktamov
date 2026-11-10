@@ -33,14 +33,14 @@ function entryForm(kind, cats) {
   const projects = state.projects.filter((p) => p.active);
   const projOpts = [['', kind === 'marketing' ? 'Umumiy (hamma loyiha)' : 'Kompaniya umumiy'], ...projects.map((p) => [String(p.id), p.name])];
   return `<form class="card exp-form" id="expForm" autocomplete="off">
-      <div class="card-head"><h3 data-form-title>${kind === 'marketing' ? "Marketing xarajati qo'shish" : "Operatsion xarajat qo'shish"}</h3><span class="muted small">${kind === 'marketing' ? "Bloger va Telegram kanallarga reklama — targetolog hisobotida (bu yerda takrorlamang)" : "Shu oy uchun bir marta (masalan, oylik ish haqi) — oy kunlariga teng bo'linadi"}</span></div>
+      <div class="card-head"><h3 data-form-title>${kind === 'marketing' ? "Marketing xarajati qo'shish" : "Operatsion xarajat qo'shish"}</h3><span class="muted small">${kind === 'marketing' ? 'Bloger va TG kanal — target hisobotida' : 'Oyiga bir marta'}</span></div>
       <div class="exp-grid">
         <div class="field">Sana${dateButton('expDate', state.me.today, 'Sana')}</div>
         <div class="field">Loyiha${selectHtml(projOpts, '', 'name="project_id"', 'Loyiha')}</div>
         <div class="field">Modda${selectHtml(Object.entries(cats), Object.keys(cats)[0], 'name="category"', 'Modda')}</div>
         <label class="field">Summa<input name="amount" inputmode="decimal" placeholder="masalan, 2 500 000" required></label>
         <div class="field">Valyuta${selectHtml([['uzs', "so'm"], ['usd', '$ (shu kun kursi bilan)']], 'uzs', 'name="currency"', 'Valyuta')}</div>
-        <label class="field exp-note">Izoh <span class="hint">nima uchun</span><input name="note" maxlength="300" placeholder="${kind === 'marketing' ? 'masalan, reels uchun video suratga olish' : 'masalan, noyabr oylik — 4 kishi'}"></label>
+        <label class="field exp-note">Izoh<input name="note" maxlength="300" placeholder="${kind === 'marketing' ? 'masalan, reels uchun video' : 'masalan, noyabr oylik'}"></label>
       </div>
       <div class="row" style="justify-content:flex-end"><button type="button" class="btn ghost" data-cancel hidden>Bekor qilish</button><button class="btn primary" data-submit>${ICONS.plus} Qo'shish</button></div>
     </form>`;
@@ -138,7 +138,7 @@ export async function renderMarketing() {
   state.isDirty = null;
   const r = monthRange(view.marketing);
   const editable = canEditSection('marketing');
-  shell(`<div class="page-head"><div><h1>Marketing</h1><div class="sub">Marketing xarajatlari: qaysi loyihaga, nimaga qancha ketdi — va u qancha sotuv berdi</div></div>
+  shell(`<div class="page-head"><div><h1>Marketing</h1><div class="sub">Qaysi loyihaga, nimaga qancha ketdi</div></div>
       <div class="filters">${monthBar('marketing', r)}</div></div>
     ${viewNote('marketing')}<div id="mk">${spinnerBlock()}</div>`);
   bindMonth('marketing', renderMarketing);
@@ -160,10 +160,10 @@ export async function renderMarketing() {
     </div>
     <div class="grid g2 mb">
       <div class="card"><div class="card-head"><h3>Moddalar bo'yicha</h3><span class="muted small">${esc(monthLabel(r.month))} — kiritilgani</span></div>${bars(byCat, byCat.reduce((a, x) => a + x.uzs, 0))}</div>
-      <div class="card"><div class="card-head"><h3>Loyihalar bo'yicha</h3><span class="muted small">marketing nima berdi</span></div>
+      <div class="card"><div class="card-head"><h3>Loyihalar bo'yicha</h3></div>
         <div class="table-wrap"><table class="econ-mini"><thead><tr><th>Loyiha</th><th class="n">Marketing</th><th class="n">Reklama</th><th class="n">Sotuv</th><th class="n">1 mijoz (jami)</th></tr></thead>
         <tbody>${proj.map((p) => `<tr><td>${dot(p.color)}${esc(p.name)}</td><td class="n">${mln(p.marketing_uzs)}</td><td class="n">${mln(p.spend_uzs)}</td><td class="n">${fmtN(p.sales)}</td><td class="n"><b>${mln(p.cac_full_uzs)}</b></td></tr>`).join('')}
-        ${t.general_marketing_uzs ? `<tr class="muted"><td>Umumiy (loyihasiz)</td><td class="n">${mln(t.general_marketing_uzs)}</td><td colspan="3" class="small">loyihaga belgilansa, aniqroq hisoblanadi</td></tr>` : ''}</tbody></table></div></div>
+        ${t.general_marketing_uzs ? `<tr class="muted"><td>Umumiy (loyihasiz)</td><td class="n">${mln(t.general_marketing_uzs)}</td><td colspan="3"></td></tr>` : ''}</tbody></table></div></div>
     </div>
     ${editable ? entryForm('marketing', cats) : ''}
     ${listCard(ex.items, editable, `Yozuvlar — ${esc(monthLabel(r.month))}`)}`;
@@ -176,7 +176,7 @@ export async function renderFinance() {
   state.isDirty = null;
   const r = monthRange(view.finance);
   const editable = canEditSection('finance');
-  shell(`<div class="page-head"><div><h1>Moliya</h1><div class="sub">Kompaniyaning foyda va zarari: tushumdan barcha xarajatlargacha — loyihalar bo'yicha</div></div>
+  shell(`<div class="page-head"><div><h1>Moliya</h1><div class="sub">Tushumdan sof foydagacha</div></div>
       <div class="filters">${monthBar('finance', r)}</div></div>
     ${viewNote('finance')}<div id="fin">${spinnerBlock()}</div>`);
   bindMonth('finance', renderFinance);
@@ -189,10 +189,10 @@ export async function renderFinance() {
   const opexAll = t.fixed_cost + t.general_opex_uzs;
   const rows = [
     ['Tushum', t.revenue, 'in', `${fmtN(t.sales)} ta sotuv`],
-    ['Target reklama', -t.spend_uzs, 'ad', `${fmtUsd(t.spend, 0)} — Ads, bloger, kanallar`],
-    ['Marketing', -t.marketing_uzs, 'mk', 'kontent, SMM, tadbir…'],
-    ['Tannarx', -t.var_cost, 'var', "tushumdan % (sozlamada)"],
-    ['Operatsion xarajatlar', -opexAll, 'opex', estimated ? '<span class="pill warn">qisman taxmin</span>' : '<span class="pill good">fakt</span>'],
+    ['Reklama', -t.spend_uzs, 'ad', fmtUsd(t.spend, 0)],
+    ['Marketing', -t.marketing_uzs, 'mk', ''],
+    ['Tannarx', -t.var_cost, 'var', ''],
+    ['Operatsion', -opexAll, 'opex', estimated ? '<span class="pill warn">taxmin</span>' : ''],
   ];
   const costs = [['ad', t.spend_uzs, 'Reklama'], ['mk', t.marketing_uzs, 'Marketing'], ['var', t.var_cost, 'Tannarx'], ['opex', opexAll, 'Operatsion']];
   const totalCost = costs.reduce((a, x) => a + x[1], 0);
@@ -209,13 +209,13 @@ export async function renderFinance() {
         <h4 class="mt">Operatsion xarajatlar — moddalar</h4>${bars(byCat, byCat.reduce((a, x) => a + x.uzs, 0), 'opex')}
       </div>
     </div>
-    <div class="card mb"><div class="card-head"><h3>Loyihalar bo'yicha</h3><span class="muted small">har loyiha o'z xarajatini qoplayaptimi</span></div>
+    <div class="card mb"><div class="card-head"><h3>Loyihalar bo'yicha</h3></div>
       <div class="table-wrap"><table class="econ-mini"><thead><tr><th>Loyiha</th><th class="n">Tushum</th><th class="n">Reklama</th><th class="n">Marketing</th><th class="n">Tannarx</th><th class="n">Operatsion</th><th class="n">Sof foyda</th><th class="n">Marja</th></tr></thead>
       <tbody>${c.projects.map((p) => `<tr><td>${dot(p.color)}${esc(p.name)}</td><td class="n">${mln(p.revenue)}</td><td class="n">${mln(p.spend_uzs)}</td><td class="n">${mln(p.marketing_uzs)}</td><td class="n">${mln(p.var_cost)}</td>
         <td class="n">${mln(p.fixed_cost)}${p.fixed_estimated && !p.fixed_actual ? ' <span class="muted small" title="Fakt kiritilmagan — sozlamadagi taxmin">≈</span>' : ''}</td>
         <td class="n"><b class="${p.net_profit < 0 ? 'neg' : 'pos'}">${p.net_profit < 0 ? '−' : '+'}${mln(Math.abs(p.net_profit))}</b></td><td class="n">${fmtP(p.net_margin, 0)}</td></tr>`).join('')}
         ${t.general_opex_uzs || t.general_marketing_uzs ? `<tr class="muted"><td>Kompaniya umumiy</td><td></td><td></td><td class="n">${mln(t.general_marketing_uzs)}</td><td></td><td class="n">${mln(t.general_opex_uzs)}</td><td class="n"><b class="neg">−${mln(t.general_opex_uzs + t.general_marketing_uzs)}</b></td><td></td></tr>` : ''}</tbody></table></div>
-      <p class="muted small" style="margin:10px 0 0">Marketing va operatsion xarajatlar oy kunlariga teng bo'linadi: oy o'rtasida — o'tgan kunlar ulushi, oy oxirida — hammasi.${estimated ? " ≈ — shu oy uchun operatsion xarajat fakti kiritilmagan, Sozlamalardagi «doimiy xarajat, oyiga» olindi; moliyachi kiritsa — aniq hisoblanadi." : ''}</p>
+      <p class="muted small" style="margin:10px 0 0" title="Marketing va operatsion xarajatlar oy kunlariga teng bo'linadi">${estimated ? '≈ — fakt kiritilmagan, taxmin olindi' : ''}</p>
     </div>
     ${editable ? entryForm('opex', cats) : ''}
     ${listCard(ex.items, editable, `Operatsion xarajatlar — ${esc(monthLabel(r.month))}`)}`;

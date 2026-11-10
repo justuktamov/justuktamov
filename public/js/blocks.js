@@ -158,7 +158,7 @@ export function sourcesBlock(p) {
   if (p.kind === 'auto') return '';
   const parts = [['Instagram direkt', p.src_ig || 0, '#d6336c'], ['Telegram lichka', p.src_tg || 0, '#1c9bd6']];
   const head = '<div class="card-head"><h3>Lichkadan kelgan lidlar</h3><span class="muted small">jami lid ichida</span></div>';
-  if (!p.reported.src_ig && !p.reported.src_tg) return `<div class="sub-card">${head}<p class="small muted">Kiritilmagan. «Kechagi hisobot» → 2-qadam → «Lichkadan kelgan lidlar» jadvaliga Instagram direkt va Telegram lichkadan nechta lid kelganini yozing.</p></div>`;
+  if (!p.reported.src_ig && !p.reported.src_tg) return `<div class="sub-card">${head}<p class="small muted">Kiritilmagan</p></div>`;
   return `<div class="sub-card">${head}
     <div class="src-list">${parts.map(([l, v, c]) => `<div class="src-row"><span><i style="background:${c}"></i>${l}</span><b>${fmtN(v)}</b><em>${p.leads ? fmtP(v / p.leads, 0) : ''}</em></div>`).join('')}</div>
   </div>`;
