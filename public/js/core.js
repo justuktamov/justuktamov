@@ -589,8 +589,10 @@ function demoMenu() {
 }
 
 // PM — boshqaruvchi; qolganlar (direktor, targetolog, ROP, marketing, moliyachi) — hamma narsani ko'radi, faqat ruxsat berilgan bo'limiga kiritadi
-export const isStaffUser = () => Boolean(state.me?.user) && state.me.user.role !== 'pm';
-export const isPmUser = () => state.me?.user?.role === 'pm';
+// Boshqaruvchilar — PM va direktor: hammasini ko'radi va tuzatadi
+export const isAdminUser = () => ['pm', 'director'].includes(state.me?.user?.role);
+export const isStaffUser = () => Boolean(state.me?.user) && !isAdminUser();
+export const isPmUser = isAdminUser;
 // Shu bo'limga kiritish ruxsati bormi (PM — hammasiga)
 export const canEditSection = (section) => (state.me?.access || []).includes(section);
 // Kunlik qismlar sahifasi: manzil va menyudagi nomi
@@ -609,28 +611,32 @@ export function viewNote(section) {
   return `<div class="view-note">${ICONS.eye}<div><b>Faqat ko'rish</b><span>Kiritish uchun ruxsatni PM beradi</span></div></div>`;
 }
 
-// Menyu hamma uchun bir xil: «Umumiy» — ko'rish sahifalari, «Bo'limlar» — har bo'limning kiritish sahifasi.
-// Xodimning o'z bo'limi (ruxsati bor) belgilanadi; kunlik qismi yuborilmagan bo'lsa — «!»
+// Har kimning o'z kabineti: menyuning tepasida — o'zi to'ldiradigan bo'limlar (boshqalarniki aralashmaydi),
+// pastda — hamma ko'radigan statistika va boshqa bo'limlar (faqat ko'rish). PM va direktor — boshqaruv: hammasini tuzatadi
 function navItems() {
-  const pm = isPmUser();
+  const admin = isAdminUser();
+  const role = state.me.user.role;
   const sent = ['submitted', 'reviewed'].includes(state.me.reportStatus);
-  const common = [
+  const kab = ['#/kabinet', 'Kabinet', ICONS.home, null, 'kab'];
+  const stats = [
     ['#/', 'Loyihalar', ICONS.chart],
     ['#/nazorat', 'Nazorat', ICONS.shield],
     ['#/dinamika', 'Dinamika', ICONS.trend],
     ['#/hisobotlar', 'Hisobotlar', ICONS.archive],
   ];
-  const sections = [
-    ['#/kiritish', 'Kunlik hisobot', ICONS.send, pm && !sent ? '!' : null, pm ? 'own' : ''],
-    ...SECTION_NAV.map(([href, label, icon, sec]) => {
-      const own = !pm && canEditSection(sec);
-      const part = sec === 'target' || sec === 'rop';
-      return [href, label, ICONS[icon], own && part && !state.me.partSent ? '!' : null, own ? 'own' : ''];
-    }),
-  ];
+  const report = ['#/kiritish', 'Kunlik hisobot', ICONS.send, role === 'pm' && !sent ? '!' : null, role === 'pm' ? 'own' : ''];
+  const sec = ([href, label, icon, s], own) => [href, label, ICONS[icon], own && (s === 'target' || s === 'rop') && !state.me.partSent ? '!' : null, own ? 'own' : ''];
+  if (admin) {
+    return {
+      groups: [['Boshqaruv', [kab, report]], ["Bo'limlar", SECTION_NAV.map((x) => sec(x, false))], ['Statistika', stats]],
+      bottom: [['#/sozlamalar', 'Sozlamalar', ICONS.set]],
+    };
+  }
+  const mine = SECTION_NAV.filter((x) => canEditSection(x[3]));
+  const others = SECTION_NAV.filter((x) => !canEditSection(x[3]));
   return {
-    groups: [['Umumiy', common], ["Bo'limlar", sections]],
-    bottom: [['#/sozlamalar', pm ? 'Sozlamalar' : 'Profil', ICONS.set]],
+    groups: [['Mening kabinetim', [kab, ...mine.map((x) => sec(x, true))]], ['Statistika', stats], ["Boshqa bo'limlar", [...others.map((x) => sec(x, false)), report]]],
+    bottom: [['#/sozlamalar', 'Profil', ICONS.set]],
   };
 }
 
@@ -653,7 +659,7 @@ export function shell(content) {
   const all = groups.flatMap(([, list]) => list);
   // Telefonda pastki panel: asosiylari + o'z bo'limi; qolganlari — «Menyu» da
   const own = all.filter((x) => String(x[4] || '').includes('own')).slice(0, 2);
-  const mobileItems = [all[0], all[1], ...own, ['#menu', 'Menyu', ICONS.menu, null, 'm-more']];
+  const mobileItems = [all.find((x) => x[0] === '#/kabinet'), ...own, all.find((x) => x[0] === '#/'), ['#menu', 'Menyu', ICONS.menu, null, 'm-more']];
   app().innerHTML = `
     <div class="mobile-top"><span class="logo"><span class="logo-mark">${ICONS.logo}</span>Analitika</span>
       <button id="logoutM" aria-label="Chiqish" title="Chiqish">${ICONS.logout.replace('<svg', '<svg width="18" height="18"')}</button></div>
@@ -725,6 +731,7 @@ export function renderLogin(message = '') {
     const f = new FormData(e.target);
     try {
       await api('/api/login', { method: 'POST', body: { login: f.get('login'), password: f.get('password') } });
+      history.replaceState(null, '', '#/kabinet'); // kirganda — o'z kabineti
       await boot();
     } catch (err) { $('#loginErr').textContent = err.message; }
   };
@@ -739,7 +746,7 @@ export async function boot() {
   state.version = me.version;
   state.projects = await api('/api/projects');
   // Hash o'zgarsa — hashchange o'zi chizadi; ikki marta chizilmasin
-  if (!location.hash || location.hash === '#') location.hash = '#/';
+  if (!location.hash || location.hash === '#') location.hash = '#/kabinet';
   else rerender();
 }
 

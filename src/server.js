@@ -607,7 +607,8 @@ function userFields(b, cur = {}) {
   // Kiritish ruxsati: berilmasa — rol o'zgarganda rolning odatiy ruxsati, aks holda avvalgisi
   let access = b.access === undefined ? (role !== cur.role ? null : cur.access ?? null) : null;
   try { if (b.access !== undefined && b.access !== null) access = normalizeAccess(b.access); } catch (e) { throw new HttpError(400, e.message); }
-  return { name, role, login, tg, projects: role === 'pm' ? null : projects, access: role === 'pm' ? null : access };
+  const admin = ['pm', 'director'].includes(role);
+  return { name, role, login, tg, projects: admin ? null : projects, access: admin ? null : access };
 }
 const checkPassword = (pw) => { if (String(pw ?? '').length < 6) throw new HttpError(400, "Parol kamida 6 belgi bo'lsin"); return String(pw); };
 route('POST', '/api/users', async (req, res) => {
@@ -625,7 +626,7 @@ route('PUT', '/api/users/:id', async (req, res, { id }) => {
   const f = userFields(b, cur);
   const active = b.active === undefined ? cur.active : (b.active ? 1 : 0);
   // O'zini o'chirib yoki PM dan tushirib qo'yib, tizimni boshqaruvsiz qoldirmaslik uchun
-  if (cur.id === me.id && (!active || f.role !== 'pm')) throw new HttpError(400, "O'zingizni o'chirib yoki rolingizni o'zgartirib bo'lmaydi");
+  if (cur.id === me.id && (!active || !['pm', 'director'].includes(f.role))) throw new HttpError(400, "O'zingizni o'chirib yoki boshqaruvdan chiqarib bo'lmaydi");
   getDb().prepare('UPDATE users SET name = ?, login = ?, role = ?, telegram_id = ?, projects = ?, access = ?, active = ? WHERE id = ?').run(f.name, f.login, f.role, f.tg, f.projects, f.access, active, cur.id);
   if (!active) getDb().prepare('DELETE FROM sessions WHERE user_id = ?').run(cur.id);
   if (b.password) setPassword(cur.id, checkPassword(b.password));
@@ -994,7 +995,7 @@ export function createApp() {
           const m = r.method === req.method && url.pathname.match(r.re);
           if (!m) continue;
           // Targetolog va ROP — faqat o'z kiritish sahifasi va profili; qolgan bo'limlar PM uchun
-          if (isStaff(req.user) && !r.staff) throw new HttpError(403, "Bu bo'lim faqat proekt menejer uchun");
+          if (isStaff(req.user) && !r.staff) throw new HttpError(403, "Bu bo'lim faqat PM va direktor uchun");
           return await r.fn(req, res, m.groups || {}, url.searchParams);
         }
         throw new HttpError(404, 'Topilmadi');

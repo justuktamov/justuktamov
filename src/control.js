@@ -5,6 +5,7 @@ import { summary, expenseBook, addDays, daysBetween } from './metrics.js';
 import { EXPENSE_CATS } from './db.js';
 import { ROLES, userParts, userAccess } from './roles.js';
 import { sellerStats } from './sellers-calc.js';
+import { forecast, bestBudget } from '../public/js/forecast.js';
 
 const div = (a, b) => (b ? a / b : null);
 const pctTxt = (x) => `${(x * 100).toFixed(x < 0.1 ? 1 : 0)}%`;
@@ -17,11 +18,13 @@ export const OWNERS = {
   target: { label: 'Targetolog', duty: 'Lid narxi, CTR, byudjet, lid sifati' },
   rop: { label: "Sotuv bo'limi", duty: "Qo'ng'iroq, konversiya, sotuvchilar" },
   marketing: { label: 'Marketing', duty: 'Marketing xarajati va natijasi' },
+  finance: { label: 'Moliya', duty: 'Operatsion xarajatlar, foyda' },
   pm: { label: 'Proekt menejer', duty: 'Reja, hisobot vaqti, jarayon' },
 };
 
-// Bitta muammo: kim, qanchalik jiddiy (crit | warn | info), qaysi loyiha, matn va raqamlar (dalil)
-const issue = (owner, level, text, project = null, fact = null) => ({ owner, level, text, project, fact });
+// Bitta muammo: kim, qanchalik jiddiy (crit | warn | info), qaysi loyiha, matn, dalil va
+// impact — tuzatilsa oyiga taxminan qancha so'm qo'shiladi (hisoblab bo'lmasa — null)
+const issue = (owner, level, text, project = null, fact = null, impact = null) => ({ owner, level, text, project, fact, impact: impact > 0 ? Math.round(impact) : null });
 
 // Loyiha iqtisodi va «ko'p yoki kam sarflayapmizmi» xulosasi.
 //   contribution — 1 sotuvdan tannarxdan keyin qoladigan pul: 1 mijozni olib kelish (reklama) shundan qimmat bo'lsa — har yangi sotuv zarar,
@@ -66,15 +69,20 @@ function economics(p, days, planItem) {
 }
 
 // Qoidalar: har bir loyiha bo'yicha kim qayerda me'yordan chiqdi (oldingi davr / reja / o'z me'yori bilan solishtiriladi)
-function projectIssues(p, plan, sellerByProject) {
+function projectIssues(p, plan, sellerByProject, days) {
   const out = [];
   const b = p.bench || {};
   const auto = p.kind === 'auto';
   const name = p.name;
+  // Pul ta'siri uchun: oyiga (30 kun), 1 sotuvdan qoladigan pul, dollar kursi
+  const per30 = days ? 30 / days : 1;
+  const contribution = p.avg_check != null ? p.avg_check * (1 - (Number(p.var_cost_pct) || 0) / 100) : 0;
+  const rate = p.spend ? p.spend_uzs / p.spend : 0;
+  const sale = (n) => n * contribution * per30; // n ta qo'shimcha sotuv — oyiga so'm
   // Targetolog
   if (p.unit_cost != null && b.unit_cost) {
     const r = p.unit_cost / b.unit_cost;
-    if (r >= 1.25) out.push(issue('target', r >= 1.5 ? 'crit' : 'warn', `${p.unit_label} ${usd(p.unit_cost)}, odatda ${usd(b.unit_cost)} (+${pctTxt(r - 1)})`, name, { now: p.unit_cost, norm: b.unit_cost }));
+    if (r >= 1.25) out.push(issue('target', r >= 1.5 ? 'crit' : 'warn', `${p.unit_label} ${usd(p.unit_cost)}, odatda ${usd(b.unit_cost)} (+${pctTxt(r - 1)})`, name, { now: p.unit_cost, norm: b.unit_cost }, p.spend * (1 - 1 / r) * rate * per30));
   }
   if (p.ctr != null && b.ctr && p.impressions >= 1000 && p.ctr < b.ctr * 0.75) out.push(issue('target', 'warn', `CTR ${pctTxt(p.ctr)}, odatda ${pctTxt(b.ctr)} — kreativni yangilang`, name));
   const pb = plan?.metrics?.budget;
@@ -84,43 +92,81 @@ function projectIssues(p, plan, sellerByProject) {
   }
   if (!auto && p.leads >= 20 && p.unqualified_share != null && p.unqualified_share > 0.45) {
     const top = p.reasons?.bad?.[0];
-    out.push(issue('target', p.unqualified_share > 0.6 ? 'crit' : 'warn', `Sifatsiz lid ${pctTxt(p.unqualified_share)}${top ? ` — ko'pi «${top.label}»` : ''}`, name));
+    out.push(issue('target', p.unqualified_share > 0.6 ? 'crit' : 'warn', `Sifatsiz lid ${pctTxt(p.unqualified_share)}${top ? ` — ko'pi «${top.label}»` : ''}`, name, null, p.spend * (p.unqualified_share - 0.3) * rate * per30));
   }
   // Jarayon (PM): targetolog aytgan lid sotuv bo'limiga yetib bormayapti
   if (!auto && p.reported?.target_leads && p.reported?.leads && p.target_leads - p.leads >= 10 && p.target_leads > p.leads * 1.2) {
-    out.push(issue('pm', 'warn', `${p.target_leads - p.leads} ta lid yo'qolgan: target ${p.target_leads}, sotuv ${p.leads}`, name));
+    out.push(issue('pm', 'warn', `${p.target_leads - p.leads} ta lid yo'qolgan: target ${p.target_leads}, sotuv ${p.leads}`, name, null, sale((p.target_leads - p.leads) * (p.conv || 0))));
   }
   // Sotuv bo'limi (ROP)
   if (!auto) {
-    if (p.leads >= 20 && !p.sales) out.push(issue('rop', 'crit', `${p.leads} ta lid — sotuv yo'q`, name));
+    if (p.leads >= 20 && !p.sales) out.push(issue('rop', 'crit', `${p.leads} ta lid — sotuv yo'q`, name, null, b.conv ? sale(p.leads * b.conv) : null));
     else if (p.conv != null && b.conv && p.leads >= 15) {
       const r = p.conv / b.conv;
-      if (r < 0.75) out.push(issue('rop', r < 0.5 ? 'crit' : 'warn', `Konversiya ${pctTxt(p.conv)}, ${b.conv_src === 'reja' ? 'rejada' : 'odatda'} ${pctTxt(b.conv)}`, name));
+      if (r < 0.75) out.push(issue('rop', r < 0.5 ? 'crit' : 'warn', `Konversiya ${pctTxt(p.conv)}, ${b.conv_src === 'reja' ? 'rejada' : 'odatda'} ${pctTxt(b.conv)}`, name, null, sale(p.leads * (b.conv - p.conv))));
     }
-    if (p.reported?.calls && p.leads >= 10 && p.calls < p.leads * 0.9) out.push(issue('rop', 'warn', `Qo'ng'iroq ${p.calls} / lid ${p.leads}`, name));
-    if (p.st_nopickup && p.leads >= 10 && p.st_nopickup / p.leads > 0.25) out.push(issue('rop', 'warn', `Ko'tarmagan ${pctTxt(p.st_nopickup / p.leads)}`, name));
+    if (p.reported?.calls && p.leads >= 10 && p.calls < p.leads * 0.9) out.push(issue('rop', 'warn', `Qo'ng'iroq ${p.calls} / lid ${p.leads}`, name, null, sale((p.leads - p.calls) * 0.5 * (p.conv || 0))));
+    if (p.st_nopickup && p.leads >= 10 && p.st_nopickup / p.leads > 0.25) out.push(issue('rop', 'warn', `Ko'tarmagan ${pctTxt(p.st_nopickup / p.leads)}`, name, null, sale(p.st_nopickup * 0.3 * (p.conv || 0))));
     const lost = p.reasons?.lost?.[0];
     if (lost && lost.count >= 5 && lost.share >= 0.35) {
-      out.push(issue('rop', 'info', `Rad etishning ${pctTxt(lost.share)} — «${lost.label}»`, name));
+      out.push(issue('rop', 'info', `Rad etishning ${pctTxt(lost.share)} — «${lost.label}»`, name, null, sale(lost.count * 0.15)));
     }
     const sp = sellerByProject.get(p.id);
     if (sp && sp.total.conv != null) {
-      for (const s of sp.rows) {
-        if (s.leads >= 15 && s.conv != null && s.conv < sp.total.conv * 0.5) out.push(issue('rop', 'warn', `${s.name}: konversiya ${pctTxt(s.conv)}, bo'lim ${pctTxt(sp.total.conv)}`, name));
+      for (const x of sp.rows) {
+        if (x.leads >= 15 && x.conv != null && x.conv < sp.total.conv * 0.5) out.push(issue('rop', 'warn', `${x.name}: konversiya ${pctTxt(x.conv)}, bo'lim ${pctTxt(sp.total.conv)}`, name, null, sale(x.leads * (sp.total.conv - x.conv) * 0.5)));
       }
     }
   } else if (p.conv != null && b.conv && (p.starts >= 50 || p.clicks >= 300)) {
     const r = p.conv / b.conv;
-    if (r < 0.75) out.push(issue('pm', r < 0.5 ? 'crit' : 'warn', `Bot: ${p.conv_label} ${pctTxt(p.conv)}, odatda ${pctTxt(b.conv)}`, name));
+    if (r < 0.75) out.push(issue('pm', r < 0.5 ? 'crit' : 'warn', `Bot: ${p.conv_label} ${pctTxt(p.conv)}, odatda ${pctTxt(b.conv)}`, name, null, sale((p.starts || p.clicks) * (b.conv - p.conv))));
   }
-  // Marketing: xarajat oshdi, natija yo'q
+  // Marketing: xarajat oshdi, natija yo'q; tushumga nisbatan katta
   const mk = p.marketing_uzs || 0;
   const mkPrev = p.prev?.marketing_uzs || 0;
   if (mk > 0 && mkPrev > 0 && mk > mkPrev * 1.3 && (p.leads || p.sales) <= (p.prev?.leads || p.prev?.sales || 0)) {
-    out.push(issue('marketing', 'warn', `Marketing +${pctTxt(mk / mkPrev - 1)}, natija o'smadi`, name));
+    out.push(issue('marketing', 'warn', `Marketing +${pctTxt(mk / mkPrev - 1)}, natija o'smadi`, name, null, (mk - mkPrev) * per30));
   }
-  if (mk > 0 && p.revenue > 0 && mk / p.revenue > 0.2) out.push(issue('marketing', mk / p.revenue > 0.35 ? 'crit' : 'warn', `Marketing — tushumning ${pctTxt(mk / p.revenue)}`, name));
+  if (mk > 0 && p.revenue > 0 && mk / p.revenue > 0.2) out.push(issue('marketing', mk / p.revenue > 0.35 ? 'crit' : 'warn', `Marketing — tushumning ${pctTxt(mk / p.revenue)}`, name, null, (mk - p.revenue * 0.1) * per30));
   return out;
+}
+
+// Pul taqsimoti (oyiga): tushumning qanchasi reklamaga, qanchasi marketingga — va shunda foyda qancha bo'ladi.
+// Reklama — har loyihada «Agar tiksak» modelidagi eng foydali byudjet (bir oyda ±50% dan ko'p o'zgartirilmaydi: bosqichma-bosqich).
+// Marketing — tushumning 5–10% oralig'i mo'ljal: ko'p bo'lsa — 10% gacha qisqartirish, kam bo'lsa va foyda bor — 5% gacha oshirish
+function allocation(projects, totals, days) {
+  const per30 = days ? 30 / days : 1;
+  const revenue = totals.revenue * per30;
+  const rows = projects.map((p) => {
+    const m = p.model;
+    const ok = m?.unit_cost && m?.rate && m?.avg_check;
+    const nowUsd = m?.spend_month || 0;
+    if (!ok) return { id: p.id, name: p.name, color: p.color, now_usd: nowUsd, rec_usd: nowUsd, change: 'keep', gain: 0, enough: false, rate: m?.rate || 0 };
+    const now = forecast(m, nowUsd);
+    const best = m.enough ? bestBudget(m) : null;
+    let rec = best ? best.budget : nowUsd;
+    if (nowUsd > 0) rec = Math.min(Math.max(rec, nowUsd * 0.5), nowUsd * 1.5);
+    rec = Math.round(rec / 10) * 10;
+    const f = forecast(m, rec);
+    const change = rec > nowUsd * 1.05 ? 'up' : rec < nowUsd * 0.95 ? 'down' : 'keep';
+    return { id: p.id, name: p.name, color: p.color, now_usd: nowUsd, rec_usd: change === 'keep' ? nowUsd : rec, change, gain: change === 'keep' ? 0 : Math.max(0, f.profit - now.profit), enough: m.enough, rate: m.rate };
+  });
+  const adNow = rows.reduce((a, r) => a + r.now_usd * r.rate, 0);
+  const adRec = rows.reduce((a, r) => a + r.rec_usd * r.rate, 0);
+  const mkNow = (totals.marketing_uzs || 0) * per30;
+  const share = revenue ? mkNow / revenue : null;
+  let mkRec = mkNow, mkNote = "Me'yorida";
+  if (share != null && share > 0.12) { mkRec = revenue * 0.1; mkNote = "Ko'p — tushumning 10% igacha qisqartirish"; }
+  else if (share != null && share < 0.03 && totals.net > 0) { mkRec = revenue * 0.05; mkNote = 'Kam — foyda bor, 5% gacha oshirsa bo\'ladi'; }
+  const netNow = totals.net * per30;
+  const gain = rows.reduce((a, r) => a + r.gain, 0) + Math.max(0, mkNow - mkRec);
+  return {
+    revenue,
+    ad: { now: adNow, rec: adRec, now_share: div(adNow, revenue), rec_share: div(adRec, revenue) },
+    marketing: { now: mkNow, rec: mkRec, now_share: share, rec_share: div(mkRec, revenue), note: mkNote },
+    profit: { now: netNow, rec: netNow + gain },
+    projects: rows.map(({ rate, ...r }) => ({ ...r, gain: Math.round(r.gain) })),
+  };
 }
 
 // Intizom: har kungi hisobot belgilangan vaqtgacha kiritildimi. Kun d ning hisoboti — ertasi kuni soat deadline gacha
@@ -201,7 +247,7 @@ export function control({ from, to, today }, ctx) {
   }));
 
   // Muammolar — loyihalar bo'yicha + umumiy (marketing va moliya kiritilmagani, reja yo'qligi, intizom)
-  const issues = live.flatMap((p) => projectIssues(p, planOf(p.id), sellerByProject));
+  const issues = live.flatMap((p) => projectIssues(p, planOf(p.id), sellerByProject, days));
   const t = s.totals;
   const general = t.general || { marketing: 0, opex: 0 };
   const mkAll = (t.marketing_uzs || 0) + general.marketing;
@@ -211,11 +257,12 @@ export function control({ from, to, today }, ctx) {
   if (mkAll > 0 && t.revenue > 0 && general.marketing / t.revenue > 0.15) issues.push(issue('marketing', 'warn', `Loyihasiz marketing — tushumning ${pctTxt(general.marketing / t.revenue)}`));
   if (!s.plan.hasPlans) issues.push(issue('pm', 'warn', 'Oylik reja kiritilmagan'));
   const estimated = live.filter((p) => p.fixed_estimated && !p.fixed_actual).map((p) => p.name);
-  if (estimated.length) issues.push(issue('pm', 'info', `Operatsion xarajat kiritilmagan: ${estimated.join(', ')}`));
+  if (estimated.length) issues.push(issue('finance', 'info', `Operatsion xarajat kiritilmagan: ${estimated.join(', ')}`));
+  if (t.revenue > 0 && (t.company_net ?? t.net_profit) < 0) issues.push(issue('finance', 'warn', `Kompaniya zararda: ${mln(t.company_net ?? t.net_profit)}`));
 
   const disc = discipline({ from, to, today, ctx, book });
   for (const r of disc.rows) {
-    const owner = r.role === 'pm' ? 'pm' : r.role === 'rop' ? 'rop' : r.role === 'target' ? 'target' : r.role === 'marketing' ? 'marketing' : null;
+    const owner = OWNERS[r.role] ? r.role : null;
     if (!owner || r.level === 'good') continue;
     if (r.entries != null) issues.push(issue(owner, r.level === 'crit' ? 'warn' : 'info', `${r.name}: ${r.ago == null ? 'hali kiritmagan' : `oxirgi kiritish ${r.ago} kun oldin`}`));
     else issues.push(issue(owner, r.level, `${r.name}: ${[r.missed ? `${r.missed} kun kiritmagan` : '', r.late ? `${r.late} kun kechikkan` : ''].filter(Boolean).join(', ')}`));
@@ -227,7 +274,7 @@ export function control({ from, to, today }, ctx) {
   const owners = Object.entries(OWNERS).map(([key, o]) => {
     const list = issues.filter((i) => i.owner === key);
     const score = Math.max(0, 100 - list.reduce((a, i) => a + (i.level === 'crit' ? 20 : i.level === 'warn' ? 8 : 3), 0));
-    const person = ctx.users.filter((u) => u.active !== 0 && (key === 'pm' ? u.role === 'pm' : key === 'marketing' ? u.role === 'marketing' || (u.role !== 'pm' && userAccess(u).includes('marketing')) : u.role === key)).map((u) => u.name);
+    const person = ctx.users.filter((u) => u.active !== 0 && u.role === key).map((u) => u.name);
     return { key, label: o.label, duty: o.duty, people: person, score, status: score >= 80 ? 'good' : score >= 50 ? 'warn' : 'crit', issues: list };
   });
   const worst = [...owners].sort((a, b) => a.score - b.score)[0];
@@ -238,7 +285,7 @@ export function control({ from, to, today }, ctx) {
   // Kompaniya bo'yicha jami
   const net = (t.company_net ?? t.net_profit);
   const totals = {
-    revenue: t.revenue, sales: t.sales, leads: t.leads, qualified: t.qualified, spend: t.spend, spend_uzs: t.spend_uzs,
+    revenue: t.revenue, sales: t.sales, leads: t.leads, target_leads: t.target_leads, qualified: t.qualified, spend: t.spend, spend_uzs: t.spend_uzs,
     marketing_uzs: mkAll, marketing_projects_uzs: t.marketing_uzs || 0, general_marketing_uzs: general.marketing, general_opex_uzs: general.opex,
     var_cost: t.var_cost, fixed_cost: t.fixed_cost, net, margin: div(net, t.revenue),
     costs: t.spend_uzs + mkAll + t.var_cost + t.fixed_cost + general.opex,
@@ -258,6 +305,13 @@ export function control({ from, to, today }, ctx) {
   for (const i of issues.filter((x) => x.level === 'crit').slice(0, 4)) advice.push({ owner: i.owner, level: 'warn', project: i.project, text: `${i.project ? `${i.project}: ` : ''}${i.text}` });
   if (totals.marketing_uzs && totals.revenue && totals.marketing_uzs / totals.revenue > 0.25) advice.push({ owner: 'marketing', level: 'warn', text: `Marketing — tushumning ${pctTxt(totals.marketing_uzs / totals.revenue)}: natija bermayotganini qisqartiring` });
 
+  // Pul taqsimoti va birinchi navbatdagi ishlar — oyiga qancha pul qo'shiladi (eng kattasi birinchi)
+  const alloc = allocation(projects, totals, days);
+  const priorities = [
+    ...issues.filter((i) => i.impact > 0).map((i) => ({ owner: i.owner, project: i.project, text: i.text, impact: i.impact, level: i.level })),
+    ...alloc.projects.filter((x) => x.gain > 0).map((x) => ({ owner: 'target', project: x.name, text: `Reklama byudjetini ${x.change === 'up' ? 'oshirish' : 'kamaytirish'}: $${Math.round(x.now_usd)} → $${Math.round(x.rec_usd)} oyiga`, impact: x.gain, level: 'info' })),
+  ].sort((a, b) => b.impact - a.impact).slice(0, 8);
+
   // Xarajatlar tarkibi (kategoriyalar bo'yicha) — shu davr
   const byCat = {};
   for (const e of book.list.filter((x) => x.date >= from && x.date <= to)) {
@@ -267,7 +321,7 @@ export function control({ from, to, today }, ctx) {
   }
 
   return {
-    from, to, days, totals, projects, owners, verdict, issues, discipline: disc, advice,
+    from, to, days, totals, projects, owners, verdict, issues, discipline: disc, advice, allocation: alloc, priorities,
     costs_by_category: Object.values(byCat).sort((a, b) => b.uzs - a.uzs),
     roles: ROLES,
   };
@@ -283,5 +337,7 @@ export function controlAiInput(c) {
     loyihalar: c.projects.map((p) => ({ nomi: p.name, turi: p.kind === 'auto' ? 'avtovoronka' : "sotuv bo'limi", tushum: r(p.revenue), reklama_usd: r(p.spend), marketing_som: r(p.marketing_uzs), sof_foyda: r(p.net_profit), lid: p.leads, sotuv: p.sales, lid_narxi_usd: p.cpl != null ? Math.round(p.cpl * 100) / 100 : undefined, konversiya: p2(p.conv), bir_mijoz_som: r(p.cac_full_uzs), chegaraviy_narx_som: r(p.breakeven), xulosa: p.verdict?.text })),
     muammolar: c.issues.slice(0, 25).map((i) => ({ kim: OWNERS[i.owner]?.label, daraja: i.level, loyiha: i.project || undefined, matn: i.text })),
     intizom: c.discipline.rows.map((x) => ({ xodim: x.name, rol: ROLES[x.role], vaqtida: x.on_time, kechikib: x.late, kiritilmagan: x.missed, oxirgi_kiritish: x.last })),
+    pul_taqsimoti_oyiga: { tushum: r(c.allocation.revenue), reklama_hozir: r(c.allocation.ad.now), reklama_tavsiya: r(c.allocation.ad.rec), marketing_hozir: r(c.allocation.marketing.now), marketing_tavsiya: r(c.allocation.marketing.rec) },
+    birinchi_navbatda: c.priorities.map((x) => ({ kim: OWNERS[x.owner]?.label, loyiha: x.project || undefined, matn: x.text, oyiga_som: x.impact })),
   };
 }

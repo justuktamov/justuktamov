@@ -47,7 +47,7 @@ test('PM xodimlar yaratadi: rolga qarab odatiy ruxsat, keyin o\'zgartiradi', asy
   assert.deepEqual(users.aziz.access, ['target']);
   assert.deepEqual(users.malika.access, ['rop', 'sellers']);
   assert.deepEqual(users.jasur.access, ['marketing']);
-  assert.deepEqual(users.rustam.access, []);
+  assert.deepEqual(users.rustam.access, ['target', 'rop', 'sellers', 'marketing', 'finance'], 'direktor — hammasi');
   // PM ruxsatni o'zgartiradi: ROP dan «sotuv xodimlari» olinadi; noma'lum bo'lim — xato
   let r = await pm(`/api/users/${users.malika.id}`, { method: 'PUT', body: { access: ['rop'] } });
   assert.deepEqual((await r.json()).access, ['rop']);
@@ -55,21 +55,22 @@ test('PM xodimlar yaratadi: rolga qarab odatiy ruxsat, keyin o\'zgartiradi', asy
   assert.equal(r.status, 400);
 });
 
-test('ruxsatsiz kiritib bo\'lmaydi, lekin ko\'rish hammaga ochiq', async () => {
+test('direktor — PM kabi hammasini ko\'radi va tuzatadi; xodim — faqat o\'z bo\'limini', async () => {
   const dir = await session('rustam', 'parol1234');
   const me = await dir.json('/api/me');
   assert.equal(me.user.role, 'director');
-  assert.deepEqual(me.access, []);
-  // Direktor hamma narsani ko'radi
+  assert.equal(me.access.length, 5);
   assert.equal((await dir('/api/summary')).status, 200);
   assert.equal((await dir('/api/control')).status, 200);
+  assert.equal((await dir('/api/users')).status, 200, 'direktor xodimlarni boshqaradi');
   const daily = await dir.json(`/api/daily?date=${D}`);
-  assert.deepEqual(daily.editable, [], "direktor hech qaysi loyihaga kiritmaydi");
-  // …lekin kiritmaydi
-  let r = await dir('/api/daily', { method: 'PUT', body: { project_id: pid, date: D, values: { spend: 10 } } });
-  assert.equal(r.status, 403);
-  r = await dir('/api/expenses', { method: 'POST', body: { kind: 'marketing', date: D, category: 'content', amount: 100000 } });
-  assert.equal(r.status, 403);
+  assert.equal(daily.editable, null, 'direktor — hamma loyiha');
+  let r = await dir('/api/expenses', { method: 'POST', body: { kind: 'marketing', date: D, category: 'content', amount: 100000 } });
+  assert.equal(r.status, 201);
+  await dir(`/api/expenses/${(await r.json()).id}`, { method: 'DELETE', body: {} });
+  // O'zini boshqaruvdan chiqara olmaydi
+  r = await dir(`/api/users/${users.rustam.id}`, { method: 'PUT', body: { role: 'target' } });
+  assert.equal(r.status, 400);
   // Targetolog — sotuv raqamini emas; ROP sotuv xodimlarini ham endi kiritmaydi (ruxsat olindi)
   const t = await session('aziz', 'parol1234');
   r = await t('/api/daily', { method: 'PUT', body: { project_id: pid, date: D, values: { sales: 3 } } });
@@ -136,7 +137,11 @@ test('Nazorat: 1 mijoz narxi, chegaraviy narx, javobgarlar va intizom', async ()
   assert.ok(p.cac_full_uzs > p.cac_uzs, "marketing bilan 1 mijoz qimmatroq");
   assert.ok(p.contribution > 0 && p.breakeven != null);
   assert.ok(['crit', 'warn', 'good', 'ok'].includes(p.verdict.level));
-  assert.deepEqual(c.owners.map((o) => o.key), ['target', 'rop', 'marketing', 'pm']);
+  assert.deepEqual(c.owners.map((o) => o.key), ['target', 'rop', 'marketing', 'finance', 'pm']);
+  // Pul taqsimoti va birinchi navbatdagi ishlar (pul bilan)
+  assert.ok(c.allocation && c.allocation.marketing && Array.isArray(c.allocation.projects));
+  assert.ok(Array.isArray(c.priorities));
+  assert.ok(c.priorities.every((x) => x.impact > 0));
   assert.ok(c.verdict.text.length > 10);
   // Qo'ng'iroq lidlardan kam — ROP ga
   assert.ok(c.issues.some((i) => i.owner === 'rop' && /Qo'ng'iroq/.test(i.text)));

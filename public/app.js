@@ -9,6 +9,7 @@ import { renderSettings } from './js/settings.js';
 import { renderDynamics } from './js/dynamics.js';
 import { renderMarketing, renderFinance } from './js/expenses.js';
 import { renderControl } from './js/nazorat.js';
+import { renderKabinet } from './js/kabinet.js';
 
 // Kunlik qism sahifalari: manzil → qism
 const PART_OF = { '#/target': 'target', '#/sotuv': 'rop' };
@@ -36,6 +37,7 @@ async function router() {
     // Hamma hamma sahifani ko'radi; kiritish — faqat ruxsat berilgan bo'limda (sahifa o'zi ko'rish rejimiga o'tadi)
     if (PART_OF[route]) { await renderPart({ part: PART_OF[route], rolled: wasPart ? rolled : null }); return; }
     if ((m = route.match(/^#\/loyiha\/(\d+)$/))) await renderProject(m[1]);
+    else if (route === '#/kabinet') await renderKabinet();
     else if (route === '#/nazorat') await renderControl();
     else if (route === '#/marketing') await renderMarketing();
     else if (route === '#/moliya') await renderFinance();

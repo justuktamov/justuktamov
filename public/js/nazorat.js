@@ -6,9 +6,42 @@ import {
 import { forecast, bestBudget } from './forecast.js';
 
 const dot = (c) => `<span class="dot" style="--dc:${esc(c || '#8b7cf6')}"></span>`;
-const mln = (x) => (x == null || !Number.isFinite(x) ? '—' : Math.abs(x) >= 1e6 ? `${fmtN(x / 1e6, 1)} mln` : fmtN(Math.round(x)));
+export const mln = (x) => (x == null || !Number.isFinite(x) ? '—' : Math.abs(x) >= 1e6 ? `${fmtN(x / 1e6, 1)} mln` : fmtN(Math.round(x)));
 const LEVEL = { crit: ['crit', 'Jiddiy'], warn: ['warn', 'Diqqat'], info: ['info', "Ma'lumot"], good: ['good', 'Yaxshi'], ok: ['good', "Me'yorida"] };
-const OWNER_IC = { target: ICONS.target, rop: ICONS.phone, marketing: ICONS.mega, pm: ICONS.send };
+const OWNER_IC = { target: ICONS.target, rop: ICONS.phone, marketing: ICONS.mega, finance: ICONS.wallet, pm: ICONS.send };
+const OWNER_SHORT = { target: 'Targetolog', rop: "Sotuv bo'limi", marketing: 'Marketing', finance: 'Moliya', pm: 'PM' };
+
+// Birinchi navbatda: qaysi muammo eng ko'p pul yo'qotyapti (tuzatilsa oyiga taxminan qancha qo'shiladi). owner — faqat o'ziniki
+export function priorityBlock(c, owner = null, title = "Birinchi navbatda — eng ko'p pul shu yerda") {
+  const list = (c.priorities || []).filter((x) => !owner || x.owner === owner);
+  if (!list.length) return '';
+  const max = Math.max(...list.map((x) => x.impact));
+  return `<section class="card mb prio"><div class="card-head"><h2>${esc(title)}</h2><span class="muted small" title="Tuzatilsa oyiga taxminan qancha sof foyda qo'shiladi">oyiga, taxminiy</span></div>
+    <ol class="prio-list">${list.map((x) => `<li><span class="pr-who pill">${esc(OWNER_SHORT[x.owner] || '')}</span>
+      <span class="pr-text">${x.project ? `<b>${esc(x.project)}:</b> ` : ''}${esc(x.text)}</span>
+      <span class="pr-bar"><i style="width:${Math.max(6, (x.impact / max) * 100)}%"></i></span><b class="pr-imp">+${mln(x.impact)}</b></li>`).join('')}</ol></section>`;
+}
+
+// Pul taqsimoti (oyiga): tushumning qanchasi reklamaga, qanchasi marketingga — hozir va tavsiya. mode: all | target | marketing
+export function allocationBlock(c, mode = 'all') {
+  const a = c.allocation;
+  if (!a || !a.revenue) return '';
+  const pct = (x) => fmtP(x, 0);
+  const arrow = (now, rec) => (rec > now * 1.05 ? '<span class="al-up">▲</span>' : rec < now * 0.95 ? '<span class="al-down">▼</span>' : '<span class="muted">=</span>');
+  const line = (label, now, rec, nowS, recS, note = '') => `<div class="al-row"><span class="al-l">${label}</span>
+    <span class="al-now">${mln(now)} <small>${pct(nowS)}</small></span>${arrow(now, rec)}<span class="al-rec">${mln(rec)} <small>${pct(recS)}</small></span>${note ? `<span class="al-note">${esc(note)}</span>` : ''}</div>`;
+  const projects = a.projects.filter((x) => x.now_usd > 0 || x.rec_usd > 0);
+  return `<section class="card mb alloc"><div class="card-head"><h2>Pul taqsimoti — oyiga</h2><span class="muted small">30 kunga: tushum ${mln(a.revenue)} so'm · hozir → tavsiya</span></div>
+    ${mode !== 'target' ? `<div class="al-rows">
+      ${mode === 'all' ? line('Reklama (target)', a.ad.now, a.ad.rec, a.ad.now_share, a.ad.rec_share) : ''}
+      ${line('Marketing', a.marketing.now, a.marketing.rec, a.marketing.now_share, a.marketing.rec_share, a.marketing.note)}
+      ${mode === 'all' ? `<div class="al-row al-profit"><span class="al-l">Sof foyda</span><span class="al-now ${a.profit.now < 0 ? 'neg' : 'pos'}">${mln(a.profit.now)}</span>${arrow(a.profit.now, a.profit.rec)}<span class="al-rec ${a.profit.rec < 0 ? 'neg' : 'pos'}">${mln(a.profit.rec)}</span></div>` : ''}
+    </div>` : ''}
+    ${mode !== 'marketing' && projects.length ? `<div class="table-wrap"><table class="al-proj"><thead><tr><th>Reklama byudjeti</th><th class="n">Hozir</th><th></th><th class="n">Tavsiya</th><th class="n">Foyda</th></tr></thead>
+      <tbody>${projects.map((x) => `<tr><td>${dot(x.color)}${esc(x.name)}</td><td class="n">${fmtUsd(x.now_usd, 0)}</td><td class="c">${arrow(x.now_usd, x.rec_usd)}</td><td class="n"><b>${fmtUsd(x.rec_usd, 0)}</b></td>
+        <td class="n">${x.gain ? `<b class="pos">+${mln(x.gain)}</b>` : x.enough ? '<span class="muted">—</span>' : '<span class="muted small">raqam kam</span>'}</td></tr>`).join('')}</tbody></table></div>` : ''}
+  </section>`;
+}
 const AI_WHO = { targetolog: 'Targetolog', sotuv: "Sotuv bo'limi", marketing: 'Marketing', pm: 'Proekt menejer', rahbar: 'Rahbar', yoq: '—' };
 
 // Davr: bu oy (kechagacha), o'tgan oy, oxirgi 30 kun, oxirgi 7 kun
@@ -37,7 +70,7 @@ export async function renderControl() {
   try { c = await api(`/api/control?from=${r.from}&to=${r.to}`); } catch (e) { const el = $('#ctl'); if (el) el.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
   const box = $('#ctl');
   if (!box || isStale(rid)) return;
-  box.innerHTML = [verdictBlock(c), kpiBlock(c), ownersBlock(c), econBlock(c), forecastBlock(c), disciplineBlock(c), adviceBlock(c)].join('');
+  box.innerHTML = [verdictBlock(c), kpiBlock(c), priorityBlock(c), ownersBlock(c), allocationBlock(c), econBlock(c), forecastBlock(c), disciplineBlock(c), adviceBlock(c)].join('');
   bindOwners(box);
   bindForecast(box, c);
   bindAi(box, r, c);

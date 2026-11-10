@@ -1,7 +1,7 @@
 // Sotuv xodimlari (operatorlar): ROP har kuni har xodimning natijasini kiritadi; oylik jadval — kim qanday ishlayapti
 import {
   $, $$, esc, api, state, shell, addDays, fmtN, fmtP, toast, spinnerBlock, isStale, monthLabel, shortDate, dayLabel, parseNum,
-  canEditSection, isPmUser, viewNote,
+  canEditSection, isAdminUser, viewNote,
 } from './core.js';
 import { dateNav } from './pm.js';
 
@@ -26,7 +26,7 @@ export async function renderSellers() {
   state.leaveGuard = null;
   state.isDirty = null;
   const edit = canEditSection('sellers');
-  const f = (state.sellers ||= { tab: edit && !isPmUser() ? 'entry' : 'report', period: 'month', month: 0, date: null });
+  const f = (state.sellers ||= { tab: edit && !isAdminUser() ? 'entry' : 'report', period: 'month', month: 0, date: null });
   // Kiritish va ro'yxat — «Sotuv xodimlari» ruxsati borlar (ROP) va PM; qolganlar faqat hisobotni ko'radi
   const TABS = edit ? ALL_TABS : ALL_TABS.slice(0, 1);
   const q = new URLSearchParams(location.hash.split('?')[1] || '');

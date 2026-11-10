@@ -2,7 +2,7 @@
 // Ruxsati yo'qlar (direktor, boshqa bo'lim xodimlari) — shu sahifani ko'rish rejimida ko'radi; PM — tuzatadi, tasdiqlash «Kunlik hisobot»da
 import {
   $, $$, esc, api, state, shell, fmtN, PART_ROUTE, inVal, toast, ICONS, spinnerBlock, dayLabel, refreshMe, isStale, parseNum,
-  canEditSection, isPmUser, viewNote,
+  canEditSection, isAdminUser, viewNote,
 } from './core.js';
 import { STEPS, LEAD_ST, dateNav, historyBlock, reasonsHtml, groupHead, fieldLabel, SALES_MAIN, SALES_STATUS } from './pm.js';
 
@@ -35,7 +35,7 @@ export async function renderPart({ part = curPart, rolled = null } = {}) {
   const role = part;
   const R = ROLE[role];
   const editable = canEditSection(part);
-  const pm = isPmUser();
+  const pm = isAdminUser();
   // Xodimning o'z qismi (yuboradi); PM — faqat tuzatadi; qolganlar — ko'radi
   const own = editable && !pm;
   const s = R.step;

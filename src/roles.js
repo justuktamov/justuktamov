@@ -1,11 +1,12 @@
 // Rollar va ruxsatlar. Server ham, brauzer demosi ham shu qoidalardan foydalanadi.
-//   pm        — proekt menejer: hammasini ko'radi, tekshiradi, direktorga yuboradi; xodim qo'shadi va RUXSAT beradi
-//   director  — direktor: hamma narsani ko'radi (nazorat, moliya, javobgarlik), o'zi kiritmaydi
+//   pm        — proekt menejer: hammasini ko'radi va tuzatadi, tekshiradi, direktorga yuboradi; xodim qo'shadi va RUXSAT beradi
+//   director  — direktor: PM kabi — hammasini ko'radi va tuzatadi (boshqaruvchi)
 //   target    — targetolog: target raqamlari (xarajat, ko'rish, klik, lidlar va manbasi)
 //   rop       — sotuv bo'limi rahbari: lidlar sifati, holati, sabablar, sotuv va tushum; sotuv xodimlari
 //   marketing — marketing rahbari: marketing xarajatlari (kontent, SMM, tadbir, offline reklama…)
 //   finance   — moliyachi: operatsion xarajatlar (ish haqi, ijara, soliq…)
-// Hamma hamma bo'limni KO'RADI (statistika ochiq). Bo'limga KIRITISH — faqat PM ruxsat bergan bo'lsa
+// Hamma hamma bo'limni KO'RADI (statistika ochiq). Bo'limga KIRITISH — faqat o'z bo'limiga (ruxsatni PM yoki direktor beradi).
+// Har kimning o'z kabineti bor: kirganda o'z ishi ochiladi
 export const ROLES = {
   pm: 'Proekt menejer',
   director: 'Direktor',
@@ -26,7 +27,7 @@ export const SECTIONS = {
 // Yangi xodimga rolga qarab beriladigan ruxsat (PM keyin o'zgartiradi)
 export const ROLE_ACCESS = {
   pm: Object.keys(SECTIONS),
-  director: [],
+  director: Object.keys(SECTIONS),
   target: ['target'],
   rop: ['rop', 'sellers'],
   marketing: ['marketing'],
@@ -55,9 +56,11 @@ export const PARTS = {
   },
 };
 
-// PM — boshqaruvchi (hammasini kiritadi va ruxsat beradi); qolganlar — xodim (faqat ruxsat berilgan bo'limiga)
-export const isPm = (u) => Boolean(u) && (u.role || 'pm') === 'pm';
-export const isStaff = (u) => Boolean(u) && !isPm(u);
+// Boshqaruvchilar — PM va direktor: hammasini ko'radi, tuzatadi va ruxsat beradi; qolganlar — xodim (faqat o'z bo'limiga)
+export const ADMIN_ROLES = ['pm', 'director'];
+export const isAdmin = (u) => Boolean(u) && ADMIN_ROLES.includes(u.role || 'pm');
+export const isPm = isAdmin;
+export const isStaff = (u) => Boolean(u) && !isAdmin(u);
 
 // Saqlangan ruxsat: «target,sellers»; null — rolga qarab (ROLE_ACCESS); '' — hech qaysi
 export function parseAccess(v) {

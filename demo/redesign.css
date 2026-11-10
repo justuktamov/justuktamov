@@ -596,3 +596,27 @@ table.wt .wt-sum.pos-c { background: var(--lime-soft); color: #3d5800; }
 .grid-entry .grp-h span { background: var(--violet-soft); color: var(--violet-ink); }
 .rate-in { border-radius: 16px; }
 .rate-in.need { background: #fff4dc; }
+
+/* ---------- Kabinet — demo ranglari ---------- */
+.task { border: 0; background: #fff; box-shadow: 0 0 0 1px var(--border); border-radius: 22px; }
+.task:hover { box-shadow: 0 0 0 1px var(--violet-2), 0 16px 30px -18px rgba(80, 50, 200, .45); }
+.task .t-ic { background: var(--violet-soft); color: var(--violet); }
+.task .t-go { color: var(--violet); }
+.task.warn { box-shadow: inset 4px 0 0 var(--amber), 0 0 0 1px var(--border); }
+.task.good { box-shadow: inset 4px 0 0 var(--mint), 0 0 0 1px var(--border); }
+.task.warn .t-ic { background: #fff4dc; color: #b45309; } .task.good .t-ic { background: var(--lime-soft); color: #4a6800; }
+.kab-kpis .kpi:nth-child(1) { background: linear-gradient(135deg, var(--violet-2), var(--violet)); box-shadow: 0 14px 28px -18px var(--violet); }
+.kab-kpis .kpi:nth-child(2) { background: linear-gradient(135deg, var(--coral-2), var(--coral)); box-shadow: 0 14px 28px -18px var(--coral); }
+.kab-kpis .kpi:nth-child(4) { background: linear-gradient(135deg, var(--sky-2), var(--sky)); box-shadow: 0 14px 28px -18px var(--sky); }
+.kab-verdict { border-radius: 16px; }
+.kab-verdict.crit { background: var(--rose-soft); color: var(--rose-ink); } .kab-verdict.warn { background: #fff4dc; } .kab-verdict.good { background: var(--lime-soft); }
+.tm { border-radius: 18px; }
+.prio-list li { border-radius: 16px; }
+.prio-list li::before { background: var(--violet); color: #fff; }
+.pr-bar i { background: linear-gradient(90deg, var(--lime-2), #9fd11a); }
+.pr-imp, .imp { color: #3d7a00; }
+.pr-who { background: var(--violet-soft); color: var(--violet-ink); }
+.al-row { border-radius: 16px; }
+.al-profit { background: var(--lime-soft); }
+
+.kab-mine .o-score { --c: var(--mint); } .kab-mine.warn .o-score { --c: var(--amber); } .kab-mine.crit .o-score { --c: var(--rose); }

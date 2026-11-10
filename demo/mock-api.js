@@ -563,7 +563,7 @@ const routes = {
     if (!u) throw new HttpError(404, 'Xodim topilmadi');
     const f = userFields(b, u);
     const active = b.active === undefined ? u.active : (b.active ? 1 : 0);
-    if (u.id === me.id && (!active || f.role !== 'pm')) throw new HttpError(400, "O'zingizni o'chirib yoki rolingizni o'zgartirib bo'lmaydi");
+    if (u.id === me.id && (!active || !['pm', 'director'].includes(f.role))) throw new HttpError(400, "O'zingizni o'chirib yoki boshqaruvdan chiqarib bo'lmaydi");
     if (b.password && String(b.password).length < 6) throw new HttpError(400, "Parol kamida 6 belgi bo'lsin");
     Object.assign(u, { name: f.name, login: f.login, role: f.role, telegram_id: f.tg, projects: f.projects, access: f.access, active }, b.password ? { password: String(b.password) } : {});
     return userOut(u);
@@ -677,7 +677,8 @@ function userFields(b, cur = {}) {
   const projects = b.projects === undefined ? cur.projects ?? null : wrap(() => normalizeProjectIds(b.projects, new Set(store.projects.map((p) => p.id))));
   let access = b.access === undefined ? (role !== cur.role ? null : cur.access ?? null) : null;
   if (b.access !== undefined && b.access !== null) access = wrap(() => normalizeAccess(b.access));
-  return { name, role, login, tg, projects: role === 'pm' ? null : projects, access: role === 'pm' ? null : access };
+  const admin = ['pm', 'director'].includes(role);
+  return { name, role, login, tg, projects: admin ? null : projects, access: admin ? null : access };
 }
 
 const compiled = Object.entries(routes).map(([k, fn]) => {
@@ -693,7 +694,7 @@ window.fetch = async (input, opts = {}) => {
   try {
     const r = compiled.find((x) => x.method === method && x.re.test(url.pathname));
     if (!r) throw new HttpError(404, 'Topilmadi');
-    if (isStaff(me) && !STAFF_ROUTES.has(r.key)) throw new HttpError(403, "Bu bo'lim faqat proekt menejer uchun");
+    if (isStaff(me) && !STAFF_ROUTES.has(r.key)) throw new HttpError(403, "Bu bo'lim faqat PM va direktor uchun");
     const body = opts.body ? JSON.parse(opts.body) : {};
     const out = await r.fn(body, url.pathname.match(r.re).groups || {}, url.searchParams);
     if (method !== 'GET') save();
@@ -717,7 +718,7 @@ window.__demoDownload = async (filename, text) => {
 };
 window.__demoReset = () => {
   try { localStorage.removeItem(SAVE_KEY); } catch { /* */ }
-  location.hash = '#/';
+  location.hash = '#/kabinet';
   location.reload();
 };
 
@@ -727,7 +728,7 @@ window.__demoAs = (role) => {
   if (!u) return;
   store.meId = u.id;
   save();
-  location.hash = '#/';
+  location.hash = '#/kabinet';
   location.reload();
 };
 

@@ -1446,3 +1446,61 @@ table.wt td.neg-c { color: var(--crit); font-weight: 700; background: var(--crit
 .step-head:empty { display: none; }
 .sl-head { justify-content: space-between; }
 .dp-grid:has(.wt-card) { grid-template-columns: minmax(0, 1fr); gap: 0; }
+
+/* ---------- Kabinet: bugun, ko'rsatkichlar, kamchiliklar, jamoa ---------- */
+.kab-h { font-size: 15px; margin: 0 0 10px; display: flex; align-items: baseline; gap: 10px; }
+.tasks { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.task { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; padding: 14px 16px; border-radius: 18px; background: var(--surface-solid); border: 1px solid var(--border); color: var(--text); text-decoration: none; position: relative; transition: transform .15s, box-shadow .15s; }
+.task:hover { text-decoration: none; transform: translateY(-1px); box-shadow: var(--shadow); }
+.task .t-ic { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--text-2); }
+.task .t-ic svg { width: 19px; height: 19px; }
+.task > div { display: grid; gap: 4px; min-width: 0; }
+.task b { font-size: 15px; }
+.task .pill { justify-self: start; }
+.task small { color: var(--text-3); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task .t-go { grid-column: 2; font-size: 13px; font-weight: 700; color: var(--blue); }
+.task.warn { box-shadow: inset 3px 0 0 var(--warn); } .task.good { box-shadow: inset 3px 0 0 var(--good); }
+.kab-kpis { margin-bottom: 0; }
+.kab-mine .card-head { align-items: center; }
+.imp { font-style: normal; font-weight: 800; font-size: 12px; color: var(--good); white-space: nowrap; margin-left: auto; padding-left: 8px; }
+.kab-mine .iss { grid-template-columns: 10px minmax(0, 1fr) auto; background: var(--surface-2); }
+.kab-verdict { margin: 0 0 12px; padding: 10px 14px; border-radius: 14px; font-weight: 700; background: var(--warn-bg); }
+.kab-verdict.good { background: var(--good-bg); } .kab-verdict.crit { background: var(--crit-bg); }
+.team-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.tm { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; padding: 12px; border-radius: 16px; background: var(--surface-2); }
+.tm > div { display: grid; gap: 1px; min-width: 0; }
+.tm small { color: var(--text-3); font-size: 12px; }
+.tm span { font-size: 12.5px; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.disc-me { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0; font-size: 14px; }
+.disc-me b { font-size: 20px; margin-right: 4px; }
+/* Birinchi navbatda */
+.prio-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: pr; }
+.prio-list li { counter-increment: pr; display: grid; grid-template-columns: 28px auto minmax(0, 1fr) 140px auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); font-size: 14px; }
+.prio-list li::before { content: counter(pr); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-solid); font-weight: 800; font-size: 12px; color: var(--text-2); }
+.pr-text { min-width: 0; }
+.pr-bar { height: 8px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
+.pr-bar i { display: block; height: 100%; border-radius: 99px; background: var(--good); }
+.pr-imp { color: var(--good); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Pul taqsimoti */
+.al-rows { display: grid; gap: 6px; margin-bottom: 12px; }
+.al-row { display: grid; grid-template-columns: 150px auto 20px auto minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 14px; border-radius: 14px; background: var(--surface-2); font-variant-numeric: tabular-nums; }
+.al-l { font-weight: 700; }
+.al-now, .al-rec { font-size: 16px; font-weight: 700; white-space: nowrap; }
+.al-now { color: var(--text-2); font-weight: 600; }
+.al-row small { font-size: 12px; color: var(--text-3); font-weight: 600; margin-left: 2px; }
+.al-note { font-size: 12.5px; color: var(--text-3); text-align: right; }
+.al-up { color: var(--good); font-size: 12px; } .al-down { color: var(--crit); font-size: 12px; }
+.al-profit { background: var(--good-bg); }
+.al-proj td.c { text-align: center; }
+@media (max-width: 860px) {
+  .prio-list li { grid-template-columns: 26px minmax(0, 1fr) auto; }
+  .prio-list .pr-who, .prio-list .pr-bar { display: none; }
+  .al-row { grid-template-columns: minmax(0, 1fr) auto 16px auto; }
+  .al-note { grid-column: 1 / -1; text-align: left; }
+}
+.owner-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1500px) { .owner-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 860px) { .owner-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.kab-mine .o-score { --c: var(--good); }
+.kab-mine.warn .o-score { --c: #e8a33c; } .kab-mine.crit .o-score { --c: var(--crit); }
