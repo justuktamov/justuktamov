@@ -690,7 +690,7 @@ input, select, textarea { color-scheme: light; }
 .range { display: inline-flex; align-items: center; gap: 6px; }
 .month-nav { display: inline-flex; align-items: center; gap: 8px; }
 .month-nav b { min-width: 120px; text-align: center; font-size: 14px; }
-.cal { position: absolute; z-index: 60; width: 296px; background: #fff; color: var(--text); border: 1px solid var(--border); border-radius: 18px;
+.cal { position: absolute; z-index: 76; width: 296px; background: #fff; color: var(--text); border: 1px solid var(--border); border-radius: 18px;
   box-shadow: 0 16px 40px rgba(16, 24, 40, .16); padding: 12px; display: grid; gap: 8px; }
 .cal-head { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
 .cal-head b { font-size: 15px; }
@@ -719,7 +719,7 @@ input, select, textarea { color-scheme: light; }
 .sel-btn:focus-visible, .swatch-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .sel-btn svg { color: var(--text-3); flex: none; }
 .field .sel, .field .color-pick { display: block; }
-.menu-pop { position: absolute; z-index: 60; background: #fff; border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 16px 40px rgba(16, 24, 40, .16);
+.menu-pop { position: absolute; z-index: 76; background: #fff; border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 16px 40px rgba(16, 24, 40, .16);
   padding: 6px; display: grid; gap: 2px; max-height: 280px; overflow-y: auto; }
 .menu-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; background: none; font: inherit; font-size: 14px; color: var(--text);
   text-align: left; padding: 9px 12px; border-radius: 10px; cursor: pointer; white-space: nowrap; }
@@ -800,7 +800,6 @@ input, select, textarea { color-scheme: light; }
 .chip:hover { border-color: var(--blue); }
 .chip.on { background: var(--blue); border-color: var(--blue); color: #fff; box-shadow: 0 0 12px rgba(47, 99, 240, .35); }
 .link-btn { border: 0; background: none; padding: 0; font: inherit; color: var(--blue); font-weight: 700; cursor: pointer; text-decoration: underline; }
-.proj-card { display: grid; gap: 12px; }
 /* Dinamika */
 #dynProj { margin: 0 0 16px; }
 #dynProj .chip { display: inline-flex; align-items: center; gap: 6px; }
@@ -1177,7 +1176,7 @@ input, select, textarea { color-scheme: light; }
 .rc-foot .pp-go { flex: 2 1 0; background: var(--blue); color: #fff; }
 .rc-foot .pp-go[disabled] { background: var(--surface-2); color: var(--text-3); }
 /* Oraliq kalendari keng ekranda o'ng chetga yopishadi; sahifa chapga suriladi — hech narsa to'silmaydi */
-.cal.cal-dock { position: fixed; right: 16px; left: auto; z-index: 60; }
+.cal.cal-dock { position: fixed; right: 16px; left: auto; z-index: 76; }
 .main.cal-docked { padding-right: 340px; }
 .cal-x { position: absolute; top: -10px; right: -10px; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border); background: #fff; color: var(--text-2); font: inherit; font-size: 17px; line-height: 1; cursor: pointer; box-shadow: 0 2px 8px rgba(16, 24, 40, .12); }
 .cal-x:hover { color: var(--text); background: var(--surface-2); }
@@ -1190,8 +1189,6 @@ input, select, textarea { color-scheme: light; }
 .part-sent > div { display: grid; gap: 2px; }
 .part-sent .done-dot { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #1f9d55; color: #fff; flex: none; }
 .part-sent .done-dot svg { width: 18px; height: 18px; }
-.user-card.off { opacity: .6; }
-.user-card .chips { margin-top: 6px; }
 .demo-as button { padding: 5px 10px; }
 /* Korzinka: bekor bo'lish sabablari va sifatsiz lidlar — alohida, rangi bilan ajraladigan bo'limlar */
 .rsn-sec { border-radius: 18px; padding: 4px 14px 14px; border: 1px solid var(--border); border-left: 5px solid var(--rc); background: color-mix(in srgb, var(--rc) 5%, #fff); }
@@ -1218,10 +1215,6 @@ input, select, textarea { color-scheme: light; }
 .sl-table td.sl-best { background: #c9f0d4 !important; font-weight: 800; color: #146c2e; }
 .sl-table .mono, .sl-entry .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; }
 .sl-entry tfoot td { font-weight: 800; padding-top: 8px; }
-.sl-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
-.sl-person { display: grid; gap: 10px; padding: 14px; }
-.sl-person.off { opacity: .6; }
-.sl-person .row { justify-content: flex-end; }
 /* PM: xodim qismi — faqat ko'rish, tasdiqlash / qaytarish */
 .ro-mode .cell-in[readonly] { background: transparent; border-color: transparent; box-shadow: none; cursor: default; color: var(--text); font-weight: 600; }
 .ro-mode .cell-in[readonly]::placeholder { color: transparent; }
@@ -1275,10 +1268,6 @@ input, select, textarea { color-scheme: light; }
 .demo-as-wrap .sel-btn { min-width: 132px; padding: 6px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; }
 
 /* ---------- Marketing va Moliya ---------- */
-.exp-form { margin-bottom: 16px; }
-.exp-grid { display: grid; grid-template-columns: 170px minmax(0, 1.2fr) minmax(0, 1.4fr) minmax(0, 1fr) 170px; gap: 12px; margin-bottom: 12px; }
-.exp-grid .exp-note { grid-column: 1 / -1; }
-.exp-grid .date-btn { width: 100%; justify-content: flex-start; }
 .exp-table td.wrap { min-width: 180px; color: var(--text-2); }
 .exp-act { white-space: nowrap; text-align: right; }
 .exp-act .btn { padding: 6px 8px; }
@@ -1313,8 +1302,7 @@ input, select, textarea { color-scheme: light; }
 .cost-legend i { width: 10px; height: 10px; border-radius: 3px; }
 .mt { margin-top: 16px; }
 h4.mt { margin-bottom: 10px; font-size: 13.5px; }
-@media (max-width: 1100px) { .exp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .exp-grid { grid-template-columns: minmax(0, 1fr); } .cat-bar { grid-template-columns: minmax(90px, 1fr) minmax(0, 1fr) auto; } .cat-bar > em { display: none; } }
+@media (max-width: 560px) { .cat-bar { grid-template-columns: minmax(90px, 1fr) minmax(0, 1fr) auto; } .cat-bar > em { display: none; } }
 
 /* ---------- Nazorat ---------- */
 .verdict { display: flex; gap: 14px; align-items: flex-start; padding: 18px 20px; border-radius: 22px; margin-bottom: 16px; background: var(--warn-bg); }
@@ -1504,3 +1492,51 @@ table.wt td.neg-c { color: var(--crit); font-weight: 700; background: var(--crit
 
 .kab-mine .o-score { --c: var(--good); }
 .kab-mine.warn .o-score { --c: #e8a33c; } .kab-mine.crit .o-score { --c: var(--crit); }
+
+/* ---------- O'ng panel: qo'shish va tuzatish formalari ---------- */
+html.drawer-lock { overflow: hidden; }
+.drawer-wrap { position: fixed; inset: 0; z-index: 65; }
+.drawer-bg { position: absolute; inset: 0; background: rgba(16, 20, 40, .34); opacity: 0; transition: opacity .25s; }
+.drawer { position: absolute; top: 12px; right: 12px; bottom: 12px; width: min(460px, calc(100vw - 24px)); margin: 0; display: flex; flex-direction: column;
+  background: var(--surface-solid); border-radius: 26px; box-shadow: -24px 0 60px -24px rgba(16, 20, 60, .45); transform: translateX(calc(100% + 24px));
+  transition: transform .3s cubic-bezier(.2, .8, .2, 1); overflow: hidden; }
+.drawer-wrap.open .drawer-bg { opacity: 1; }
+.drawer-wrap.open .drawer { transform: none; }
+.drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 22px 22px 8px; }
+.drawer-head h2 { margin: 0; font-size: 22px; line-height: 1.2; letter-spacing: -.02em; }
+.drawer-head p { margin: 4px 0 0; color: var(--text-3); font-size: 13px; }
+.drawer-x { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-solid); color: var(--text); display: grid; place-items: center; cursor: pointer; }
+.drawer-x:hover { background: var(--surface-2); }
+.drawer-x svg { width: 18px; height: 18px; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 10px 22px 20px; display: grid; gap: 16px; align-content: start; }
+.drawer-body .field input:not([type=hidden]), .drawer-body .sel-btn, .drawer-body .date-btn { width: 100%; }
+.drawer-body .date-btn { justify-content: flex-start; }
+.drawer-body .chips { margin-top: 2px; }
+.drawer-body .d-cur { margin-top: -8px; }
+.drawer-body .d-cur .chip { font-size: 12.5px; padding: 5px 11px; }
+.d-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.d-hint { margin: -8px 0 0; }
+.drawer-foot { display: flex; gap: 10px; padding: 14px 22px calc(18px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--border); }
+.drawer-foot .btn.primary { flex: 1; justify-content: center; min-height: 48px; font-size: 15px; }
+.drawer-foot .btn.ghost { min-height: 48px; }
+.in-big { position: relative; display: block; }
+.in-big input { font-size: 22px !important; font-weight: 800; padding-right: 64px !important; min-height: 56px; font-variant-numeric: tabular-nums; }
+.in-big em { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); font-style: normal; font-weight: 700; color: var(--text-3); pointer-events: none; }
+.reason-pick { display: grid; gap: 4px; margin-top: 6px; }
+@media (max-width: 600px) {
+  .drawer { top: 8px; right: 0; bottom: 0; width: 100%; border-radius: 24px 24px 0 0; }
+  .drawer-head { padding: 18px 16px 6px; }
+  .drawer-body { padding: 8px 16px 18px; }
+  .drawer-foot { padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) { .drawer, .drawer-bg { transition: none; } }
+/* Bosiladigan ro'yxatlar (loyihalar, xodimlar, sotuvchilar) — qator bosilsa panel ochiladi */
+table.click-list tbody tr { cursor: pointer; }
+table.click-list tbody tr:hover td { background: var(--surface-2); }
+table.click-list tbody tr.off { opacity: .55; }
+table.click-list td .dot { margin-right: 8px; }
+.sl-proj { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; white-space: nowrap; }
+.page-head .filters .btn.primary { white-space: nowrap; }
+.field[hidden] { display: none !important; }
+.f-l { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
+.f-l .hint { font-weight: 500; }

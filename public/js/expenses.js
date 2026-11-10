@@ -4,7 +4,7 @@
 // Hamma ko'radi; kiritish, tuzatish va o'chirish — faqat PM ruxsat bergan xodim
 import {
   $, $$, esc, api, state, shell, addDays, fmtN, fmtUsd, fmtSom, fmtP, toast, ICONS, spinnerBlock, isStale, monthLabel, shortDate,
-  selectHtml, dateButton, openCalendar, prettyDate, inVal, parseNum, canEditSection, viewNote,
+  selectHtml, dateButton, openCalendar, prettyDate, inVal, parseNum, canEditSection, viewNote, openDrawer, oneOf, chipsHtml,
 } from './core.js';
 
 const dot = (c) => `<span class="dot" style="--dc:${esc(c || '#8b7cf6')}"></span>`;
@@ -28,23 +28,46 @@ function bars(list, total, cls = '') {
   return `<div class="cat-bars ${cls}">${list.map((x) => `<div class="cat-bar"><span>${esc(x.label)}</span><i><i style="width:${Math.max(2, (x.uzs / max) * 100)}%"></i></i><b>${mln(x.uzs)}</b><em>${fmtP(total ? x.uzs / total : null, 0)}</em></div>`).join('')}</div>`;
 }
 
-// ---------- Kiritish formasi va ro'yxat (ikkala bo'lim uchun) ----------
-function entryForm(kind, cats) {
-  const projects = state.projects.filter((p) => p.active);
+// ---------- Kiritish paneli va ro'yxat (ikkala bo'lim uchun) ----------
+// Qo'shish va tuzatish — o'ngdan chiqadigan panelda (sahifada joy egallamaydi)
+function expenseDrawer(kind, cats, it, rerender) {
+  const projects = state.projects.filter((p) => p.active || p.id === it?.project_id);
   const projOpts = [['', kind === 'marketing' ? 'Umumiy (hamma loyiha)' : 'Kompaniya umumiy'], ...projects.map((p) => [String(p.id), p.name])];
-  return `<form class="card exp-form" id="expForm" autocomplete="off">
-      <div class="card-head"><h3 data-form-title>${kind === 'marketing' ? "Marketing xarajati qo'shish" : "Operatsion xarajat qo'shish"}</h3><span class="muted small">${kind === 'marketing' ? 'Bloger va TG kanal — target hisobotida' : 'Oyiga bir marta'}</span></div>
-      <div class="exp-grid">
-        <div class="field">Sana${dateButton('expDate', state.me.today, 'Sana')}</div>
-        <div class="field">Loyiha${selectHtml(projOpts, '', 'name="project_id"', 'Loyiha')}</div>
-        <div class="field">Modda${selectHtml(Object.entries(cats), Object.keys(cats)[0], 'name="category"', 'Modda')}</div>
-        <label class="field">Summa<input name="amount" inputmode="decimal" placeholder="masalan, 2 500 000" required></label>
-        <div class="field">Valyuta${selectHtml([['uzs', "so'm"], ['usd', '$ (shu kun kursi bilan)']], 'uzs', 'name="currency"', 'Valyuta')}</div>
-        <label class="field exp-note">Izoh<input name="note" maxlength="300" placeholder="${kind === 'marketing' ? 'masalan, reels uchun video' : 'masalan, noyabr oylik'}"></label>
-      </div>
-      <div class="row" style="justify-content:flex-end"><button type="button" class="btn ghost" data-cancel hidden>Bekor qilish</button><button class="btn primary" data-submit>${ICONS.plus} Qo'shish</button></div>
-    </form>`;
+  const catList = Object.entries(cats).map(([k, l]) => [k, esc(l)]);
+  let date = it?.date || state.me.today;
+  let cur = it?.currency || 'uzs';
+  let cat = it?.category || catList[0][0];
+  openDrawer({
+    title: it ? 'Xarajatni tuzatish' : kind === 'marketing' ? 'Marketing xarajati' : 'Operatsion xarajat',
+    sub: it ? `${prettyDate(it.date)} · ${it.label}` : kind === 'marketing' ? 'Bloger va TG kanal — target hisobotida' : 'Ish haqi, ijara, soliq…',
+    submit: it ? `${ICONS.check} Saqlash` : `${ICONS.plus} Qo'shish`,
+    body: `<div class="field">Nimaga${chipsHtml(catList, cat, 'd-cats')}</div>
+      <label class="field">Summa<span class="in-big"><input name="amount" inputmode="decimal" placeholder="0" value="${it ? esc(it.amount) : ''}"><em data-suf>${cur === 'usd' ? '$' : "so'm"}</em></span></label>
+      ${chipsHtml([['uzs', "So'mda"], ['usd', 'Dollarda · shu kun kursi']], cur, 'd-cur')}
+      <div class="field">Loyiha${selectHtml(projOpts, it?.project_id ?? '', 'name="project_id"', 'Loyiha')}</div>
+      <div class="field">Sana${dateButton('expDate', date, 'Sana')}</div>
+      <label class="field"><span class="f-l">Izoh <span class="hint">ixtiyoriy</span></span><input name="note" maxlength="300" value="${esc(it?.note || '')}" placeholder="${kind === 'marketing' ? 'Masalan: reels uchun video' : 'Masalan: noyabr oyligi'}"></label>`,
+    onOpen(form) {
+      oneOf($('.d-cats', form), (v) => { cat = v; });
+      oneOf($('.d-cur', form), (v) => { cur = v; $('[data-suf]', form).textContent = v === 'usd' ? '$' : "so'm"; });
+      const dateBtn = $('#expDate', form);
+      dateBtn.onclick = () => openCalendar(dateBtn, {
+        value: date, max: state.me.today,
+        onPick: (d) => { date = d; dateBtn.querySelector('span').textContent = prettyDate(d); },
+      });
+    },
+    async onSubmit(form) {
+      const amount = parseNum(inVal($('input[name="amount"]', form)));
+      if (!amount) { toast('Summani kiriting', true); $('input[name="amount"]', form).focus(); return false; }
+      const pid = $('input[name="project_id"]', form).value;
+      const body = { kind, date, amount, category: cat, currency: cur, project_id: pid ? Number(pid) : null, note: $('input[name="note"]', form).value };
+      await api(it ? `/api/expenses/${it.id}` : '/api/expenses', { method: it ? 'PUT' : 'POST', body });
+      toast(it ? 'Tuzatildi ✓' : "Qo'shildi ✓");
+    },
+    onSaved: rerender,
+  });
 }
+const addBtn = () => `<button type="button" class="btn primary" data-add>${ICONS.plus} Xarajat qo'shish</button>`;
 
 function listCard(items, editable, title) {
   return `<div class="card"><div class="card-head"><h3>${title}</h3><span class="muted small">${items.length} ta yozuv</span></div>
@@ -56,70 +79,19 @@ function listCard(items, editable, title) {
       : '<div class="empty">Bu oyda hali yozuv yo\'q</div>'}</div>`;
 }
 
-// Forma va ro'yxatni ishga tushiradi: qo'shish, tuzatish, o'chirish (ikki bosqichli tasdiq — brauzer oynasisiz)
-function bindEntry(root, kind, items, rerender) {
-  const form = $('#expForm', root);
-  if (!form) return;
-  let editId = null;
-  let date = state.me.today;
-  const dateBtn = $('#expDate', form);
-  const setDate = (d) => { date = d; dateBtn.querySelector('span').textContent = prettyDate(d); };
-  dateBtn.onclick = () => openCalendar(dateBtn, { value: date, max: state.me.today, onPick: setDate });
-  const setSel = (name, value) => {
-    const input = $(`input[name="${name}"]`, form);
-    const wrap = input.closest('.sel');
-    const opts = JSON.parse(wrap.dataset.options);
-    input.value = value;
-    wrap.querySelector('.sel-btn span').textContent = (opts.find(([v]) => String(v) === String(value)) || opts[0])[1];
-  };
-  const reset = () => {
-    editId = null;
-    form.reset();
-    setDate(state.me.today);
-    setSel('project_id', '');
-    setSel('category', JSON.parse($('input[name="category"]', form).closest('.sel').dataset.options)[0][0]);
-    setSel('currency', 'uzs');
-    $('[data-cancel]', form).hidden = true;
-    $('[data-submit]', form).innerHTML = `${ICONS.plus} Qo'shish`;
-    $('[data-form-title]', form).textContent = kind === 'marketing' ? "Marketing xarajati qo'shish" : "Operatsion xarajat qo'shish";
-  };
-  $('[data-cancel]', form).onclick = reset;
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    const btn = $('[data-submit]', form);
-    const amount = parseNum(inVal($('input[name="amount"]', form)));
-    if (!amount) { toast('Summani kiriting', true); return; }
-    const body = {
-      kind, date, amount, category: $('input[name="category"]', form).value, currency: $('input[name="currency"]', form).value,
-      project_id: $('input[name="project_id"]', form).value ? Number($('input[name="project_id"]', form).value) : null,
-      note: $('input[name="note"]', form).value,
-    };
-    btn.disabled = true;
-    try {
-      await api(editId ? `/api/expenses/${editId}` : '/api/expenses', { method: editId ? 'PUT' : 'POST', body });
-      toast(editId ? 'Tuzatildi ✓' : "Qo'shildi ✓");
-      rerender();
-    } catch (err) { toast(err.message, true); btn.disabled = false; }
-  };
+// Ro'yxat: tuzatish — panelda, o'chirish — ikki bosqichli tasdiq (brauzer oynasisiz)
+function bindEntry(root, kind, cats, items, rerender) {
+  $$('[data-add]').forEach((b) => { b.onclick = () => expenseDrawer(kind, cats, null, rerender); });
+  // Kabinetdan «Qo'shish» bosilgan bo'lsa — panel darhol ochiladi
+  if (/[?&]add=1/.test(location.hash) && $('[data-add]')) {
+    history.replaceState(null, '', location.hash.replace(/[?&]add=1/, ''));
+    expenseDrawer(kind, cats, null, rerender);
+  }
   root.addEventListener('click', async (e) => {
     const row = e.target.closest('tr[data-eid]');
     if (!row) return;
     const it = items.find((x) => String(x.id) === row.dataset.eid);
-    if (e.target.closest('[data-edit]')) {
-      editId = it.id;
-      setDate(it.date);
-      setSel('project_id', it.project_id ?? '');
-      setSel('category', it.category);
-      setSel('currency', it.currency);
-      $('input[name="amount"]', form).value = String(it.amount);
-      $('input[name="amount"]', form).dispatchEvent(new Event('input', { bubbles: true }));
-      $('input[name="note"]', form).value = it.note || '';
-      $('[data-cancel]', form).hidden = false;
-      $('[data-submit]', form).innerHTML = `${ICONS.check} Saqlash`;
-      $('[data-form-title]', form).textContent = `Tuzatish: ${shortDate(it.date)} — ${it.label}`;
-      form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
-    }
+    if (e.target.closest('[data-edit]')) { expenseDrawer(kind, cats, it, rerender); return; }
     const del = e.target.closest('[data-del]');
     if (!del) return;
     if (!del.classList.contains('confirm')) {
@@ -139,7 +111,7 @@ export async function renderMarketing() {
   const r = monthRange(view.marketing);
   const editable = canEditSection('marketing');
   shell(`<div class="page-head"><div><h1>Marketing</h1><div class="sub">Qaysi loyihaga, nimaga qancha ketdi</div></div>
-      <div class="filters">${monthBar('marketing', r)}</div></div>
+      <div class="filters">${monthBar('marketing', r)}${editable ? addBtn() : ''}</div></div>
     ${viewNote('marketing')}<div id="mk">${spinnerBlock()}</div>`);
   bindMonth('marketing', renderMarketing);
   const rid = state.renderId;
@@ -165,9 +137,8 @@ export async function renderMarketing() {
         <tbody>${proj.map((p) => `<tr><td>${dot(p.color)}${esc(p.name)}</td><td class="n">${mln(p.marketing_uzs)}</td><td class="n">${mln(p.spend_uzs)}</td><td class="n">${fmtN(p.sales)}</td><td class="n"><b>${mln(p.cac_full_uzs)}</b></td></tr>`).join('')}
         ${t.general_marketing_uzs ? `<tr class="muted"><td>Umumiy (loyihasiz)</td><td class="n">${mln(t.general_marketing_uzs)}</td><td colspan="3"></td></tr>` : ''}</tbody></table></div></div>
     </div>
-    ${editable ? entryForm('marketing', cats) : ''}
     ${listCard(ex.items, editable, `Yozuvlar — ${esc(monthLabel(r.month))}`)}`;
-  bindEntry(box, 'marketing', ex.items, renderMarketing);
+  bindEntry(box, 'marketing', cats, ex.items, renderMarketing);
 }
 
 // ---------- Moliya ----------
@@ -177,7 +148,7 @@ export async function renderFinance() {
   const r = monthRange(view.finance);
   const editable = canEditSection('finance');
   shell(`<div class="page-head"><div><h1>Moliya</h1><div class="sub">Tushumdan sof foydagacha</div></div>
-      <div class="filters">${monthBar('finance', r)}</div></div>
+      <div class="filters">${monthBar('finance', r)}${editable ? addBtn() : ''}</div></div>
     ${viewNote('finance')}<div id="fin">${spinnerBlock()}</div>`);
   bindMonth('finance', renderFinance);
   const rid = state.renderId;
@@ -217,9 +188,8 @@ export async function renderFinance() {
         ${t.general_opex_uzs || t.general_marketing_uzs ? `<tr class="muted"><td>Kompaniya umumiy</td><td></td><td></td><td class="n">${mln(t.general_marketing_uzs)}</td><td></td><td class="n">${mln(t.general_opex_uzs)}</td><td class="n"><b class="neg">−${mln(t.general_opex_uzs + t.general_marketing_uzs)}</b></td><td></td></tr>` : ''}</tbody></table></div>
       <p class="muted small" style="margin:10px 0 0" title="Marketing va operatsion xarajatlar oy kunlariga teng bo'linadi">${estimated ? '≈ — fakt kiritilmagan, taxmin olindi' : ''}</p>
     </div>
-    ${editable ? entryForm('opex', cats) : ''}
     ${listCard(ex.items, editable, `Operatsion xarajatlar — ${esc(monthLabel(r.month))}`)}`;
-  bindEntry(box, 'opex', ex.items, renderFinance);
+  bindEntry(box, 'opex', cats, ex.items, renderFinance);
 }
 
 function bindMonth(key, rerender) {

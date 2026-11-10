@@ -1,7 +1,7 @@
 // Sotuv xodimlari (operatorlar): ROP har kuni har xodimning natijasini kiritadi; oylik jadval — kim qanday ishlayapti
 import {
   $, $$, esc, api, state, shell, addDays, fmtN, fmtP, toast, spinnerBlock, isStale, monthLabel, shortDate, dayLabel, parseNum,
-  canEditSection, isAdminUser, viewNote,
+  canEditSection, isAdminUser, viewNote, openDrawer, ICONS,
 } from './core.js';
 import { dateNav } from './pm.js';
 
@@ -168,38 +168,55 @@ async function tabEntry(box, f, rid) {
   };
 }
 
-// ---------- Xodimlar ro'yxati: qo'shish, loyihalar, arxiv ----------
+// ---------- Xodimlar ro'yxati: ixcham jadval; qo'shish va tuzatish — o'ng panelda ----------
 async function tabList(box, rid) {
   const [list, projects] = await Promise.all([api('/api/sellers'), api('/api/projects')]);
   if (isStale(rid)) return;
   const sp = projects.filter((p) => p.active && p.kind !== 'auto');
-  const chips = (sel = []) => `<div class="chips">${sp.map((p) => `<button type="button" class="chip ${sel.includes(p.id) ? 'on' : ''}" data-pid="${p.id}" aria-pressed="${sel.includes(p.id)}">${dot(p.color)}${esc(p.name)}</button>`).join('')}</div>`;
-  const row = (s) => `<div class="card sl-person ${s.active === 0 ? 'off' : ''}" data-id="${s.id ?? ''}">
-      <label class="field">${s.id ? 'Ism' : 'Yangi xodim'}<input data-f="name" value="${esc(s.name || '')}" maxlength="60" placeholder="Masalan, Barno"></label>
-      <div class="field">Loyihalari <span class="hint">tanlanmasa — hamma sotuv loyihalari</span>${chips(s.projects || [])}</div>
-      <div class="row">${s.id ? `<button class="btn small ghost" data-a="toggle">${s.active ? 'Arxivlash' : 'Qaytarish'}</button>` : ''}<button class="btn small primary" data-a="save">${s.id ? 'Saqlash' : "Qo'shish"}</button></div>
-    </div>`;
-  box.innerHTML = `<p class="muted small" style="margin:0 0 12px">Sotuvchilar tizimga kirmaydi — raqamlarini ROP kiritadi.</p>
-    <div class="sl-people">${row({ active: 1 })}${list.map(row).join('')}</div>`;
-  box.addEventListener('click', async (e) => {
-    const chip = e.target.closest('[data-pid]');
-    if (chip) { chip.classList.toggle('on'); chip.setAttribute('aria-pressed', chip.classList.contains('on')); return; }
-    const b = e.target.closest('[data-a]');
-    if (!b) return;
-    const c = b.closest('[data-id]');
-    const id = c.dataset.id;
-    b.disabled = true;
-    try {
-      if (b.dataset.a === 'toggle') {
-        const s = list.find((x) => String(x.id) === id);
-        await api(`/api/sellers/${id}`, { method: 'PUT', body: { active: !s.active } });
-        toast(s.active ? `${s.name} arxivlandi` : `${s.name} qaytarildi`);
-      } else {
-        const body = { name: $('[data-f="name"]', c).value, projects: $$('[data-pid].on', c).map((x) => Number(x.dataset.pid)) };
-        await api(id ? `/api/sellers/${id}` : '/api/sellers', { method: id ? 'PUT' : 'POST', body });
-        toast(id ? 'Saqlandi' : "Qo'shildi");
-      }
-      renderSellers();
-    } catch (err) { toast(err.message, true); b.disabled = false; }
-  });
+  const name = (id) => projects.find((p) => p.id === id);
+  box.innerHTML = `<div class="card"><div class="card-head"><h3>Sotuvchilar</h3><button type="button" class="btn primary" data-new>${ICONS.plus} Yangi sotuvchi</button></div>
+    <p class="muted small" style="margin:0 0 12px">Sotuvchilar tizimga kirmaydi — raqamlarini ROP kiritadi.</p>
+    ${list.length ? `<div class="table-wrap"><table class="click-list"><thead><tr><th>Ism</th><th>Loyihalari</th><th></th></tr></thead>
+      <tbody>${list.map((s) => `<tr data-id="${s.id}" class="${s.active ? '' : 'off'}" tabindex="0"><td><b>${esc(s.name)}</b>${s.active ? '' : ' <span class="pill">Arxivda</span>'}</td>
+        <td class="wrap">${(s.projects || []).length ? s.projects.map((id) => name(id)).filter(Boolean).map((p) => `<span class="sl-proj">${dot(p.color)}${esc(p.name)}</span>`).join('') : '<span class="muted small">Hamma sotuv loyihalari</span>'}</td>
+        <td class="exp-act"><button type="button" class="btn small ghost" data-edit title="Tuzatish">${ICONS.edit}</button></td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="empty">Hali sotuvchi yo\'q</div>'}</div>`;
+  const drawer = (sl) => {
+    const isNew = !sl;
+    const sel = sl?.projects || [];
+    openDrawer({
+      title: isNew ? 'Yangi sotuvchi' : sl.name,
+      sub: isNew ? '' : sl.active ? '' : 'Arxivda',
+      submit: isNew ? `${ICONS.plus} Qo'shish` : `${ICONS.check} Saqlash`,
+      actions: isNew ? '' : `<button type="button" class="btn ghost" data-toggle>${sl.active ? 'Arxivlash' : 'Qaytarish'}</button>`,
+      body: `<label class="field">Ism<input data-f="name" value="${esc(sl?.name || '')}" maxlength="60" placeholder="Masalan: Barno"></label>
+        <div class="field"><span class="f-l">Loyihalari <span class="hint">tanlanmasa — hamma sotuv loyihalari</span></span>
+          <div class="chips">${sp.map((p) => `<button type="button" class="chip ${sel.includes(p.id) ? 'on' : ''}" data-pid="${p.id}" aria-pressed="${sel.includes(p.id)}">${dot(p.color)}${esc(p.name)}</button>`).join('')}</div></div>`,
+      onOpen(form, close) {
+        form.addEventListener('click', (e) => {
+          const chip = e.target.closest('[data-pid]');
+          if (chip) { chip.classList.toggle('on'); chip.setAttribute('aria-pressed', chip.classList.contains('on')); return; }
+          if (e.target.closest('[data-toggle]')) {
+            api(`/api/sellers/${sl.id}`, { method: 'PUT', body: { active: !sl.active } })
+              .then(() => { toast(sl.active ? `${sl.name} arxivlandi` : `${sl.name} qaytarildi`); close(); renderSellers(); })
+              .catch((err) => toast(err.message, true));
+          }
+        });
+      },
+      async onSubmit(form) {
+        const body = { name: $('[data-f="name"]', form).value.trim(), projects: $$('[data-pid].on', form).map((x) => Number(x.dataset.pid)) };
+        if (!body.name) { toast('Ismini yozing', true); return false; }
+        await api(isNew ? '/api/sellers' : `/api/sellers/${sl.id}`, { method: isNew ? 'POST' : 'PUT', body });
+        toast(isNew ? "Qo'shildi" : 'Saqlandi');
+      },
+      onSaved: () => renderSellers(),
+    });
+  };
+  $('[data-new]', box).onclick = () => drawer(null);
+  const open = (e) => {
+    const tr = e.target.closest('tr[data-id]');
+    if (tr) drawer(list.find((x) => String(x.id) === tr.dataset.id));
+  };
+  $('tbody', box)?.addEventListener('click', open);
+  $('tbody', box)?.addEventListener('keydown', (e) => { if (e.key === 'Enter') open(e); });
 }

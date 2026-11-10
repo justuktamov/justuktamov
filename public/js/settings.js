@@ -1,6 +1,7 @@
 // Sozlamalar: loyihalar, oylik reja, Telegram (hisobot qayerga boradi), profil
 import {
   $, $$, esc, api, state, shell, toast, ICONS, monthLabel, refreshMe, spinnerBlock, selectHtml, colorHtml, TIMES, fmtN, addDays, isStaffUser,
+  openDrawer, inVal,
 } from './core.js';
 
 let settingsTab = 'projects';
@@ -36,69 +37,91 @@ const kindSelect = (v, attrs = '') => selectHtml(Object.entries(state.me.kinds),
 async function tabProjects(body) {
   await reloadProjects();
   const CH = state.me.channels;
-  body.innerHTML = `<div class="card plan-intro">
-      <div class="card-head"><h2>Loyihalar</h2></div>
-      <p class="small" style="margin:0;color:var(--text-2);max-width:95ch"><b>Tannarx</b> — tushumdan foizda ketadigan xarajat (Stars/Premium xaridi, ROP bonusi, to'lov komissiyasi).
-        <b>Doimiy xarajat</b> — oyiga so'mda (ish haqi, ijara, mentorlar). Shu ikkisidan <b>sof foyda</b> hisoblanadi.
-        <b>Kanallar</b> — shu loyiha reklama qiladigan joylar; har kun ular bo'yicha raqam kiritiladi.
-        <b>Kechikish</b> — odam lid bo'lgandan keyin o'rtacha necha kunda sotib oladi; konversiya shunga qarab to'g'ri hisoblanadi.</p>
-    </div>
-    <div class="plan-cards">${state.projects.map((p) => `<section class="card proj-card" data-id="${p.id}">
-      <div class="card-head"><h3><span class="dot" style="--dc:${esc(p.color || 'var(--series-1)')}"></span>${esc(p.name)}</h3>${p.active ? '<span class="pill good">Faol</span>' : '<span class="pill">Arxivda</span>'}</div>
-      <div class="plan-inputs">
-        <label class="field">Nomi<input data-f="name" value="${esc(p.name)}"></label>
-        <div class="field">Turi${kindSelect(p.kind, 'data-f="kind"')}</div>
-        <div class="field">Rang${colorHtml(p.color || '#2a78d6', 'data-f="color"')}</div>
-      </div>
-      <div class="plan-inputs">
-        <label class="field">Tannarx, % tushumdan<input data-f="var_cost_pct" inputmode="decimal" value="${p.var_cost_pct ?? ''}" placeholder="0"></label>
-        <label class="field">Doimiy xarajat, so'm/oy<input data-f="fixed_monthly" inputmode="decimal" value="${p.fixed_monthly ?? ''}" placeholder="0"></label>
-        ${p.kind === 'auto' ? '' : `<label class="field">Lid → sotuv kechikishi, kun<input data-f="sale_lag" inputmode="numeric" value="${p.sale_lag ?? ''}" placeholder="0">
-          <span class="hint">${p.lag_hint != null ? `Ma'lumotga ko'ra: ~${p.lag_hint} kun ${Number(p.sale_lag) === p.lag_hint ? '✓' : `<button type="button" class="link-btn" data-lag="${p.lag_hint}">qo'yish</button>`}` : "Ma'lumot to'plangach taxmin chiqadi"}</span></label>`}
-      </div>
-      <div class="field">Reklama kanallari
-        <div class="chips" data-channels>${Object.entries(CH).map(([k, l]) => `<button type="button" class="chip ${p.channels.includes(k) ? 'on' : ''}" data-ch="${k}" aria-pressed="${p.channels.includes(k)}">${esc(l)}</button>`).join('')}</div></div>
-      ${p.kind === 'auto' ? '' : `<div class="field">Sabablar <span class="hint">ROP sanaydigan sabablar — bosib yoqing/o'chiring; yoqilgan tartibda chiqadi</span>
-        ${Object.entries(state.me.reasonKinds).map(([kind, title]) => `<div class="reason-pick"><span class="muted small">${title}</span><div class="chips" data-rk="${kind}">${[...(p.reasonKeys?.[kind] || []), ...Object.keys(state.me.reasons[kind]).filter((k) => !(p.reasonKeys?.[kind] || []).includes(k))].map((k) => `<button type="button" class="chip ${(p.reasonKeys?.[kind] || []).includes(k) ? 'on' : ''}" data-reason-key="${k}" aria-pressed="${(p.reasonKeys?.[kind] || []).includes(k)}">${esc(state.me.reasons[kind][k])}</button>`).join('')}</div></div>`).join('')}</div>`}
-      <div class="row" style="justify-content:flex-end"><button class="btn small ghost" data-a="toggle">${p.active ? 'Arxivlash' : 'Tiklash'}</button><button class="btn small primary" data-a="save">Saqlash</button></div>
-    </section>`).join('') || '<div class="card empty">Loyiha yo\'q</div>'}</div>
-    <p class="small muted" style="margin:10px 0 0">Arxivdagi loyiha kunlik hisobotda chiqmaydi, eski raqamlari saqlanadi.</p>
-    <form class="card stack mt" id="newProject"><h2>Yangi loyiha</h2>
-      <div class="fields">
-        <label class="field">Nomi<input name="name" id="npName" required placeholder="Masalan: VIZART"></label>
-        <div class="field">Turi${kindSelect('leads', 'name="kind" id="npKind"')}</div>
-        <label class="field">Tannarx, %<input name="var_cost_pct" inputmode="decimal" placeholder="0"></label>
-        <label class="field">Doimiy xarajat, so'm/oy<input name="fixed_monthly" inputmode="decimal" placeholder="0"></label>
-        <div class="field">Rang${colorHtml('#7048e8', 'name="color" id="npColor"')}</div>
-      </div><div><button class="btn primary">${ICONS.plus} Qo'shish</button></div></form>`;
-  $('#newProject').onsubmit = async (e) => {
-    e.preventDefault();
-    try { await api('/api/projects', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); toast("Loyiha qo'shildi"); renderSettings(); } catch (err) { toast(err.message, true); }
+  const kinds = state.me.kinds || {};
+  body.innerHTML = `<div class="card"><div class="card-head"><h2>Loyihalar</h2><button type="button" class="btn primary" data-new>${ICONS.plus} Yangi loyiha</button></div>
+    ${state.projects.length ? `<div class="table-wrap"><table class="click-list"><thead><tr><th>Loyiha</th><th>Turi</th><th class="n">Tannarx</th><th class="n">Doimiy, oyiga</th><th>Kanallar</th><th></th></tr></thead>
+      <tbody>${state.projects.map((p) => `<tr data-id="${p.id}" class="${p.active ? '' : 'off'}" tabindex="0">
+        <td><span class="dot" style="--dc:${esc(p.color || 'var(--series-1)')}"></span><b>${esc(p.name)}</b>${p.active ? '' : ' <span class="pill">Arxivda</span>'}</td>
+        <td>${esc(kinds[p.kind] || p.kind)}</td><td class="n">${p.var_cost_pct != null ? `${fmtN(p.var_cost_pct, 1)}%` : '—'}</td>
+        <td class="n">${p.fixed_monthly ? `${fmtN(p.fixed_monthly)} so'm` : '—'}</td>
+        <td class="muted small wrap">${p.channels.map((c) => esc(CH[c] || c)).join(', ') || '—'}</td>
+        <td class="exp-act"><button type="button" class="btn small ghost" data-edit title="Tuzatish">${ICONS.edit}</button></td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="empty">Loyiha yo\'q</div>'}
+    <p class="small muted" style="margin:10px 0 0">Arxivdagi loyiha kunlik hisobotda chiqmaydi, eski raqamlari saqlanadi.</p></div>`;
+  $('[data-new]', body).onclick = () => projectDrawer(null);
+  const open = (e) => {
+    const tr = e.target.closest('tr[data-id]');
+    if (tr) projectDrawer(state.projects.find((x) => String(x.id) === tr.dataset.id));
   };
-  body.querySelector('.plan-cards').addEventListener('click', async (e) => {
-    const chip = e.target.closest('[data-ch]');
-    if (chip) { chip.classList.toggle('on'); chip.setAttribute('aria-pressed', chip.classList.contains('on')); return; }
-    // Sabab: yoqilsa yoqilganlar oxiriga o'tadi (tartib), o'chirilsa o'chirilganlar boshiga
-    const rk = e.target.closest('[data-reason-key]');
-    if (rk) {
-      const box = rk.parentElement;
-      rk.classList.toggle('on');
-      rk.setAttribute('aria-pressed', rk.classList.contains('on'));
-      const on = $$('.chip.on', box).filter((x) => x !== rk);
-      if (rk.classList.contains('on')) (on.at(-1) ? on.at(-1).after(rk) : box.prepend(rk));
-      else { const firstOff = $$('.chip:not(.on)', box).find((x) => x !== rk); if (firstOff) firstOff.before(rk); else box.append(rk); }
-      return;
-    }
-    const lagBtn = e.target.closest('[data-lag]');
-    if (lagBtn) { lagBtn.closest('label').querySelector('input').value = lagBtn.dataset.lag; return; }
-    const a = e.target.closest('[data-a]')?.dataset.a;
-    if (!a) return;
-    const card = e.target.closest('.proj-card');
-    const p = state.projects.find((x) => String(x.id) === card.dataset.id);
-    const b = a === 'toggle' ? { active: !p.active }
-      : { ...Object.fromEntries($$('[data-f]', card).map((el) => [el.dataset.f, el.value])), channels: $$('[data-ch].on', card).map((x) => x.dataset.ch),
-        ...($('[data-rk]', card) ? { reason_keys: Object.fromEntries($$('[data-rk]', card).map((b) => [b.dataset.rk, $$('.chip.on', b).map((x) => x.dataset.reasonKey)])) } : {}) };
-    try { await api(`/api/projects/${p.id}`, { method: 'PUT', body: b }); toast('Saqlandi'); renderSettings(); } catch (err) { toast(err.message, true); }
+  $('tbody', body)?.addEventListener('click', open);
+  $('tbody', body)?.addEventListener('keydown', (e) => { if (e.key === 'Enter') open(e); });
+}
+
+// Loyiha paneli: yangi yoki tuzatish
+function projectDrawer(p) {
+  const isNew = !p;
+  const CH = state.me.channels;
+  const pr = p || { name: '', kind: 'leads', color: '#7048e8', channels: [], active: 1 };
+  const reasons = !isNew ? Object.entries(state.me.reasonKinds).map(([kind, title]) => {
+    const on = pr.reasonKeys?.[kind] || [];
+    const keys = [...on, ...Object.keys(state.me.reasons[kind]).filter((k) => !on.includes(k))];
+    return `<div class="reason-pick"><span class="muted small">${title}</span><div class="chips" data-rk="${kind}">${keys.map((k) => `<button type="button" class="chip ${on.includes(k) ? 'on' : ''}" data-reason-key="${k}" aria-pressed="${on.includes(k)}">${esc(state.me.reasons[kind][k])}</button>`).join('')}</div></div>`;
+  }).join('') : '';
+  openDrawer({
+    title: isNew ? 'Yangi loyiha' : pr.name,
+    sub: isNew ? '' : pr.active ? 'Faol loyiha' : 'Arxivda',
+    submit: isNew ? `${ICONS.plus} Qo'shish` : `${ICONS.check} Saqlash`,
+    actions: isNew ? '' : `<button type="button" class="btn ghost" data-toggle>${pr.active ? 'Arxivlash' : 'Tiklash'}</button>`,
+    body: `<label class="field">Nomi<input data-f="name" value="${esc(pr.name)}" maxlength="40" placeholder="Masalan: VIZART"></label>
+      <div class="d-row"><div class="field">Turi${kindSelect(pr.kind, 'data-f="kind"')}</div><div class="field">Rang${colorHtml(pr.color || '#2a78d6', 'data-f="color"')}</div></div>
+      <div class="d-row">
+        <label class="field"><span class="f-l">Tannarx, % <span class="hint">tushumdan</span></span><input data-f="var_cost_pct" inputmode="decimal" value="${pr.var_cost_pct ?? ''}" placeholder="0"></label>
+        <label class="field"><span class="f-l">Doimiy, so'm/oy <span class="hint">ish haqi, ijara</span></span><input data-f="fixed_monthly" inputmode="decimal" value="${pr.fixed_monthly ?? ''}" placeholder="0"></label>
+      </div>
+      <label class="field" data-not-auto ${pr.kind === 'auto' ? 'hidden' : ''}><span class="f-l">Lid → sotuv, kun <span class="hint">o'rtacha necha kunda sotib oladi</span></span><input data-f="sale_lag" inputmode="numeric" value="${pr.sale_lag ?? ''}" placeholder="0">
+        ${pr.lag_hint != null ? `<span class="hint">Ma'lumotga ko'ra: ~${pr.lag_hint} kun ${Number(pr.sale_lag) === pr.lag_hint ? '✓' : `<button type="button" class="link-btn" data-lag="${pr.lag_hint}">qo'yish</button>`}</span>` : ''}</label>
+      <div class="field">Reklama kanallari
+        <div class="chips" data-channels>${Object.entries(CH).map(([k, l]) => `<button type="button" class="chip ${pr.channels.includes(k) ? 'on' : ''}" data-ch="${k}" aria-pressed="${pr.channels.includes(k)}">${esc(l)}</button>`).join('')}</div></div>
+      ${reasons ? `<div class="field" data-not-auto ${pr.kind === 'auto' ? 'hidden' : ''}><span class="f-l">Sabablar <span class="hint">ROP sanaydi — bosib yoqing</span></span>${reasons}</div>` : ''}`,
+    onOpen(form, close) {
+      form.addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-ch]');
+        if (chip) { chip.classList.toggle('on'); chip.setAttribute('aria-pressed', chip.classList.contains('on')); return; }
+        // Sabab: yoqilsa yoqilganlar oxiriga o'tadi (tartib), o'chirilsa o'chirilganlar boshiga
+        const rk = e.target.closest('[data-reason-key]');
+        if (rk) {
+          const box = rk.parentElement;
+          rk.classList.toggle('on');
+          rk.setAttribute('aria-pressed', rk.classList.contains('on'));
+          const on = $$('.chip.on', box).filter((x) => x !== rk);
+          if (rk.classList.contains('on')) (on.at(-1) ? on.at(-1).after(rk) : box.prepend(rk));
+          else { const firstOff = $$('.chip:not(.on)', box).find((x) => x !== rk); if (firstOff) firstOff.before(rk); else box.append(rk); }
+          return;
+        }
+        const lagBtn = e.target.closest('[data-lag]');
+        if (lagBtn) { $('[data-f="sale_lag"]', form).value = lagBtn.dataset.lag; return; }
+        if (e.target.closest('[data-toggle]')) {
+          api(`/api/projects/${pr.id}`, { method: 'PUT', body: { active: !pr.active } })
+            .then(() => { toast(pr.active ? `${pr.name} arxivlandi` : `${pr.name} tiklandi`); close(); renderSettings(); })
+            .catch((err) => toast(err.message, true));
+        }
+      });
+      form.addEventListener('change', (e) => {
+        if (e.target.matches('[data-f="kind"]')) $$('[data-not-auto]', form).forEach((x) => { x.hidden = e.target.value === 'auto'; });
+      });
+    },
+    async onSubmit(form) {
+      const f = (k) => inVal($(`[data-f="${k}"]`, form));
+      const b = { name: f('name'), kind: f('kind'), color: f('color'), var_cost_pct: f('var_cost_pct'), fixed_monthly: f('fixed_monthly') };
+      if (!b.name) { toast('Loyiha nomini yozing', true); return false; }
+      if (b.kind !== 'auto') b.sale_lag = f('sale_lag');
+      const chs = $$('[data-ch].on', form).map((x) => x.dataset.ch);
+      if (chs.length || !isNew) b.channels = chs;
+      if ($('[data-rk]', form)) b.reason_keys = Object.fromEntries($$('[data-rk]', form).map((x) => [x.dataset.rk, $$('.chip.on', x).map((c) => c.dataset.reasonKey)]));
+      await api(isNew ? '/api/projects' : `/api/projects/${pr.id}`, { method: isNew ? 'POST' : 'PUT', body: b });
+      toast(isNew ? "Loyiha qo'shildi" : 'Saqlandi');
+    },
+    onSaved: () => renderSettings(),
   });
 }
 
@@ -345,82 +368,94 @@ const ROLE_HINT = {
 };
 // Rol tanlanganda odatiy ruxsat (serverdagi ROLE_ACCESS bilan bir xil)
 const ROLE_ACCESS = { target: ['target'], rop: ['rop', 'sellers'], marketing: ['marketing'], finance: ['finance'] };
+const isAdminRole = (r) => ['pm', 'director'].includes(r);
 async function tabStaff(body) {
   const users = await api('/api/users');
   await reloadProjects();
   const roles = state.me.roles || {};
   const sections = state.me.sections || {};
-  const accChips = (sel = []) => `<div class="chips acc-chips" data-acc>${Object.entries(sections).map(([k, l]) => `<button type="button" class="chip ${sel.includes(k) ? 'on' : ''}" data-sec="${k}" aria-pressed="${sel.includes(k)}">${sel.includes(k) ? '✓ ' : ''}${esc(l)}</button>`).join('')}</div>`;
-  const projChips = (sel = []) => `<div class="chips" data-projs>${state.projects.filter((p) => p.active).map((p) => `<button type="button" class="chip ${sel.includes(p.id) ? 'on' : ''}" data-pid="${p.id}" aria-pressed="${sel.includes(p.id)}"><span class="dot" style="--dc:${esc(p.color || '#4c86ff')}"></span>${esc(p.name)}</button>`).join('')}</div>`;
-  const card = (u) => `<section class="card user-card ${u.active ? '' : 'off'}" data-uid="${u.id ?? ''}">
-      <div class="card-head"><h3>${u.id ? esc(u.name) : "Yangi xodim"}</h3>${u.id ? (u.active ? `<span class="pill ${['pm', 'director'].includes(u.role) ? 'lime' : 'info'}">${esc(roles[u.role] || u.role)}</span>` : '<span class="pill">O\'chirilgan</span>') : ''}</div>
-      <div class="plan-inputs">
-        <label class="field">Ism<input data-f="name" value="${esc(u.name || '')}" maxlength="60" placeholder="Masalan, Aziz"></label>
-        <label class="field">Login<input data-f="login" value="${esc(u.login || '')}" maxlength="32" placeholder="aziz" autocomplete="off"></label>
-        <div class="field">Rol${selectHtml(Object.entries(roles), u.role || 'target', 'data-f="role"', 'Rol')}</div>
-      </div>
-      <p class="hint small" data-role-hint>${esc(ROLE_HINT[u.role || 'target'])}</p>
-      <div class="plan-inputs">
-        <label class="field">${u.id ? 'Yangi parol <span class="hint">almashtirish uchun</span>' : 'Parol'}<input data-f="password" type="text" autocomplete="new-password" minlength="6" placeholder="${u.id ? 'o\'zgarmaydi' : 'kamida 6 belgi'}"></label>
-        <label class="field">Telegram ID <span class="hint">eslatma uchun</span><input data-f="telegram_id" inputmode="numeric" data-raw value="${esc(u.telegram_id || '')}" placeholder="123456789"></label>
-      </div>
-      <div class="field" data-acc-field ${['pm', 'director'].includes(u.role) ? 'hidden' : ''}>Kiritish ruxsati${accChips(u.id ? u.access || [] : ROLE_ACCESS[u.role || 'target'])}</div>
-      <div class="field" data-proj-field ${['pm', 'director'].includes(u.role) ? 'hidden' : ''}>Loyihalari <span class="hint">tanlanmasa — hammasi</span>${projChips(u.projects || [])}</div>
-      <div class="row" style="justify-content:flex-end">${u.id && u.id !== state.me.user.id ? `<button class="btn small ghost" data-a="toggle">${u.active ? "O'chirish" : 'Qayta yoqish'}</button>` : ''}<button class="btn small primary" data-a="save">${u.id ? 'Saqlash' : "Qo'shish"}</button></div>
-    </section>`;
-  const act = users.filter((u) => u.active && !['pm', 'director'].includes(u.role));
-  body.innerHTML = `<div class="card plan-intro"><div class="card-head"><h2>Xodimlar va ruxsatlar</h2></div>
-      <p class="small" style="margin:0;color:var(--text-2)">Hamma hammasini ko'radi. Har kim faqat o'z bo'limini to'ldiradi. PM va direktor — hammasini.</p></div>
-    ${act.length ? `<div class="card"><div class="card-head"><h3>Kim nimani kiritadi</h3></div>
-      <div class="table-wrap"><table class="acc-matrix"><thead><tr><th>Xodim</th>${Object.values(sections).map((l) => `<th class="c">${esc(l)}</th>`).join('')}</tr></thead>
-      <tbody>${act.map((u) => `<tr><td><b>${esc(u.name)}</b> <span class="muted small">${esc(roles[u.role] || '')}</span></td>${Object.keys(sections).map((k) => `<td class="c">${(u.access || []).includes(k) ? '<span class="acc-yes">✓</span>' : '<span class="acc-no">·</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>` : ''}
-    <div class="plan-cards">${users.map(card).join('')}${card({ active: 1 })}</div>`;
-  body.addEventListener('click', async (e) => {
-    const chip = e.target.closest('[data-pid]');
-    if (chip) { chip.classList.toggle('on'); chip.setAttribute('aria-pressed', chip.classList.contains('on')); return; }
-    const sec = e.target.closest('[data-sec]');
-    if (sec) {
-      sec.classList.toggle('on');
-      sec.setAttribute('aria-pressed', sec.classList.contains('on'));
-      sec.textContent = `${sec.classList.contains('on') ? '✓ ' : ''}${sections[sec.dataset.sec]}`;
-      return;
-    }
-    const btn = e.target.closest('[data-a]');
-    if (!btn) return;
-    const c = btn.closest('[data-uid]');
-    const id = c.dataset.uid;
-    const v = (f) => $(`[data-f="${f}"]`, c).value.trim();
-    btn.disabled = true;
-    try {
-      if (btn.dataset.a === 'toggle') {
-        const u = users.find((x) => String(x.id) === id);
-        await api(`/api/users/${id}`, { method: 'PUT', body: { active: !u.active } });
-        toast(u.active ? `${u.name} o'chirildi — endi kira olmaydi` : `${u.name} qayta yoqildi`);
-      } else {
-        const b = { name: v('name'), login: v('login'), role: v('role'), telegram_id: v('telegram_id'), projects: $$('[data-pid].on', c).map((x) => Number(x.dataset.pid)) };
-        if (!['pm', 'director'].includes(b.role)) b.access = $$('[data-sec].on', c).map((x) => x.dataset.sec);
-        if (v('password')) b.password = v('password');
-        await api(id ? `/api/users/${id}` : '/api/users', { method: id ? 'PUT' : 'POST', body: b });
-        toast(id ? 'Saqlandi' : `Qo'shildi. Login: ${b.login} — parolni xodimga bering`);
-      }
-      renderSettings();
-    } catch (err) { toast(err.message, true); btn.disabled = false; }
-  });
-  body.addEventListener('change', (e) => {
-    const sel = e.target.closest('[data-f="role"]');
-    if (!sel) return;
-    const c = sel.closest('[data-uid]');
-    $('[data-role-hint]', c).textContent = ROLE_HINT[sel.value] || '';
-    $('[data-proj-field]', c).hidden = ['pm', 'director'].includes(sel.value);
-    $('[data-acc-field]', c).hidden = ['pm', 'director'].includes(sel.value);
-    // Rol almashsa — shu rolning odatiy ruxsati belgilanadi (keyin qo'lda o'zgartiriladi)
-    const def = ROLE_ACCESS[sel.value] || [];
-    $$('[data-sec]', c).forEach((x) => {
-      const on = def.includes(x.dataset.sec);
-      x.classList.toggle('on', on);
-      x.setAttribute('aria-pressed', on);
-      x.textContent = `${on ? '✓ ' : ''}${sections[x.dataset.sec]}`;
-    });
+  body.innerHTML = `<div class="card"><div class="card-head"><h2>Xodimlar va ruxsatlar</h2><button type="button" class="btn primary" data-new>${ICONS.plus} Yangi xodim</button></div>
+      <p class="small muted" style="margin:0 0 12px">Hamma hammasini ko'radi. Har kim faqat ✓ belgili bo'limni to'ldiradi.</p>
+      <div class="table-wrap"><table class="acc-matrix click-list"><thead><tr><th>Xodim</th><th>Rol</th>${Object.values(sections).map((l) => `<th class="c">${esc(l)}</th>`).join('')}<th></th></tr></thead>
+      <tbody>${users.map((u) => `<tr data-uid="${u.id}" class="${u.active ? '' : 'off'}" tabindex="0"><td><b>${esc(u.name)}</b><br><span class="muted small">${esc(u.login)}${u.active ? '' : " · o'chirilgan"}</span></td>
+        <td><span class="pill ${isAdminRole(u.role) ? 'lime' : 'info'}">${esc(roles[u.role] || u.role)}</span></td>
+        ${Object.keys(sections).map((k) => `<td class="c">${isAdminRole(u.role) || (u.access || []).includes(k) ? '<span class="acc-yes">✓</span>' : '<span class="acc-no">·</span>'}</td>`).join('')}
+        <td class="exp-act"><button type="button" class="btn small ghost" data-edit title="Tuzatish">${ICONS.edit}</button></td></tr>`).join('')}</tbody></table></div></div>`;
+  $('[data-new]', body).onclick = () => userDrawer(null);
+  const open = (e) => {
+    const tr = e.target.closest('tr[data-uid]');
+    if (tr) userDrawer(users.find((x) => String(x.id) === tr.dataset.uid));
+  };
+  $('tbody', body).addEventListener('click', open);
+  $('tbody', body).addEventListener('keydown', (e) => { if (e.key === 'Enter') open(e); });
+}
+
+// Xodim paneli: yangi yoki tuzatish (rol, ruxsat, loyihalar, parol)
+function userDrawer(u) {
+  const isNew = !u;
+  const us = u || { role: 'target', active: 1 };
+  const roles = state.me.roles || {};
+  const sections = state.me.sections || {};
+  const acc = isNew ? ROLE_ACCESS[us.role] || [] : us.access || [];
+  const projs = us.projects || [];
+  const self = us.id === state.me.user.id;
+  openDrawer({
+    title: isNew ? 'Yangi xodim' : us.name,
+    sub: isNew ? '' : `${roles[us.role] || us.role}${us.active ? '' : " · o'chirilgan"}`,
+    submit: isNew ? `${ICONS.plus} Qo'shish` : `${ICONS.check} Saqlash`,
+    actions: !isNew && !self ? `<button type="button" class="btn ghost" data-toggle>${us.active ? "O'chirish" : 'Qayta yoqish'}</button>` : '',
+    body: `<label class="field">Ism<input data-f="name" value="${esc(us.name || '')}" maxlength="60" placeholder="Masalan: Aziz"></label>
+      <div class="d-row"><label class="field">Login<input data-f="login" value="${esc(us.login || '')}" maxlength="32" placeholder="aziz" autocomplete="off"></label>
+        <div class="field">Rol${selectHtml(Object.entries(roles), us.role, 'data-f="role"', 'Rol')}</div></div>
+      <p class="hint small d-hint" data-role-hint>${esc(ROLE_HINT[us.role] || '')}</p>
+      <div class="field" data-acc-field ${isAdminRole(us.role) ? 'hidden' : ''}>Nimani to'ldiradi
+        <div class="chips acc-chips">${Object.entries(sections).map(([k, l]) => `<button type="button" class="chip ${acc.includes(k) ? 'on' : ''}" data-sec="${k}" aria-pressed="${acc.includes(k)}">${acc.includes(k) ? '✓ ' : ''}${esc(l)}</button>`).join('')}</div></div>
+      <div class="field" data-proj-field ${isAdminRole(us.role) ? 'hidden' : ''}><span class="f-l">Loyihalari <span class="hint">tanlanmasa — hammasi</span></span>
+        <div class="chips">${state.projects.filter((p) => p.active).map((p) => `<button type="button" class="chip ${projs.includes(p.id) ? 'on' : ''}" data-pid="${p.id}" aria-pressed="${projs.includes(p.id)}"><span class="dot" style="--dc:${esc(p.color || '#4c86ff')}"></span>${esc(p.name)}</button>`).join('')}</div></div>
+      <div class="d-row"><label class="field"><span class="f-l">${isNew ? 'Parol' : 'Yangi parol <span class="hint">ixtiyoriy</span>'}</span><input data-f="password" type="text" autocomplete="new-password" minlength="6" placeholder="${isNew ? 'kamida 6 belgi' : "o'zgarmaydi"}"></label>
+        <label class="field"><span class="f-l">Telegram ID <span class="hint">eslatma</span></span><input data-f="telegram_id" inputmode="numeric" data-raw value="${esc(us.telegram_id || '')}" placeholder="123456789"></label></div>`,
+    onOpen(form, close) {
+      form.addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-pid]');
+        if (chip) { chip.classList.toggle('on'); chip.setAttribute('aria-pressed', chip.classList.contains('on')); return; }
+        const sec = e.target.closest('[data-sec]');
+        if (sec) {
+          sec.classList.toggle('on');
+          sec.setAttribute('aria-pressed', sec.classList.contains('on'));
+          sec.textContent = `${sec.classList.contains('on') ? '✓ ' : ''}${sections[sec.dataset.sec]}`;
+          return;
+        }
+        if (e.target.closest('[data-toggle]')) {
+          api(`/api/users/${us.id}`, { method: 'PUT', body: { active: !us.active } })
+            .then(() => { toast(us.active ? `${us.name} o'chirildi — endi kira olmaydi` : `${us.name} qayta yoqildi`); close(); renderSettings(); })
+            .catch((err) => toast(err.message, true));
+        }
+      });
+      form.addEventListener('change', (e) => {
+        const sel = e.target.closest('[data-f="role"]');
+        if (!sel) return;
+        $('[data-role-hint]', form).textContent = ROLE_HINT[sel.value] || '';
+        $('[data-proj-field]', form).hidden = isAdminRole(sel.value);
+        $('[data-acc-field]', form).hidden = isAdminRole(sel.value);
+        // Rol almashsa — shu rolning odatiy ruxsati belgilanadi (keyin qo'lda o'zgartiriladi)
+        const def = ROLE_ACCESS[sel.value] || [];
+        $$('[data-sec]', form).forEach((x) => {
+          const on = def.includes(x.dataset.sec);
+          x.classList.toggle('on', on);
+          x.setAttribute('aria-pressed', on);
+          x.textContent = `${on ? '✓ ' : ''}${sections[x.dataset.sec]}`;
+        });
+      });
+    },
+    async onSubmit(form) {
+      const v = (f) => $(`[data-f="${f}"]`, form).value.trim();
+      const b = { name: v('name'), login: v('login'), role: v('role'), telegram_id: v('telegram_id'), projects: $$('[data-pid].on', form).map((x) => Number(x.dataset.pid)) };
+      if (!isAdminRole(b.role)) b.access = $$('[data-sec].on', form).map((x) => x.dataset.sec);
+      if (v('password')) b.password = v('password');
+      await api(isNew ? '/api/users' : `/api/users/${us.id}`, { method: isNew ? 'POST' : 'PUT', body: b });
+      toast(isNew ? `Qo'shildi. Login: ${b.login} — parolni xodimga bering` : 'Saqlandi');
+    },
+    onSaved: () => renderSettings(),
   });
 }
 

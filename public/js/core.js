@@ -140,6 +140,7 @@ export const ICONS = {
   menu: svg('<path d="M4 7h16M4 12h16M4 17h16"/>'),
   bulb: svg('<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.4 1 1.1 1 1.8V16h5v-.3c0-.7.4-1.4 1-1.8A6 6 0 0 0 12 3z"/>'),
   trash: svg('<path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
+  x: svg('<path d="M6 6l12 12M18 6 6 18"/>'),
 };
 
 // Dizayn faqat yorug' rejimda; eski saqlangan tanlov tozalanadi
@@ -522,6 +523,77 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// ---------- O'ng panel ----------
+// Qo'shish va tuzatish formalari sahifada joy egallamaydi: tugma bosilganda o'ngdan panel chiqadi, saqlangach yopiladi.
+// onSubmit(form) — xato bo'lsa throw yoki false (panel ochiq qoladi); onSaved — panel yopilgach (odatda sahifani qayta chizish)
+let drawerClose = null;
+export function openDrawer({ title, sub = '', body, submit = `${ICONS.plus} Qo'shish`, actions = '', onOpen, onSubmit, onSaved }) {
+  drawerClose?.(true);
+  const back = document.activeElement;
+  const wrap = document.createElement('div');
+  wrap.className = 'drawer-wrap';
+  wrap.innerHTML = `<div class="drawer-bg" data-x></div>
+    <form class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" autocomplete="off" novalidate>
+      <header class="drawer-head"><div><h2 id="drawerTitle">${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}</div>
+        <button type="button" class="drawer-x" data-x aria-label="Yopish">${ICONS.x}</button></header>
+      <div class="drawer-body">${body}</div>
+      <footer class="drawer-foot">${actions}<button class="btn primary" data-submit>${submit}</button></footer>
+    </form>`;
+  document.body.append(wrap);
+  document.documentElement.classList.add('drawer-lock');
+  const form = wrap.querySelector('.drawer');
+  // Escape: avval ochiq kalendar yoki ro'yxat yopiladi, keyin panel
+  const key = (e) => { if (e.key === 'Escape' && !calClose && !menuClose) close(); };
+  function close(instant = false) {
+    if (drawerClose !== close) return;
+    drawerClose = null;
+    calClose?.();
+    menuClose?.();
+    document.removeEventListener('keydown', key);
+    document.documentElement.classList.remove('drawer-lock');
+    if (instant) { wrap.remove(); return; }
+    wrap.classList.remove('open');
+    setTimeout(() => wrap.remove(), 280);
+    if (back?.isConnected) back.focus({ preventScroll: true });
+  }
+  wrap.addEventListener('click', (e) => { if (e.target.closest('[data-x]')) close(); });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('[data-submit]');
+    btn.disabled = true;
+    try {
+      const res = await onSubmit(form);
+      if (res === false) return;
+      close();
+      onSaved?.(res);
+    } catch (err) { toast(err.message, true); } finally { btn.disabled = false; }
+  });
+  document.addEventListener('keydown', key);
+  drawerClose = close;
+  onOpen?.(form, close);
+  requestAnimationFrame(() => requestAnimationFrame(() => wrap.classList.add('open')));
+  setTimeout(() => { if (drawerClose === close) form.querySelector('.drawer-body input:not([type=hidden]), .drawer-body textarea')?.focus({ preventScroll: true }); }, 80);
+  return { form, close };
+}
+// Tanlov (selectHtml) qiymatini koddan o'zgartirish
+export function setSelect(input, value) {
+  const wrap = input.closest('.sel');
+  const opts = JSON.parse(wrap.dataset.options);
+  const cur = opts.find(([v]) => String(v) === String(value)) || opts[0];
+  input.value = cur[0];
+  wrap.querySelector('.sel-btn span').textContent = cur[1];
+}
+// Bir nechtadan bittasini tanlash tugmalari (chips): data-one ichidagi [data-v]
+export function oneOf(box, onPick) {
+  box.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-v]');
+    if (!b) return;
+    box.querySelectorAll('[data-v]').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); });
+    onPick?.(b.dataset.v);
+  });
+}
+export const chipsHtml = (list, value, cls = '') => `<div class="chips ${cls}" data-one>${list.map(([v, l]) => `<button type="button" class="chip ${String(v) === String(value) ? 'on' : ''}" data-v="${esc(v)}" aria-pressed="${String(v) === String(value)}">${l}</button>`).join('')}</div>`;
+
 export const TIMES = Array.from({ length: 36 }, (_, i) => { const m = 6 * 60 + i * 30; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${m % 60 ? '30' : '00'}`; });
 
 // ---------- Davr filtri ----------
@@ -650,6 +722,7 @@ export function shell(content) {
   state.renderId = (state.renderId || 0) + 1;
   calClose?.();
   menuClose?.();
+  drawerClose?.(true);
   destroyCharts();
   const route = location.hash.split('?')[0] || '#/';
   const { groups, bottom } = navItems();

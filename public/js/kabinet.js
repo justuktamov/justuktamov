@@ -69,11 +69,11 @@ function tasks(c, daily) {
     if ((me.access || []).includes('sellers')) out.push(card(ICONS.team, 'Sotuv xodimlari', '', 'Har sotuvchining kechagi natijasi', '#/sotuvchilar?tab=entry', 'Kiritish'));
     const disc = c.discipline.rows.find((r) => r.id === me.user.id);
     if ((me.access || []).includes('marketing')) {
-      out.push(card(ICONS.mega, 'Marketing xarajati', disc?.ago == null ? 'kiritilmagan' : disc.ago > 7 ? `${disc.ago} kun oldin` : '', `Bu oy: ${fmtN(disc?.entries || 0)} ta yozuv`, '#/marketing', "Qo'shish", disc?.ago == null || disc.ago > 7 ? 'warn' : ''));
+      out.push(card(ICONS.mega, 'Marketing xarajati', disc?.ago == null ? 'kiritilmagan' : disc.ago > 7 ? `${disc.ago} kun oldin` : '', `Bu oy: ${fmtN(disc?.entries || 0)} ta yozuv`, '#/marketing?add=1', "Qo'shish", disc?.ago == null || disc.ago > 7 ? 'warn' : ''));
     }
     if ((me.access || []).includes('finance')) {
       const est = c.projects.filter((p) => p.fixed_estimated && !p.fixed_actual).map((p) => p.name);
-      out.push(card(ICONS.wallet, 'Operatsion xarajat', est.length ? 'kiritilmagan' : 'kiritilgan', est.length ? `Yo'q: ${esc(est.join(', '))}` : 'Bu oy hammasi bor', '#/moliya', est.length ? 'Kiritish' : "Ko'rish", est.length ? 'warn' : 'good'));
+      out.push(card(ICONS.wallet, 'Operatsion xarajat', est.length ? 'kiritilmagan' : 'kiritilgan', est.length ? `Yo'q: ${esc(est.join(', '))}` : 'Bu oy hammasi bor', est.length ? '#/moliya?add=1' : '#/moliya', est.length ? 'Kiritish' : "Ko'rish", est.length ? 'warn' : 'good'));
     }
     if (!out.length) out.push(card(ICONS.eye, "Kiritish bo'limi yo'q", '', "Ruxsatni PM yoki direktor beradi", '#/nazorat', 'Nazorat'));
   }

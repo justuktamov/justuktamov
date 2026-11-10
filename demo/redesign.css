@@ -226,7 +226,6 @@ label.field, div.field { color: var(--text-2); }
 /* ---------- Kartalar ---------- */
 .card, .kpi, .proj { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
 .sub-card { background: var(--surface-2); border: 0; border-radius: 20px; box-shadow: none; }
-.proj-card { align-content: start; }
 .card-head h2, .card-head h3 { letter-spacing: -.02em; }
 .kpi .label { color: var(--text-3); }
 .kpi .value { font-weight: 800; letter-spacing: -.035em; }
@@ -431,7 +430,6 @@ th { color: var(--text-3); font-weight: 700; }
 .sl-table tbody td:first-child { background: #fff; font-weight: 600; }
 .sl-table tbody td:not(:first-child) { background: #fff; }
 .sl-table td.sl-best { background: var(--lime-soft) !important; color: #3d5800; }
-.user-card .chips { margin-top: 8px; }
 .dp-card, .rv-card { border-top: 0; box-shadow: inset 0 4px 0 var(--pc); }
 .dp-card { background: #fff; }
 .wd-card { border: 0; background: var(--surface-2); border-radius: 18px; }
@@ -620,3 +618,14 @@ table.wt .wt-sum.pos-c { background: var(--lime-soft); color: #3d5800; }
 .al-profit { background: var(--lime-soft); }
 
 .kab-mine .o-score { --c: var(--mint); } .kab-mine.warn .o-score { --c: var(--amber); } .kab-mine.crit .o-score { --c: var(--rose); }
+
+/* ---------- O'ng panel — demo ranglari ---------- */
+.drawer-bg { background: rgba(40, 24, 120, .22); backdrop-filter: blur(3px); }
+.drawer { background: #fff; border-radius: 28px; box-shadow: -30px 0 70px -30px rgba(80, 50, 200, .55); }
+.drawer-head h2 { color: var(--text); }
+.drawer-x { border-color: var(--border); }
+.drawer-x:hover { background: var(--violet-soft); color: var(--violet); }
+.drawer-foot { border-top-color: var(--border); }
+.drawer-foot .btn.primary { border-radius: 999px; }
+.in-big input { background: var(--surface-2); }
+table.click-list tbody tr:hover td { background: var(--violet-soft); }
